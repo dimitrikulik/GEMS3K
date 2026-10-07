@@ -96,7 +96,7 @@ endif()
 set(GEMS3K_SOURCE_DIR ${CMAKE_SOURCE_DIR}/GEMS3K)
 set(GEMS3K_HEADER_DIR ${CMAKE_SOURCE_DIR}/GEMS3K)
 
-if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang" AND NOT DEFINED ENV{CONDA_PREFIX})
     include_directories("/usr/local/include")
     link_directories("/usr/local/lib")
 endif()

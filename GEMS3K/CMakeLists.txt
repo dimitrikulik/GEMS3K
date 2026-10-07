@@ -31,15 +31,19 @@ if(BUILD_SHARED_LIBS)
    if(ENABLE_BENCHMARK_DIAGNOSTICS)
        target_compile_definitions(GEMS3K PRIVATE GEMS3K_BENCHMARK_DIAGNOSTICS)
    endif()
-   if(USE_THERMOFUN MATCHES ON)
+   if(USE_SPDLOG_PRECOMPILED)
        target_compile_definitions(GEMS3K PUBLIC USE_SPDLOG_PRECOMPILED)
-       target_link_libraries(GEMS3K PUBLIC ThermoFun::ThermoFun)
-   else()
-       if(USE_SPDLOG_PRECOMPILED)
-           target_compile_definitions(GEMS3K PUBLIC USE_SPDLOG_PRECOMPILED)
-           target_link_libraries(GEMS3K PUBLIC spdlog::spdlog)
-       endif()
+       target_link_libraries(GEMS3K PUBLIC spdlog::spdlog)
    endif()
+   if(USE_THERMOFUN MATCHES ON)
+       target_link_libraries(GEMS3K PUBLIC ThermoFun::ThermoFun)
+   endif()
+
+   target_include_directories(GEMS3K PUBLIC
+       $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+       $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/GEMS3K>
+       $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+   )
 
    install( TARGETS GEMS3K
              EXPORT GEMS3KTargets
@@ -64,13 +68,18 @@ if(BUILD_STATIC_LIBS)
    if(ENABLE_BENCHMARK_DIAGNOSTICS)
        target_compile_definitions(GEMS3K-static PRIVATE GEMS3K_BENCHMARK_DIAGNOSTICS)
    endif()
+   if(USE_SPDLOG_PRECOMPILED)
+       target_compile_definitions(GEMS3K-static PUBLIC USE_SPDLOG_PRECOMPILED)
+       target_link_libraries(GEMS3K-static PUBLIC spdlog::spdlog)
+   endif()
    if(USE_THERMOFUN MATCHES ON)
      target_link_libraries(GEMS3K-static PUBLIC ThermoFun::ThermoFun)
    endif()
-   #if(USE_SPDLOG_PRECOMPILED)
-   #   target_compile_definitions(GEMS3K-static PUBLIC USE_SPDLOG_PRECOMPILED)
-   #   target_link_libraries(GEMS3K-static PUBLIC spdlog::spdlog)
-   #endif()
+   target_include_directories(GEMS3K-static PUBLIC
+       $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+       $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/GEMS3K>
+       $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+   )
    install( TARGETS GEMS3K-static
            EXPORT GEMS3KTargets DESTINATION "lib" COMPONENT libraries)
 endif()

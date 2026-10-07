@@ -56,11 +56,10 @@ set(SOLMOD_SOURCE_FILES
 # Compile the C++ source code into object files
 add_library(SOLMOD_OBJECT OBJECT ${SOLMOD_HEADER_FILES} ${SOLMOD_SOURCE_FILES})
 
-#if(USE_SPDLOG_PRECOMPILED)
-#   if(NOT TARGET spdlog::spdlog)
-#       find_package(spdlog CONFIG REQUIRED)
-#   endif()
-#endif()
+if(USE_SPDLOG_PRECOMPILED)
+   target_compile_definitions(SOLMOD_OBJECT PUBLIC USE_SPDLOG_PRECOMPILED)
+   target_link_libraries(SOLMOD_OBJECT PUBLIC spdlog::spdlog)
+endif()
 
 
 # Check if a shared library is to be built
@@ -69,14 +68,12 @@ if(BUILD_SHARED_LIBS)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
     add_library(tsolmod4rkt SHARED $<TARGET_OBJECTS:SOLMOD_OBJECT>)
     add_library(GEMS3K::tsolmod4rkt ALIAS tsolmod4rkt)
+    if(USE_SPDLOG_PRECOMPILED)
+       target_compile_definitions(tsolmod4rkt PUBLIC USE_SPDLOG_PRECOMPILED)
+       target_link_libraries(tsolmod4rkt PUBLIC spdlog::spdlog)
+    endif()
     if(USE_THERMOFUN MATCHES ON)
-      target_compile_definitions(tsolmod4rkt PUBLIC USE_SPDLOG_PRECOMPILED)
       target_link_libraries(tsolmod4rkt PUBLIC ThermoFun::ThermoFun)
-    else()
-      if(USE_SPDLOG_PRECOMPILED)
-         target_compile_definitions(tsolmod4rkt PUBLIC USE_SPDLOG_PRECOMPILED)
-         target_link_libraries(tsolmod4rkt PUBLIC spdlog::spdlog)
-      endif()
     endif()
     install( TARGETS tsolmod4rkt
        EXPORT GEMS3KTargets
@@ -98,13 +95,12 @@ endif()
 if(BUILD_STATIC_LIBS)
    add_library(tsolmod4rkt-static STATIC $<TARGET_OBJECTS:SOLMOD_OBJECT>)
     add_library(GEMS3K::tsolmod4rkt-static ALIAS tsolmod4rkt-static)
+   if(USE_SPDLOG_PRECOMPILED)
+      target_compile_definitions(tsolmod4rkt-static PUBLIC USE_SPDLOG_PRECOMPILED)
+      target_link_libraries(tsolmod4rkt-static PUBLIC spdlog::spdlog)
+   endif()
    if(USE_THERMOFUN MATCHES ON)
      target_link_libraries(tsolmod4rkt-static PUBLIC ThermoFun::ThermoFun)
-   else()
-       if(USE_SPDLOG_PRECOMPILED)
-          target_compile_definitions(tsolmod4rkt-static PUBLIC USE_SPDLOG_PRECOMPILED)
-          target_link_libraries(tsolmod4rkt-static PUBLIC spdlog::spdlog)
-       endif()
    endif()
    install( TARGETS tsolmod4rkt-static
       EXPORT GEMS3KTargets
