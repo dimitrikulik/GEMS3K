@@ -436,35 +436,35 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
   //  [Kulik,2006])
   double (*Xr0h0)[2];   ///< mean r & h of particles (- pores), nm  [0:FI-1][2],
                         ///< reserved
-  double (*Nfsp)[MST];  ///< Fractions of the sorbent specific surface area
+  double (*Nfsp)[MNST]; ///< Fractions of the sorbent specific surface area
                         ///< allocated to surface types  [FIs][FIat]
-  double (*MASDT)[MST]; ///< Total maximum site  density per surface type
-                        ///< (mkmol/g)  [FIs][FIat]
+  double (*MASDT)[MNST]; ///< Total maximum site  density per surface type
+                         ///< (mkmol/g)  [FIs][FIat]
   double (
-      *XcapA)[MST]; ///< Capacitance density of 0 EDL layer, F/m2 [FIs][FIat]
+      *XcapA)[MNST]; ///< Capacitance density of 0 EDL layer, F/m2 [FIs][FIat]
   double (
-      *XcapB)[MST]; ///< Capacitance density of B EDL layer, F/m2 [FIs][FIat]
+      *XcapB)[MNST]; ///< Capacitance density of B EDL layer, F/m2 [FIs][FIat]
   double (
-      *XcapC)[MST]; ///< Capacitance density of Ba EDL layer F/m2 [FIs][FIat]
-  double (*XcapZ)[MST]; ///< Location of slip plane for zeta potential (fraction
-                        ///< of Debye length) [FIs][FIat]
+      *XcapC)[MNST]; ///< Capacitance density of Ba EDL layer F/m2 [FIs][FIat]
+  double (*XcapZ)[MNST]; ///< Location of slip plane for zeta potential
+                         ///< (fraction of Debye length) [FIs][FIat]
   double (
-      *XcapD)[MST];    ///< Eff. cap. density of diffuse layer, F/m2 [FIs][FIat]
-  double (*XdlA)[MST]; ///< Effective thickness of A EDL layer, nm [FIs][FIat],
-                       ///< reserved
-  double (*XdlB)[MST]; ///< Effective thickness of B EDL layer, nm [FIs][FIat],
-                       ///< reserved
-  double (*XdlC)[MST]; ///< Effective thickness of C EDL layer, nm [FIs][FIat],
-                       ///< reserved
-  double (*XdlD)[MST]; ///< Effective thickness of diffuse layer, nm
-                       ///< [FIs][FIat], reserved
+      *XcapD)[MNST]; ///< Eff. cap. density of diffuse layer, F/m2 [FIs][FIat]
+  double (*XdlA)[MNST]; ///< Effective thickness of A EDL layer, nm [FIs][FIat],
+                        ///< reserved
+  double (*XdlB)[MNST]; ///< Effective thickness of B EDL layer, nm [FIs][FIat],
+                        ///< reserved
+  double (*XdlC)[MNST]; ///< Effective thickness of C EDL layer, nm [FIs][FIat],
+                        ///< reserved
+  double (*XdlD)[MNST]; ///< Effective thickness of diffuse layer, nm
+                        ///< [FIs][FIat], reserved
   double (
-      *XlamA)[MST]; ///< Factor of EDL discretness  A < 1 [FIs][FIat], reserved
+      *XlamA)[MNST]; ///< Factor of EDL discretness  A < 1 [FIs][FIat], reserved
   double (
-      *Xetaf)[MST]; ///< Density of permanent surface type charge (mkeq/m2) for
-                    ///< each surface type on sorption phases [FIs][FIat]
-  double (*MASDJ)[DFCN]; ///< Parameters of surface species in surface
-                         ///< complexation models [Lads][DFCN]
+      *Xetaf)[MNST]; ///< Density of permanent surface type charge (mkeq/m2) for
+                     ///< each surface type on sorption phases [FIs][FIat]
+  double (*MASDJ)[DNFCN]; ///< Parameters of surface species in surface
+                          ///< complexation models [Lads][DFCN]
   // Contents defined in the enum below this structure
   // Other data
   double *XFs, ///< Current quantities of phases X_a at IPM iterations [0:FI-1]
@@ -574,21 +574,22 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
   // old sorption models - EIL models (data for electrostatic activity
   // coefficients)
   double (
-      *XetaA)[MST]; ///< Total EIL charge on A (0) EIL plane, mol [FIs][FIat]
-  double (*XetaB)[MST]; ///< Total charge on B (1) EIL plane, mol [FIs][FIat]
-  double (*XetaC)[MST]; ///< New Total charge on C (2, gamma) EIL plane,
-                        ///< mol [FIs][FIat]
-  double (*XetaD)[MST]; ///< Total charge on D (3) EDL plane, mol [FIs][FIat]
-  double (*XpsiA)[MST]; ///< Relative potential at A (0) EDL plane,V [FIs][FIat]
-  double (*XpsiB)[MST]; ///< Relative potential at B (1, beta) EDL plane,V
-                        ///< [FIs][FIat]
-  double (*XpsiC)[MST]; ///< New Relative potential at C (2, gamma) EDL plane,V
-                        ///< [FIs][FIat]
-  double (*XpsiD)[MST]; ///< Relative potential at D (2) plane,V [FIs][FIat]
-  double (*XpsiZ)[MST]; ///< New Zeta potential at slip plane,V [FIs][FIat]
+      *XetaA)[MNST]; ///< Total EIL charge on A (0) EIL plane, mol [FIs][FIat]
+  double (*XetaB)[MNST]; ///< Total charge on B (1) EIL plane, mol [FIs][FIat]
+  double (*XetaC)[MNST]; ///< New Total charge on C (2, gamma) EIL plane,
+                         ///< mol [FIs][FIat]
+  double (*XetaD)[MNST]; ///< Total charge on D (3) EDL plane, mol [FIs][FIat]
+  double (
+      *XpsiA)[MNST]; ///< Relative potential at A (0) EDL plane,V [FIs][FIat]
+  double (*XpsiB)[MNST]; ///< Relative potential at B (1, beta) EDL plane,V
+                         ///< [FIs][FIat]
+  double (*XpsiC)[MNST]; ///< New Relative potential at C (2, gamma) EDL plane,V
+                         ///< [FIs][FIat]
+  double (*XpsiD)[MNST]; ///< Relative potential at D (2) plane,V [FIs][FIat]
+  double (*XpsiZ)[MNST]; ///< New Zeta potential at slip plane,V [FIs][FIat]
 
-  double (*XFTS)[MST]; ///< Total number of moles of surface DC at surface type
-                       ///< [FIs][FIat]
+  double (*XFTS)[MNST]; ///< Total number of moles of surface DC at surface type
+                        ///< [FIs][FIat]
   //
   double *X, ///< DC quantities at eqstate x_j, moles - primal IPM solution [L]
       *Y,    ///< Copy of x_j from previous IPM iteration [0:L-1]
@@ -606,7 +607,7 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
             /// lnGam_j[L]
       *F0;  ///< Excess Gibbs energies for (metastable) DC, mole/mole [L]
   // Old sorption models
-  double (*D)[MST]; ///< Reserved; new work array for calc. surface act.coeff.
+  double (*D)[MNST]; ///< Reserved; new work array for calc. surface act.coeff.
   // Name lists
   char (*sMod)[8]; ///< new: Codes for built-in mixing models of multicomponent
                    ///< phases [FIs]
@@ -635,8 +636,8 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
       *DCC,  ///< Classifier of DC { TESKWL GVCHNI JMFD QPR <0-9>  AB  XYZ O }
              ///< [L]
       *PHC;  ///< Classifier of phases { a g f p m l x d h } [FI]
-  char (*SCM)[MST]; ///< Classifier of built-in electrostatic models applied to
-                    ///< surface types in sorption phases [FIs][FIat]
+  char (*SCM)[MNST]; ///< Classifier of built-in electrostatic models applied to
+                     ///< surface types in sorption phases [FIs][FIat]
   char *SATT, ///< Classifier of applied SACT equations (isotherm corrections)
               ///< [Lads]
       *DCCW;  ///< internal DC class codes [L]
