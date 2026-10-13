@@ -38,7 +38,7 @@ const long int MNST = 6, // maximum number of surface types (patches)
     NCAZP = 4, // New: number of capacitance & zeta parameters per surface type
     NMSDT = 4, // New: number of columns in MSDT table
     NSCMC = 2, // New: number of columns in SCMC table
-    NFSIT = 2, // New: number of columns in FsiT table
+    NFSIT = 4, // New: number of columns in FsiT table
     NSURFSITES =
         8; // New: maximum number of surface sites to consider in sorption phase
 
