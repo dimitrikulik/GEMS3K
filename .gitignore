@@ -1,6 +1,7 @@
 .directory
 .vscode/
 *.pro.user
+.cache/
 build/
 build*/
 install/
