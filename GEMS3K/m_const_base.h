@@ -32,6 +32,7 @@
 const char S_OFF = '-', S_ON = '+', S_REM = '*', A_NUL = '?';
 
 const long int MNST = 6, // maximum number of surface types (patches)
+                         //    MST = MNST, // compatibility alias
     DMCDC = 4, // new number of columns in mCDc (DC EIL plane charges) table
     DNFCN = 4, // number of columns in MASDJ table
     MNCAS = 4, // number of columns in SATC table
@@ -315,8 +316,9 @@ enum sorption_control {
   SC_NNE = 'X',
   SC_IEV = 'I',
   SC_ISCCM = 'P',
-  SC_UNUSED = 'U', // same as NEM but if set on all surface types, the EIL
-                   // structures are not used at all
+  SC_UNUSED = 'U',   // same as NEM but if set on all surface types, the EIL
+                     // structures are not used at all
+  SC_NOT_USED = 'N', // Compatibility alias for SC_NEM
 
   // New - column index in the EIL capacitance and zeta parameter table
   EIL_CAPDA = 0, // C1 (CA) capacitance density parameter (Stern layer models)
@@ -401,7 +403,8 @@ enum sorption_control {
   FSIT_S_CAPACITY = 1, // Site capacity in mol/(kg sorbent) e.g. in ClaySor
 
   // Number of parameters per surface species in the MaSdj array
-  // MCAS = 4 = DFCN ; position index    added by KD 25.10.2004, mod. 11.10.2026
+  // MCAS = 4 = DNFCN ; position index    added by KD 25.10.2004,
+  // mod. 11.10.2026
   // Column indices of surface species allocation table MCAS
   SA_MCA = 0,
   SA_EMX,

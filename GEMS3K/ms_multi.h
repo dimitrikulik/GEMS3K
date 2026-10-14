@@ -464,7 +464,7 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
       *Xetaf)[MNST]; ///< Density of permanent surface type charge (mkeq/m2) for
                      ///< each surface type on sorption phases [FIs][FIat]
   double (*MASDJ)[DNFCN]; ///< Parameters of surface species in surface
-                          ///< complexation models [Lads][DFCN]
+                          ///< complexation models [Lads][DNFCN]
   // Contents defined in the enum below this structure
   // Other data
   double *XFs, ///< Current quantities of phases X_a at IPM iterations [0:FI-1]
