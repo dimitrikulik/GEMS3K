@@ -40,6 +40,7 @@ const long int MNST = 6, // maximum number of surface types (patches)
     NMSDT = 4, // New: number of columns in MSDT table
     NSCMC = 2, // New: number of columns in SCMC table
     NFSIT = 4, // New: number of columns in FsiT table
+    NCIEC = 2, // Number of columns in XfIEC input table
     NSURFSITES =
         8; // New: maximum number of surface sites to consider in sorption phase
 
