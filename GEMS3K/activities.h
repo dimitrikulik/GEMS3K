@@ -113,7 +113,7 @@ typedef struct  /// ACTIVITY - data structure for computing DC activities in pha
                  /// link indexes to surface type [XL_ST]; sorbent em [XL_EM]; surf.site [XL-SI] and EDL plane [XL_SP]
        double
       *EImc,  ///< new: Collected EIL model coefficients k -> += LsESmo[k][0]*LsESmo[k][1]
-      *mCDc,  ///< new: Collected CD EIL model coefficients per DC k -> += L1[k]*LsESmo[k][2]
+      (*mCDc)[DMCDC], ///< SCM Modernization: Array of charges of surface species [Lads][DMCDC=4]
       *IsoPc, ///< new: Collected isotherm coefficients per DC k -> += L1[k]*LsISmo[k][2];
       *IsoSc; ///< new: Collected isotherm coeffs per site k -> += LsISmo[k][0]*LsISmo[k][1];
       // TSorpMod & TKinMet stuff

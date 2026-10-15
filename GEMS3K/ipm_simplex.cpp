@@ -691,7 +691,7 @@ void TMultiBase::ScaleSystemToInternal(  double ScFact )
  if( pm.FIat > 0 /*&& pm.Lads > 0*/ && pm.FIs > 0 )
   {
   for( k=0; k<pm.FIs; k++ )
-     for( j=0; j<MST; j++ )
+     for( j=0; j<MNST; j++ ) // SCM Modernization: MNST
           {
               pm.XetaA[k][j] *= ScFact;
               pm.XetaB[k][j] *= ScFact;
@@ -770,7 +770,7 @@ void TMultiBase::RescaleSystemFromInternal(  double ScFact )
 
   if( pm.FIat > 0 /*&& pm.Lads > 0*/ && pm.FIs > 0 )
    for( k=0; k<pm.FIs; k++ )
-          for( j=0; j<MST; j++ )
+          for( j=0; j<MNST; j++ ) // SCM Modernization: MNST
           {
               pm.XetaA[k][j] /= ScFact;
               pm.XetaB[k][j] /= ScFact;

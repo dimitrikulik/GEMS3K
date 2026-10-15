@@ -162,34 +162,41 @@ void TMultiBase::copyMULTI( const TMultiBase& otherMulti )
     }
 
     if( pm.FIat > 0 && /*pm.Lads > 0 &&Sveta 12/09/99*/ pm.FIs > 0 )
-    { /* ADSORBTION AND ION IXCHANDG */
-        copyValues((char*)pm.SCM, (char*)otherPM->SCM, pm.FIs*pm.FIat);
-        copyValues((double*)pm.Nfsp, (double*)otherPM->Nfsp, pm.FIs*pm.FIat);
-        copyValues((double*)pm.MASDT, (double*)otherPM->MASDT, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XcapA, (double*)otherPM->XcapA, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XcapB, (double*)otherPM->XcapB, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XcapD, (double*)otherPM->XcapD, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XcapF, (double*)otherPM->XcapF, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XdlA, (double*)otherPM->XdlA, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XdlB, (double*)otherPM->XdlB, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XdlD, (double*)otherPM->XdlD, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XpsiA, (double*)otherPM->XpsiA, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XpsiB, (double*)otherPM->XpsiB, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XpsiD, (double*)otherPM->XpsiD, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XlamA, (double*)otherPM->XlamA, pm.FIs*pm.FIat);
-        copyValues((double*)pm.Xetaf, (double*)otherPM->Xetaf, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XetaA, (double*)otherPM->XetaA, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XetaB, (double*)otherPM->XetaB, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XetaD, (double*)otherPM->XetaD, pm.FIs*pm.FIat);
-        copyValues((double*)pm.XFTS, (double*)otherPM->XFTS, pm.FIs*pm.FIat);
+    { // SCM Modernization: 3D and 2D unified sorption arrays
+        copyValues((char*)pm.SCM, (char*)otherPM->SCM, pm.FIs * MNST * NSCMC);
+        copyValues((double*)pm.Nfsp, (double*)otherPM->Nfsp, pm.FIs * NSURFSITES * NFSIT);
+        copyValues((double*)pm.MASDT, (double*)otherPM->MASDT, pm.FIs * MNST * NMSDT);
+        copyValues((double*)pm.XcapA, (double*)otherPM->XcapA, pm.FIs * MNST);
+        copyValues((double*)pm.XcapB, (double*)otherPM->XcapB, pm.FIs * MNST);
+        copyValues((double*)pm.XcapC, (double*)otherPM->XcapC, pm.FIs * MNST);
+        copyValues((double*)pm.XcapZ, (double*)otherPM->XcapZ, pm.FIs * MNST);
+        copyValues((double*)pm.XcapD, (double*)otherPM->XcapD, pm.FIs * MNST);
+        copyValues((double*)pm.XdlA, (double*)otherPM->XdlA, pm.FIs * MNST);
+        copyValues((double*)pm.XdlB, (double*)otherPM->XdlB, pm.FIs * MNST);
+        copyValues((double*)pm.XdlC, (double*)otherPM->XdlC, pm.FIs * MNST);
+        copyValues((double*)pm.XdlD, (double*)otherPM->XdlD, pm.FIs * MNST);
+        copyValues((double*)pm.XpsiA, (double*)otherPM->XpsiA, pm.FIs * MNST);
+        copyValues((double*)pm.XpsiB, (double*)otherPM->XpsiB, pm.FIs * MNST);
+        copyValues((double*)pm.XpsiC, (double*)otherPM->XpsiC, pm.FIs * MNST);
+        copyValues((double*)pm.XpsiD, (double*)otherPM->XpsiD, pm.FIs * MNST);
+        copyValues((double*)pm.XpsiZ, (double*)otherPM->XpsiZ, pm.FIs * MNST);
+        copyValues((double*)pm.XlamA, (double*)otherPM->XlamA, pm.FIs * MNST);
+        copyValues((double*)pm.Xetaf, (double*)otherPM->Xetaf, pm.FIs * MNST * NCIEC);
+        copyValues((double*)pm.XetaA, (double*)otherPM->XetaA, pm.FIs * MNST);
+        copyValues((double*)pm.XetaB, (double*)otherPM->XetaB, pm.FIs * MNST);
+        copyValues((double*)pm.XetaC, (double*)otherPM->XetaC, pm.FIs * MNST);
+        copyValues((double*)pm.XetaD, (double*)otherPM->XetaD, pm.FIs * MNST);
+        copyValues((double*)pm.XFTS, (double*)otherPM->XFTS, pm.FIs * MNST);
 
         copyValues((long int*)pm.SATX, (long int*)otherPM->SATX, pm.Lads*4);
         copyValues(pm.SATT, otherPM->SATT, pm.Lads);
-        copyValues((double*)pm.MASDJ, (double*)otherPM->MASDJ, pm.Lads*DFCN);
+        copyValues((double*)pm.MASDJ, (double*)otherPM->MASDJ, pm.Lads * DNFCN);
+        if (pm.mCDc && otherPM->mCDc)
+            copyValues((double*)pm.mCDc, (double*)otherPM->mCDc, pm.Lads * DMCDC);
         copyValues((double*)pm.lnSAC, (double*)otherPM->lnSAC, pm.Lads*4);
         copyValues((char*)pm.SM3, (char*)otherPM->SM3, MAXDCNAME * pm.Lads);
         copyValues( pm.DCC3, otherPM->DCC3, pm.Lads);
-        copyValues((double*)pm.D, (double*)otherPM->D,MST*MST);
+        copyValues((double*)pm.D, (double*)otherPM->D, MNST * MNST);
 
     }
 
@@ -269,7 +276,7 @@ void TMultiBase::copyMULTI( const TMultiBase& otherMulti )
         copyValues(  pm.IsoSc, otherPM->IsoSc, IsoScSum);
         copyValues(  pm.IsoCt,  otherPM->IsoCt,  IsoCtSum);
         copyValues(  pm.EImc, otherPM->EImc, EImcSum);
-        copyValues(  pm.mCDc,  otherPM->mCDc,  mCDcSum);
+        copyValues(  (double*)pm.mCDc,  (double*)otherPM->mCDc,  mCDcSum);
 
         copyValues(  pm.lnScalT, otherPM->lnScalT, pm.Ls);
         copyValues(  pm.lnSACT, otherPM->lnSACT, pm.Ls);
@@ -631,59 +638,80 @@ void TMultiBase::multi_realloc( char PAalp, char PSigm )
 
     if( pm.FIat > 0 /*&& pm.Lads > 0*/ && pm.FIs > 0 )
     { // ADSORBTION AND ION IXCHANDG
+        // SCM Modernization: Allocation and initialization of unified sorption arrays
         pm.SATX = new long int[pm.Lads][4];
-        pm.MASDJ = new double[pm.Lads][DFCN];
+        pm.MASDJ = new double[pm.Lads][DNFCN];
+        pm.mCDc = new double[pm.Lads][DMCDC];
         pm.lnSAC = new double[pm.Lads][4];
         for( ii=0; ii<pm.Lads; ii++ )
         {
             pm.SATX[ii][0] = pm.SATX[ii][1] = pm.SATX[ii][2] = pm.SATX[ii][3] = 0;
             pm.lnSAC[ii][0] = pm.lnSAC[ii][1] = pm.lnSAC[ii][2] = pm.lnSAC[ii][3] = 0.0;
-            for( jj=0; jj<MST; jj++ )
+            for( jj=0; jj<DNFCN; jj++ )
                 pm.MASDJ[ii][jj] = 0.0;
+            for( jj=0; jj<DMCDC; jj++ )
+                pm.mCDc[ii][jj] = 0.0;
         }
 
-        pm.SCM  = new char[pm.FIs][MST];
-        pm.Nfsp = new double[pm.FIs][MST];
-        pm.MASDT = new double[pm.FIs][MST];
-        pm.XcapA = new double[pm.FIs][MST];
-        pm.XcapB = new double[pm.FIs][MST];
-        pm.XcapD = new double[pm.FIs][MST];
-        pm.XcapF = new double[pm.FIs][MST];
-        pm.XdlA = new double[pm.FIs][MST];
-        pm.XdlB = new double[pm.FIs][MST];
-        pm.XdlD = new double[pm.FIs][MST];
-        pm.XpsiA = new double[pm.FIs][MST];
-        pm.XpsiB = new double[pm.FIs][MST];
-        pm.XpsiD = new double[pm.FIs][MST];
-        pm.XlamA = new double[pm.FIs][MST];
-        pm.Xetaf = new double[pm.FIs][MST];
-        pm.XetaA = new double[pm.FIs][MST];
-        pm.XetaB = new double[pm.FIs][MST];
-        pm.XetaD = new double[pm.FIs][MST];
-        pm.XFTS = new double[pm.FIs][MST];  //19
+        pm.SCM  = new char[pm.FIs][MNST][NSCMC];
+        pm.Nfsp = new double[pm.FIs][NSURFSITES][NFSIT];
+        pm.MASDT = new double[pm.FIs][MNST][NMSDT];
+        pm.XcapA = new double[pm.FIs][MNST];
+        pm.XcapB = new double[pm.FIs][MNST];
+        pm.XcapC = new double[pm.FIs][MNST];
+        pm.XcapZ = new double[pm.FIs][MNST];
+        pm.XcapD = new double[pm.FIs][MNST];
+        pm.XdlA = new double[pm.FIs][MNST];
+        pm.XdlB = new double[pm.FIs][MNST];
+        pm.XdlC = new double[pm.FIs][MNST];
+        pm.XdlD = new double[pm.FIs][MNST];
+        pm.XpsiA = new double[pm.FIs][MNST];
+        pm.XpsiB = new double[pm.FIs][MNST];
+        pm.XpsiC = new double[pm.FIs][MNST];
+        pm.XpsiD = new double[pm.FIs][MNST];
+        pm.XpsiZ = new double[pm.FIs][MNST];
+        pm.XlamA = new double[pm.FIs][MNST];
+        pm.Xetaf = new double[pm.FIs][MNST][NCIEC];
+        pm.XetaA = new double[pm.FIs][MNST];
+        pm.XetaB = new double[pm.FIs][MNST];
+        pm.XetaC = new double[pm.FIs][MNST];
+        pm.XetaD = new double[pm.FIs][MNST];
+        pm.XFTS = new double[pm.FIs][MNST];
         for( ii=0; ii<pm.FIs; ii++ )
-            for( jj=0; jj<MST; jj++ )
+        {
+            for( jj=0; jj<MNST; jj++ )
             {
-                pm.SCM[ii][jj]  = 0;
-                pm.Nfsp[ii][jj] = 0.0;
-                pm.MASDT[ii][jj] = 0.0;
+                for( int kk=0; kk<NSCMC; kk++ )
+                    pm.SCM[ii][jj][kk] = 0;
+                for( int kk=0; kk<NMSDT; kk++ )
+                    pm.MASDT[ii][jj][kk] = 0.0;
+                for( int kk=0; kk<NCIEC; kk++ )
+                    pm.Xetaf[ii][jj][kk] = 0.0;
                 pm.XcapA[ii][jj] = 0.0;
                 pm.XcapB[ii][jj] = 0.0;
+                pm.XcapC[ii][jj] = 0.0;
+                pm.XcapZ[ii][jj] = 0.0;
                 pm.XcapD[ii][jj] = 0.0;
-                pm.XcapF[ii][jj] = 0.0;
                 pm.XdlA[ii][jj] = 0.0;
                 pm.XdlB[ii][jj] = 0.0;
+                pm.XdlC[ii][jj] = 0.0;
                 pm.XdlD[ii][jj] = 0.0;
                 pm.XpsiA[ii][jj] = 0.0;
                 pm.XpsiB[ii][jj] = 0.0;
+                pm.XpsiC[ii][jj] = 0.0;
                 pm.XpsiD[ii][jj] = 0.0;
+                pm.XpsiZ[ii][jj] = 0.0;
                 pm.XlamA[ii][jj] = 0.0;
-                pm.Xetaf[ii][jj] = 0.0;
                 pm.XetaA[ii][jj] = 0.0;
                 pm.XetaB[ii][jj] = 0.0;
+                pm.XetaC[ii][jj] = 0.0;
                 pm.XetaD[ii][jj] = 0.0;
                 pm.XFTS[ii][jj] = 0.0;
             }
+            for( jj=0; jj<NSURFSITES; jj++ )
+                for( int kk=0; kk<NFSIT; kk++ )
+                    pm.Nfsp[ii][jj][kk] = 0.0;
+        }
 
         pm.SATT = new char[pm.Lads];
         pm.SM3 = new char[pm.Lads][MAXDCNAME];
@@ -695,9 +723,9 @@ void TMultiBase::multi_realloc( char PAalp, char PSigm )
             pm.DCC3[ii] = 0;
         }
 
-        pm.D = new double[MST][MST];
-        for( ii=0; ii<MST; ii++ )
-            for( jj=0; jj<MST; jj++ )
+        pm.D = new double[MNST][MNST];
+        for( ii=0; ii<MNST; ii++ )
+            for( jj=0; jj<MNST; jj++ )
                 pm.D[ii][jj] = 0.0;
 
     }
@@ -708,20 +736,26 @@ void TMultiBase::multi_realloc( char PAalp, char PSigm )
         pm.MASDT = 0;
         pm.XcapA = 0;
         pm.XcapB = 0;
+        pm.XcapC = 0;
+        pm.XcapZ = 0;
         pm.XcapD = 0;
-        pm.XcapF = 0;
         pm.XdlA = 0;
         pm.XdlB = 0;
+        pm.XdlC = 0;
         pm.XdlD = 0;
         pm.XpsiA = 0;
         pm.XpsiB = 0;
+        pm.XpsiC = 0;
         pm.XpsiD = 0;
+        pm.XpsiZ = 0;
         pm.XlamA = 0;
         pm.Xetaf = 0;
         pm.XetaA = 0;
         pm.XetaB = 0;
+        pm.XetaC = 0;
         pm.XetaD = 0;
         pm.MASDJ = 0;
+        pm.mCDc = 0;
         pm.XFTS = 0;
         pm.lnSAC = 0;
         pm.SATT = 0;
@@ -989,7 +1023,7 @@ void TMultiBase::multi_realloc( char PAalp, char PSigm )
 
 
     Alloc_TSolMod( pm.FIs );
-    Alloc_TSorpMod( pm.FIs );
+    // Alloc_TSorpMod( pm.FIs );
     Alloc_TKinMet( pm.FI );
 
 }
@@ -1092,26 +1126,33 @@ void TMultiBase::multi_kill()
     if( pm.Xeps ) delete[] pm.Xeps;
 
 
+    // SCM Modernization: Cleanup of unified sorption arrays
     if( pm.SATX ) delete[] pm.SATX;
     if( pm.SCM ) delete[] pm.SCM;
     if( pm.Nfsp ) delete[] pm.Nfsp;
     if( pm.MASDT ) delete[] pm.MASDT;
     if( pm.XcapA ) delete[] pm.XcapA;
     if( pm.XcapB ) delete[] pm.XcapB;
+    if( pm.XcapC ) delete[] pm.XcapC;
+    if( pm.XcapZ ) delete[] pm.XcapZ;
     if( pm.XcapD ) delete[] pm.XcapD;
-    if( pm.XcapF ) delete[] pm.XcapF;
     if( pm.XdlA ) delete[] pm.XdlA;
     if( pm.XdlB ) delete[] pm.XdlB;
+    if( pm.XdlC ) delete[] pm.XdlC;
     if( pm.XdlD ) delete[] pm.XdlD;
     if( pm.XpsiA ) delete[] pm.XpsiA;
     if( pm.XpsiB ) delete[] pm.XpsiB;
+    if( pm.XpsiC ) delete[] pm.XpsiC;
     if( pm.XpsiD ) delete[] pm.XpsiD;
+    if( pm.XpsiZ ) delete[] pm.XpsiZ;
     if( pm.XlamA ) delete[] pm.XlamA;
     if( pm.Xetaf ) delete[] pm.Xetaf;
     if( pm.XetaA ) delete[] pm.XetaA;
     if( pm.XetaB ) delete[] pm.XetaB;
+    if( pm.XetaC ) delete[] pm.XetaC;
     if( pm.XetaD ) delete[] pm.XetaD;
     if( pm.MASDJ ) delete[] pm.MASDJ;
+    if( pm.mCDc ) delete[] pm.mCDc;
     if( pm.XFTS ) delete[] pm.XFTS;
     if( pm.lnSAC ) delete[] pm.lnSAC;
     if( pm.SATT ) delete[] pm.SATT;
@@ -1212,7 +1253,7 @@ void TMultiBase::multi_kill()
 
     // optimization 08/02/2007
     Free_TSolMod();
-    Free_TSorpMod();
+    // Free_TSorpMod();
     Free_TKinMet();
     Free_internal();
     Free_uDD();

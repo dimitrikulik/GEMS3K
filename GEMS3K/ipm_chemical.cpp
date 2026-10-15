@@ -121,8 +121,9 @@ void TMultiBase::XmaxSAT_IPM2() {
             xjn = 0.0;
           else
             xjn = pm.X[iSite[ist]]; // neutral site does not compete!
-          XS0 = std::max(pm.MASDT[k][ist], pm.MASDJ[ja][PI_DEN]);
-          XS0 = XS0 * XVk * Mm / 1e6 * pm.Nfsp[k][ist];
+          // SCM Modernization: MASDJ density and MASDT patch area fraction
+          XS0 = fabs(pm.MASDJ[ja][PI_DEN]);
+          XS0 = XS0 * XVk * Mm / 1e6 * pm.MASDT[k][ist][MSDT_FSUTSA];
           // expected total in moles
           XSkC = XSk - xjn - xj; // occupied by the competing species
           if (XSkC < 0.0)
@@ -147,13 +148,13 @@ void TMultiBase::XmaxSAT_IPM2() {
         case SAT_VIR_NCOMP:
         case SAT_NCOMP: // Non-competitive surface species
           xj0 = fabs(pm.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6 *
-                pm.Nfsp[k][ist]; // in moles
+                pm.MASDT[k][ist][MSDT_FSUTSA]; // in moles
           pm.DUL[j] = xj0 - rIEPS;
           break;
         case SAT_SOLV: // Neutral surface site (e.g. >O0.5H@ group)
           rIEPS = base_param()->IEPS;
-          XS0 = (std::max(pm.MASDT[k][ist], pm.MASDJ[ja][PI_DEN]));
-          XS0 = XS0 * XVk * Mm / 1e6 * pm.Nfsp[k][ist]; // in moles
+          XS0 = fabs(pm.MASDJ[ja][PI_DEN]);
+          XS0 = XS0 * XVk * Mm / 1e6 * pm.MASDT[k][ist][MSDT_FSUTSA]; // in moles
 
           pm.DUL[j] = XS0 - rIEPS;
           if (pm.DUL[j] <= rIEPS)
@@ -469,10 +470,11 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
     // get ist - index of surface type and isp - index of surface plane
     /*!!!!!*/ ist = pm.SATX[ja][XL_ST]; // / MSPN;
     /*!!!!!*/ isp = pm.SATX[ja][XL_SP]; // % MSPN;
-    CDA = pm.MASDJ[ja][PI_CD0];
+    // SCM Modernization: charges from mCDc[ja][0..1]
+    CDA = pm.mCDc ? pm.mCDc[ja][0] : 0.0;
     CD0 = CDA; // species charge that goes into 0 plane
-    CDb = pm.MASDJ[ja][PI_CDB];
-    CDb = CDB;                  // species charge that goes into B plane
+    CDb = pm.mCDc ? pm.mCDc[ja][1] : 0.0;
+    CDB = CDb; // species charge that goes into B plane
     ObS = pm.MASDJ[ja][PI_DEN]; // obsolete - the sign for outer-sphere charge
     if (ObS >= 0.0)
       ObS = 1.0;
@@ -489,13 +491,14 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
       F0 += psiA * Ez * pm.FRT;
     } else // This is B plane
     {
-      if (pm.SCM[k][ist] == SC_MTL || pm.SCM[k][ist] == SC_MXC) {
+      // SCM Modernization: SCM[k][ist][0] is EIL model code
+      if (pm.SCM[k][ist][0] == SC_MTL || pm.SCM[k][ist][0] == SC_MXC) {
         // Modified TL: Robertson, 1997; also XTLM Kulik 2002
         if (fabs(CDb) > 1e-20) // Doubtful...
           Ez = CDb;
         F0 += psiB * Ez * pm.FRT;
       }
-      if (pm.SCM[k][ist] == SC_TLM || pm.SCM[k][ist] == SC_3LM) {
+      if (pm.SCM[k][ist][0] == SC_TLM || pm.SCM[k][ist][0] == SC_3LM) {
         // New 3LM - CD version of TLM - added 25.10.2004
         if (fabs(CD0) > 1e-20 && fabs(CDb) > 1e-20)
           F0 += (psiA * CD0 + psiB * CDb) * pm.FRT;
@@ -511,8 +514,8 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
             F0 += (Ez * psiB - psiA) * pm.FRT;
           }
         }
-      } else if (pm.SCM[k][ist] == SC_BSM || pm.SCM[k][ist] == SC_CCM ||
-                 pm.SCM[k][ist] == SC_ISCCM) { // Basic Stern model, Christl &
+      } else if (pm.SCM[k][ist][0] == SC_BSM || pm.SCM[k][ist][0] == SC_CCM ||
+                 pm.SCM[k][ist][0] == SC_ISCCM) { // Basic Stern model, Christl &
                                                // Kretzschmar, 1999
         // New CD version of TLM  added 25.10.2004
         if (fabs(CD0) > 1e-20 && fabs(CDb) > 1e-20)
@@ -533,9 +536,10 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
       FactSur = Mk * (pm.Aalp[k]) * pa_p->DNS * 1.66054;
       // FactSur is adsorbed mole amount at st. surf. density per mole of solid
       // carrier
-      FactSurT = FactSur * (pm.Nfsp[k][ist]);
-      if (pm.SCM[k][ist] == SC_MXC || pm.SCM[k][ist] == SC_NNE ||
-          pm.SCM[k][ist] == SC_IEV)
+      // SCM Modernization: MASDT[k][ist][MSDT_FSUTSA] is reactive area fraction
+      FactSurT = FactSur * (pm.MASDT[k][ist][MSDT_FSUTSA]);
+      if (pm.SCM[k][ist][0] == SC_MXC || pm.SCM[k][ist][0] == SC_NNE ||
+          pm.SCM[k][ist][0] == SC_IEV)
         // F0 -= log( Mk * (pm.Nfsp[k][ist]) *
         // (pm.Aalp[k]) * pa->p.DNS*1.66054 );
         F0 -= log(FactSurT);

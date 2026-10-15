@@ -332,10 +332,11 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
                     ///< isotherm coeffs per DC; max.denticity of DC [Fis][4]
       *xSMd; ///< new: denticity of surface species per surface site (site
              ///< allocation) (-> L1[k]*LsISmo[k][3]] )
-  long int (*SATX)[4]; ///< Setup of surface sites and species (will be applied
-                       ///< separately within each sorption phase) [Lads]
+  long int (
+      *SATX)[MNCAS]; ///< Setup of surface sites and species (will be applied
+                     ///< separately within each sorption phase) [Lads]
   /// link indexes to surface type [XL_ST]; sorbent em [XL_EM]; surf.site
-  /// [XL-SI] and EDL plane [XL_SP]
+  /// [XL-SI] and EDL plane [XL_SP]  called char(*)[MNCAS] SATC in ms_system.h
   // TKinMet stuff
   long int *LsKin, ///< new: number of parallel reactions nPRk[k]; number of
                    ///< species in activity products nSkr[k];
@@ -434,12 +435,15 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
 
   //  Data for old surface comlexation and sorption models (new variant
   //  [Kulik,2006])
-  double (*Xr0h0)[2];   ///< mean r & h of particles (- pores), nm  [0:FI-1][2],
-                        ///< reserved
-  double (*Nfsp)[MNST]; ///< Fractions of the sorbent specific surface area
-                        ///< allocated to surface types  [FIs][FIat]
-  double (*MASDT)[MNST]; ///< Total maximum site  density per surface type
-                         ///< (mkmol/g)  [FIs][FIat]
+  double (*Xr0h0)[2]; ///< mean r & h of particles (- pores), nm  [0:FI-1][2],
+                      ///< reserved
+  // Tier 2: Surface site types [NSURFSITES=8]
+  double (*Nfsp)[NSURFSITES]
+                [NFSIT]; ///< SCM Modernization: Site densities, capacities, and
+                         ///< patch index [FIs][NSURFSITES=8][NFSIT=4]
+  // Tier 1: Surface types / patches [MNST=6]
+  double (*MASDT)[MNST][NMSDT]; ///< SCM Modernization: Area fraction and patch
+                                ///< isotherm parameters [FIs][MNST=6][NMSDT=4]
   double (
       *XcapA)[MNST]; ///< Capacitance density of 0 EDL layer, F/m2 [FIs][FIat]
   double (
@@ -460,11 +464,10 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
                         ///< [FIs][FIat], reserved
   double (
       *XlamA)[MNST]; ///< Factor of EDL discretness  A < 1 [FIs][FIat], reserved
-  double (
-      *Xetaf)[MNST]; ///< Density of permanent surface type charge (mkeq/m2) for
-                     ///< each surface type on sorption phases [FIs][FIat]
-  double (*MASDJ)[DNFCN]; ///< Parameters of surface species in surface
-                          ///< complexation models [Lads][DNFCN]
+  double (*Xetaf)[MNST][NCIEC]; ///< SCM Modernization: Fixed permanent charge
+                                ///< density or IEC [FIs][MNST=6][NCIEC=2]
+  double (*MASDJ)[DNFCN];       ///< Parameters of surface species in surface
+                                ///< complexation models [Lads][DNFCN]
   // Contents defined in the enum below this structure
   // Other data
   double *XFs, ///< Current quantities of phases X_a at IPM iterations [0:FI-1]
@@ -636,8 +639,9 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
       *DCC,  ///< Classifier of DC { TESKWL GVCHNI JMFD QPR <0-9>  AB  XYZ O }
              ///< [L]
       *PHC;  ///< Classifier of phases { a g f p m l x d h } [FI]
-  char (*SCM)[MNST]; ///< Classifier of built-in electrostatic models applied to
-                     ///< surface types in sorption phases [FIs][FIat]
+  char (*SCM)[MNST]
+             [NSCMC]; ///< SCM Modernization: Classifier of EIL models and SACT
+                      ///< codes applied to surface types [FIs][MNST=6][NSCMC=2]
   char *SATT, ///< Classifier of applied SACT equations (isotherm corrections)
               ///< [Lads]
       *DCCW;  ///< internal DC class codes [L]

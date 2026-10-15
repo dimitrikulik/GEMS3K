@@ -385,8 +385,9 @@ case DC_SCM_SPECIES:
         // get ist - index of surface type and isp - index of surface plane
 / *!!!!!* /  ist = act.SATX[ja][XL_ST];  // / MSPN;
 / *!!!!!* /  isp = act.SATX[ja][XL_SP]; // % MSPN;
-        CD0 = act.MASDJ[ja][PI_CD0];  // species charge that goes into 0 plane
-        CDb = act.MASDJ[ja][PI_CDB];  // species charge that goes into B plane
+        // SCM Modernization: charges from mCDc[ja][0..1]
+        CD0 = act.mCDc ? act.mCDc[ja][0] : 0.0;  // species charge that goes into 0 plane
+        CDb = act.mCDc ? act.mCDc[ja][1] : 0.0;  // species charge that goes into B plane
         ObS = act.MASDJ[ja][PI_DEN];  // obsolete - the sign for outer-sphere charge
         if( ObS >= 0.0 )
             ObS = 1.0;
@@ -402,13 +403,14 @@ case DC_SCM_SPECIES:
         }
         else  // This is B plane
         {
-            if( act.SCM[k][ist] == SC_MTL || act.SCM[k][ist] == SC_MXC )
+            // SCM Modernization: SCM[k][ist][0] is EIL model code
+            if( act.SCM[k][ist][0] == SC_MTL || act.SCM[k][ist][0] == SC_MXC )
             { // Modified TL: Robertson, 1997; also XTLM Kulik 2002
                   if( fabs( CDb ) > 1e-20 )  // Doubtful...
                       Ez = CDb;
                   F0 += psiB * Ez * act.FRT;
             }
-            if( act.SCM[k][ist] == SC_TLM )
+            if( act.SCM[k][ist][0] == SC_TLM )
             {
 // New CD version of TLM  added 25.10.2004
                if( fabs( CD0 ) > 1e-20 && fabs( CDb ) > 1e-20 )
@@ -428,7 +430,7 @@ case DC_SCM_SPECIES:
                   }
                }
             }
-            else if( act.SCM[k][ist] == SC_BSM || act.SCM[k][ist] == SC_CCM )
+            else if( act.SCM[k][ist][0] == SC_BSM || act.SCM[k][ist][0] == SC_CCM )
             { // Basic Stern model, Christl & Kretzschmar, 1999
             // New CD version of TLM  added 25.10.2004
                if( fabs( CD0 ) > 1e-20 && fabs( CDb ) > 1e-20 )
@@ -451,9 +453,10 @@ case DC_SCM_SPECIES:
         {   // Correction for standard density, surface area and surface type fraction
                 FactSur = Mk * (act.Aalp[k]) * pa->p.DNS*1.66054;
         	    // FactSur is adsorbed mole amount at st. surf. density per mole of solid carrier
-                FactSurT = FactSur * (act.Nfsp[k][ist]);
-                if( act.SCM[k][ist] == SC_MXC || act.SCM[k][ist] == SC_NNE ||
-                    act.SCM[k][ist] == SC_IEV )
+                // SCM Modernization: MASDT[k][ist][MSDT_FSUTSA] is reactive area fraction
+                FactSurT = FactSur * (act.MASDT[k][ist][MSDT_FSUTSA]);
+                if( act.SCM[k][ist][0] == SC_MXC || act.SCM[k][ist][0] == SC_NNE ||
+                    act.SCM[k][ist][0] == SC_IEV )
                                                 // F0 -= log( Mk * (act.Nfsp[k][ist]) *
                                                 // (act.Aalp[k]) * pa->p.DNS*1.66054 );
                   F0 -= log( FactSurT );

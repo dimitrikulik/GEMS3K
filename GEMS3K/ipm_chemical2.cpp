@@ -546,11 +546,10 @@ void TMultiBase::IS_EtaCalc()
                             // and  isp - index of surface plane
                 ist = pm.SATX[ja][XL_ST]; // / MSPN;
                 isp = pm.SATX[ja][XL_SP]; // % MSPN;
-                        // isp  index of outer surface charge allocation  (new)
-                // Getting charge distribution information
-                CD0 = pm.MASDJ[ja][PI_CD0];
+                // SCM Modernization: charges from mCDc[ja][0..1]
+                CD0 = pm.mCDc ? pm.mCDc[ja][0] : 0.0;
                     // species charge that goes into 0 plane
-                CDb = pm.MASDJ[ja][PI_CDB];
+                CDb = pm.mCDc ? pm.mCDc[ja][1] : 0.0;
           // species charge that goes into 1, 2 or 3 plane according to isp value
                 Ez = pm.EZ[j];  // take formula charge as default
                 if( !isp )
@@ -561,19 +560,20 @@ void TMultiBase::IS_EtaCalc()
                 }
                 else
                 { // The charge distribution (CD) is specified
-                    if( pm.SCM[k][ist] == SC_MTL )
+                    // SCM Modernization: SCM[k][ist][0] is EIL model code
+                    if( pm.SCM[k][ist][0] == SC_MTL )
                     {   // Modified TL: Robertson, 1997; also XTLM Kulik 2002
 //                        if( fabs( CDb ) > 1e-20 )  // Doubtful...
 //                           Ez = CDb;
                         pm.XetaB[k][ist] += pm.X[j]*CDb;
                     }
-                    else if( pm.SCM[k][ist] == SC_TLM )
+                    else if( pm.SCM[k][ist][0] == SC_TLM )
                     {
 // New CD version of TLM Hayes & Leckie, 1987  added 25.10.2004
                         pm.XetaB[k][ist] += pm.X[j] * CDb;
                         pm.XetaA[k][ist] += pm.X[j] * CD0;
                     }
-                    else if( pm.SCM[k][ist] == SC_3LM )
+                    else if( pm.SCM[k][ist][0] == SC_3LM )
                     {
 // CD 3-layer model (Hiemstra e.a. 1996) added 12.09.2005 by KD
                         if( isp == 1 )
@@ -582,20 +582,20 @@ void TMultiBase::IS_EtaCalc()
                             pm.XetaD[k][ist] += pm.X[j] * CDb;
                         pm.XetaA[k][ist] += pm.X[j] * CD0;
                     }
-                    else if( pm.SCM[k][ist] == SC_BSM )
+                    else if( pm.SCM[k][ist][0] == SC_BSM )
                     { // Basic Stern model Christl & Kretzschmar, 1999
 // New CD version of BSM  added 25.10.2004
                         pm.XetaB[k][ist] += pm.X[j] * CDb;
                         pm.XetaA[k][ist] += pm.X[j] * CD0;
                     }
-                    else if( pm.SCM[k][ist] == SC_MXC )
+                    else if( pm.SCM[k][ist][0] == SC_MXC )
                     { // BSM for ion exchange on perm.charge surface
                         if( fabs( CDb ) > 1e-20 )  // Doubtful...
                            Ez = CDb;
                         pm.XetaB[k][ist] += pm.X[j]*Ez;
                         pm.XetaA[k][ist] += pm.X[j]*CD0;  // added for testing
                     }
-                    else if( pm.SCM[k][ist] == SC_CCM || pm.SCM[k][ist] == SC_ISCCM )
+                    else if( pm.SCM[k][ist][0] == SC_CCM || pm.SCM[k][ist][0] == SC_ISCCM )
                     { // Added 25.07.03 to implement the extended CCM Nilsson ea 1996
 // New CD version of BSM  added 25.10.2004
                         // 2026 SC_ISCCM uses dependcy of capacity with IS C = sqrt(IS)/alpha, alpha is given instead of capacity
@@ -642,7 +642,7 @@ TMultiBase::GouyChapman(  long int, long int, long int k )
 {
     long int ist, status=0;
     double SigA=0., SigD=0., SigB=0., SigDDL=0.,
-      XetaA[MST], XetaB[MST], XetaD[MST], f1, f3, A, Sig, F2RT, I, Cap;
+      XetaA[MNST], XetaB[MNST], XetaD[MNST], f1, f3, A, Sig, F2RT, I, Cap;
     if( pm.XF[k] < pm.ScMinM ) // TProfil::pm->pa.p.ScMin )
         return status; // no sorbent
 
@@ -657,9 +657,10 @@ TMultiBase::GouyChapman(  long int, long int, long int k )
         double ConvFactor = 1.;
 
         XetaA[ist] = XetaB[ist] = XetaD[ist] = 0.0;
-        if( pm.SCM[k][ist] == SC_NOT_USED || pm.Nfsp[k][ist] < 1e-9  )
+        // SCM Modernization: SCM[k][ist][0] and MASDT[k][ist][MSDT_FSUTSA]
+        if( pm.SCM[k][ist][0] == SC_NOT_USED || pm.MASDT[k][ist][MSDT_FSUTSA] < 1e-9  )
             continue;
-        ConvFactor = F_CONSTANT / pm.YFk / pm.Aalp[k] / pm.Nfsp[k][ist];
+        ConvFactor = F_CONSTANT / pm.YFk / pm.Aalp[k] / pm.MASDT[k][ist][MSDT_FSUTSA];
         // Calculation of charge densities (now limited to total charges > max. balance residual)
         if( fabs( pm.XetaA[k][ist]) > pm.DHBM ) // pm.lowPosNum*100. )
             XetaA[ist] = pm.XetaA[k][ist] * ConvFactor; // in C/m2
@@ -695,42 +696,42 @@ TMultiBase::GouyChapman(  long int, long int, long int k )
                fabs( XetaD[ist] ) < pm.DHBM ) // pm.lowPosNum*1e6 )
             goto GEMU_CALC;  // skipping at near-zero charge
         // calculating charge density at diffuse layer
-        switch( pm.SCM[k][ist] )
+        switch( pm.SCM[k][ist][0] )
         {
         case SC_CCM:  // Constant-Capacitance Model Schindler, extension Nilsson
         case SC_ISCCM: // 2026 SC_ISCCM uses dependcy of capacity with IS C = sqrt(IS)/alpha, alpha is given instead of capacity
-            SigA = pm.Xetaf[k][ist] + XetaA[ist];
+            SigA = pm.Xetaf[k][ist][0] + XetaA[ist];
             SigDDL = -SigA - XetaB[ist];
             SigB = XetaB[ist];
             break;
         case SC_DDLM: // Generalized Double Layer Model [Dzombak and Morel, 1990]
-            SigA = pm.Xetaf[k][ist] + XetaA[ist];
+            SigA = pm.Xetaf[k][ist][0] + XetaA[ist];
             SigDDL = -SigA;
             SigB = 0.0;
             break;
         case SC_TLM:  // Triple-Layer Model [Hayes and Leckie, 1987]
-            SigA = pm.Xetaf[k][ist] + XetaA[ist];
+            SigA = pm.Xetaf[k][ist][0] + XetaA[ist];
             SigB = XetaB[ist];
             SigDDL = -SigA - XetaB[ist];
             break;
         case SC_MTL:  // Modified Triple-Layer Model [Robertson, 1997]
-            SigA = pm.Xetaf[k][ist] + XetaA[ist];
+            SigA = pm.Xetaf[k][ist][0] + XetaA[ist];
             SigB = XetaB[ist];
             SigDDL = -SigA - XetaB[ist];
             break;
         case SC_BSM: // Basic Stern model: [Christl and Kretzschmar, 1999]
-            SigA = pm.Xetaf[k][ist] + XetaA[ist];
+            SigA = pm.Xetaf[k][ist][0] + XetaA[ist];
             SigB = XetaB[ist];
             SigDDL = -SigA - XetaB[ist];
             break;
         case SC_3LM: // Three-layer model: Hiemstra ea 1996; Tadanier & Eick 2002
-            SigA = pm.Xetaf[k][ist] + XetaA[ist];
+            SigA = pm.Xetaf[k][ist][0] + XetaA[ist];
             SigB = XetaB[ist];
             SigD = XetaD[ist];
             SigDDL = -SigA - SigB -SigD;
             break;
         case SC_MXC:  // BSM for Ion-Exchange on permanent-charge surface
-            SigA = pm.Xetaf[k][ist] + XetaA[ist];
+            SigA = pm.Xetaf[k][ist][0] + XetaA[ist];
             SigB = XetaB[ist];
             SigDDL = -SigA - XetaB[ist];
             break;
@@ -755,7 +756,7 @@ TMultiBase::GouyChapman(  long int, long int, long int k )
             // Only for the basic Stern model for now
         {
             double Ro = 1.0;
-            if( pm.SCM[k][ist] == SC_BSM && pm.FVOL[0] > 1e-16 )
+            if( pm.SCM[k][ist][0] == SC_BSM && pm.FVOL[0] > 1e-16 )
                 Ro = pm.FWGT[0] / pm.FVOL[0];
             A = sqrt( 2000. * 8.854e-12 * pm.epsW[0] * pm.RT * I * Ro );
         }
@@ -791,7 +792,7 @@ TMultiBase::GouyChapman(  long int, long int, long int k )
         }
 GEMU_CALC:
         // calculating potentials at EDL planes
-        switch( pm.SCM[k][ist] )
+        switch( pm.SCM[k][ist][0] )
         {
         case SC_DDLM: // Generalized Double Layer Model [Dzombak & Morel 1990]
             pm.XpsiA[k][ist] = PsiD;
@@ -801,7 +802,7 @@ GEMU_CALC:
         case SC_ISCCM: // 2026 SC_ISCCM uses dependcy of capacity with IS C = sqrt(IS)/alpha, alpha is given instead of capacity
             if( pm.XcapA[k][ist] > 0.0 )
             {  // Classic CCM Schindler with inner-sphere species only
-                if (pm.SCM[k][ist] == SC_ISCCM)
+                if (pm.SCM[k][ist][0] == SC_ISCCM)
                     PsiA = SigA / (sqrt(I)/pm.XcapA[k][ist]);
                 else
                     PsiA = SigA / pm.XcapA[k][ist];
@@ -819,7 +820,7 @@ GEMU_CALC:
                     ipm_logger->debug("Extended CCM model XcapB = {} IT={} k= {} ist= {}", pm.XcapB[k][ist], pm.IT, k, ist);
                 }
                 else {
-                    if (pm.SCM[k][ist] == SC_ISCCM)
+                    if (pm.SCM[k][ist][0] == SC_ISCCM)
                         PsiB = - SigB / (sqrt(I)/pm.XcapB[k][ist]);
                     else
                         PsiB = - SigB / pm.XcapB[k][ist];
@@ -834,7 +835,7 @@ GEMU_CALC:
                    ipm_logger->debug("Extended CCM model XcapA = {} IT={} k= {} ist= {}", pm.XcapA[k][ist], pm.IT, k, ist);
                }
                else {
-                   if (pm.SCM[k][ist] == SC_ISCCM)
+                   if (pm.SCM[k][ist][0] == SC_ISCCM)
                        PsiA = PsiB + SigA / (sqrt(I)/pm.XcapA[k][ist]);
                    else
                        PsiA = PsiB + SigA / pm.XcapA[k][ist];
@@ -1023,7 +1024,7 @@ long int
 TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, long int k )
 {
 	long int status = 0;
-        long int i, ii, j, ja, ist=0, iss, dent, Cj, iSite[MST];
+        long int i, ii, j, ja, ist=0, iss, dent, Cj, iSite[MNST]; // SCM Modernization: MNST
     double XS0,  xj0, XVk, XSk, XSkC, xj, Mm, rIEPS, ISAT, XSs,
            SATst, xjn, q1, q2, aF, cN, eF, lnGamjo, lnDiff, lnFactor;
     const BASE_PARAM *pa_p = base_param();
@@ -1033,10 +1034,10 @@ TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, 
     if( pm.XFA[k] <=  pa_p->ScMin )  // elimination of sorption phase
         return status;  // No surface species left
 
-    for(i=0; i<MST; i++)
+    for(i=0; i<MNST; i++) // SCM Modernization: MNST
     {
         iSite[i] = -1;
-        for( ii=0; ii<MST; ii++ )
+        for( ii=0; ii<MNST; ii++ ) // SCM Modernization: MNST
            pm.D[i][ii] = 0.0;  // cleaning the matrix for sites totals
     }
     // Extraction of site indices for the neutral >OH group
@@ -1056,11 +1057,11 @@ TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, 
             continue;
         // Calculating ist (index of surface type)
         ist = pm.SATX[ja][XL_ST];  // / MSPN;
-        if( ist < 0 || ist >= MST )
+        if( ist < 0 || ist >= MNST ) // SCM Modernization: MNST
             ist = 0;  // default: zero surface type
         // Calculate iss - index of site on surface type
         iss = pm.SATX[ja][XL_SI];
-        if( iss < 0 || iss >= MST )
+        if( iss < 0 || iss >= MNST ) // SCM Modernization: MNST
             iss = 0;  // default: zero site is the weekest and the most abundant one
         pm.D[iss][ist] += pm.X[j]; // adding to total amount on a site
     }
@@ -1086,7 +1087,7 @@ TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, 
             ist = pm.SATX[ja][XL_ST]; // / MSPN;
             // Calculating iss - index of site on surf.type
             iss = pm.SATX[ja][XL_SI];
-            if( iss < 0 || iss >= MST )
+            if( iss < 0 || iss >= MNST ) // SCM Modernization: MNST
               iss = 0;  // zero site is the weekest and the most abundant one
             // Cj - index of carrier DC
             Cj = pm.SATX[ja][XL_EM];
@@ -1122,7 +1123,7 @@ TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, 
             switch( pm.SATT[ja] ) // selection of the SACT model
             {
             case SAT_L_COMP: // Competitive monodentate Langmuir on a surface and site type
-                XSkC = XSs / XVk / Mm * 1e6 /pm.Nfsp[k][ist]/
+                XSkC = XSs / XVk / Mm * 1e6 / pm.MASDT[k][ist][MSDT_FSUTSA] /
                       pm.Aalp[k]/1.66054;  // per nm2
                 XS0 = (fabs(pm.MASDJ[ja][PI_DEN])/pm.Aalp[k]/1.66054);
                         // max. density per nm2
@@ -1157,7 +1158,7 @@ TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, 
                 xj0 =
                  (fabs(pm.MASDJ[ja][PI_DEN])/pm.Aalp[k]/1.66054);
                                              // Max site density per nm2
-                xj = XSs / XVk / Mm / pm.Nfsp[k][ist] * 1e6     // xj
+                xj = XSs / XVk / Mm / pm.MASDT[k][ist][MSDT_FSUTSA] * 1e6     // xj
                      /pm.Aalp[k]/1.66054; // Density per nm2 on site type iss
                 if( pa_p->PC <= 2 )
                     rIEPS = pa_p->IEPS * xj0; // relative IEPS
@@ -1179,7 +1180,7 @@ TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, 
                 xj0 =
                  (fabs(pm.MASDJ[ja][PI_DEN])/pm.Aalp[k]/1.66054);
                                              // Max site density per nm2
-                xj = XSs / XVk / Mm / pm.Nfsp[k][ist] * 1e6  //  xj
+                xj = XSs / XVk / Mm / pm.MASDT[k][ist][MSDT_FSUTSA] * 1e6  //  xj
                      /pm.Aalp[k]/1.66054; // Current density per nm2
                 if( pa_p->PC <= 2 )
                     rIEPS = pa_p->IEPS * xj0; // relative IEPS
@@ -1204,7 +1205,7 @@ TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, 
                 break;
             case SAT_FRUM_NCOMP: // (Non)competitive Frumkin isotherm
                                  // for permanent charge surfaces
-                XSkC = xj / XVk / Mm / pm.Nfsp[k][ist] * 1e6
+                XSkC = xj / XVk / Mm / pm.MASDT[k][ist][MSDT_FSUTSA] * 1e6
                        / pm.Aalp[k]/1.66054;  // per nm2
                 XS0 = (pm.MASDJ[ja][PI_DEN]/pm.Aalp[k]/1.66054);
                          // max.dens.per nm2
@@ -1242,7 +1243,7 @@ TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, 
                 xj0 =
                  (fabs(pm.MASDJ[ja][PI_DEN])/pm.Aalp[k]/1.66054);
                                              // Max site density per nm2
-                xj = XSs / XVk / Mm / pm.Nfsp[k][ist] * 1e6
+                xj = XSs / XVk / Mm / pm.MASDT[k][ist][MSDT_FSUTSA] * 1e6
                      /pm.Aalp[k]/1.66054; // Current density per nm2
                 if( pa_p->PC <= 2 )
                     rIEPS = pa_p->IEPS * xj0; // relative IEPS
@@ -1274,7 +1275,7 @@ TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, 
                 xj0 =
                  (fabs(pm.MASDJ[ja][PI_DEN])/pm.Aalp[k]/1.66054);
                                              // Max site density per nm2
-                xj = XSs / XVk / Mm / pm.Nfsp[k][ist] * 1e6
+                xj = XSs / XVk / Mm / pm.MASDT[k][ist][MSDT_FSUTSA] * 1e6
                      /pm.Aalp[k]/1.66054; // Current density per nm2
                 if( pa_p->PC <= 2 )
                     rIEPS = pa_p->IEPS * xj0; // relative IEPS
@@ -1309,8 +1310,9 @@ TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, 
                 if( iSite[ist] < 0 )
                     xjn = 0.0;
                 else xjn = pm.X[iSite[ist]]; // neutral site does not compete!
-                XS0 = pm.MASDT[k][ist] * XVk * Mm / 1e6
-                      * pm.Nfsp[k][ist]; // expected total in moles
+                // SCM Modernization: MASDT patch fraction and density
+                XS0 = fabs(pm.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6
+                      * pm.MASDT[k][ist][MSDT_FSUTSA]; // expected total in moles
                 if( pa_p->PC <= 2 )
                     rIEPS = pa_p->IEPS * XS0;  // relative IEPS
                 XSkC = XSk - xjn - xj; // occupied by the competing species;
@@ -1346,7 +1348,7 @@ TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, 
             case SAT_NCOMP: // Non-competitive truncated Langmuir SAT (obsolete)
                 // rIEPS = pa->p.IEPS * 2;
                 xj0 = fabs( pm.MASDJ[ja][PI_DEN] ) * XVk * Mm / 1e6
-                      * pm.Nfsp[k][ist]; // in moles
+                      * pm.MASDT[k][ist][MSDT_FSUTSA]; // in moles
                 if( pa_p->PC <= 2 )
                     rIEPS = pa_p->IEPS * xj0;  // relative IEPS
                 if(xj >= xj0)
@@ -1372,11 +1374,11 @@ TMultiBase::SurfaceActivityCoeff( long int jb, long int je, long int, long int, 
             case SAT_SOLV:  // Neutral surface site (e.g. >O0.5H@ group)
                             // applies to the whole surface type!
                 XSs = 0.0;  // calc total moles on all sites on surface type
-                for( i=0; i<MST; i++ )
+                for( i=0; i<MNST; i++ )
                    XSs += pm.D[i][ist];
                 XSkC = XSs / XVk / Mm * 1e6  // total non-solvent surf.species
-                   /pm.Nfsp[k][ist]/ pm.Aalp[k]/1.66054;  // per nm2
-                XS0 = (std::max( pm.MASDT[k][ist], pm.MASDJ[ja][PI_DEN] ));
+                   / pm.MASDT[k][ist][MSDT_FSUTSA] / pm.Aalp[k]/1.66054;  // per nm2
+                XS0 = fabs(pm.MASDJ[ja][PI_DEN]);
                 SATst = pa_p->DNS*1.66054*pm.Aalp[k]/XS0;
                 XS0 = XS0 / pm.Aalp[k]/1.66054;
                 if( pa_p->PC <= 2 )

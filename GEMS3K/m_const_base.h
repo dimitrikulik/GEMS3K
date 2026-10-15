@@ -414,13 +414,11 @@ enum sorption_control {
   SA_SITX,
   SA_UNIT,
 
-  // Column indices of MaSdj table of adsorption parameters
-  PI_DEN = 0,
-  PI_CD0,
-  PI_CDB,
-  PI_P1,
-  PI_P2,
-  PI_P3
+  // SCM Modernization: Column indices of MaSdj table of adsorption parameters [DNFCN=4]
+  PI_DEN = 0, // Complete coverage density (1/nm2)
+  PI_P1 = 1,  // SACT isotherm parameter 1 (Frumkin interaction alpha)
+  PI_P2 = 2,  // SACT isotherm parameter 2 (q in QCA/BET/Pivovarov)
+  PI_P3 = 3   // SACT isotherm parameter 3 (b in BET or S in Pivovarov)
 };
 
 enum ph_kinmet_controls { /// TKinMet: codes to control kinetic rate models

@@ -75,7 +75,7 @@ std::vector<io_formats::outField> MULTI_static_fields = { // 8
      "# FIat: Maximum number of surface types per adsorption phase (if FIa > "
      "0, set FIat = 6)"}};
 
-std::vector<io_formats::outField> MULTI_dynamic_fields = { // 80
+std::vector<io_formats::outField> MULTI_dynamic_fields = { // 83 (SCM Modernization)
     // write/read dynamic (array) data to/from the text-format IPM file
     {"sMod", 1, 0, 0,
      "# sMod: Codes for TSolMod built-in  models of mixing in multicomponent "
@@ -143,6 +143,11 @@ std::vector<io_formats::outField> MULTI_dynamic_fields = { // 80
      "\n# C2: Outer capacitance density parameter C2, F/m2 [nPS*6]"},
     {"C3", 0, 0, 0,
      "\n# C3: Third capacitance density parameter C3, F/m2 [nPS*6]"},
+    // SCM Modernization: CZ and CD entries for electrostatic slip plane and diffuse layer capacitance
+    {"CZ", 0, 0, 0,
+     "\n# CZ: Location of slip plane for zeta potential, nm [nPS*6]"},
+    {"CD", 0, 0, 0,
+     "\n# CD: Effective capacitance density of diffuse layer, F/m2 [nPS*6]"},
     {"pCh", 0, 0, 0,
      "\n# pCh: Density of permanent surface type charge (mkeq/m2) for each "
      "surface type on sorption phases [nPS*6]"},
@@ -350,7 +355,7 @@ void TMultiBase::to_text_file_gemipm(TIO &out_format, bool addMui,
   out_format.put_head(GEMS3KGenerator::gen_ipm_name(out_format.set_name()),
                       "ipm");
   io_formats::TPrintArrays<TIO> prar1(8, MULTI_static_fields, out_format);
-  io_formats::TPrintArrays<TIO> prar(81, MULTI_dynamic_fields, out_format);
+  io_formats::TPrintArrays<TIO> prar(MULTI_dynamic_fields.size(), MULTI_dynamic_fields, out_format);
 
   // set up array flags for permanent fields
   if (!(pm.FIs > 0 && pm.Ls > 0)) {
@@ -657,7 +662,7 @@ void TMultiBase::to_text_file_gemipm(TIO &out_format, bool addMui,
       if (_comment)
         prar.writeComment(_comment, "\n# mCDc:  new: Array of charges of a "
                                     "surface species allocated to EDL planes");
-      prar.writeArray("mCDc", pm.mCDc, mCDcSum);
+      prar.writeArray("mCDc", (double*)pm.mCDc, mCDcSum);
     }
     // TKinMet stuff
     prar.writeArrayF(f_kMod, pm.kMod[0], pm.FI, 6L, _comment, brief_mode);
@@ -761,27 +766,28 @@ void TMultiBase::to_text_file_gemipm(TIO &out_format, bool addMui,
     if (_comment)
       prar.writeComment(_comment, "\n# (8) Initial data for sorption phases");
 
-    prar.writeArray(f_Nfsp, &pm.Nfsp[0][0], pm.FIs * pm.FIat, pm.FIat, _comment,
+    // SCM Modernization: 3D and 2D unified sorption arrays
+    prar.writeArray(f_Nfsp, &pm.Nfsp[0][0][0], pm.FIs * NSURFSITES * NFSIT,
+                    (long int)(NSURFSITES * NFSIT), _comment, brief_mode);
+    prar.writeArray(f_MASDT, &pm.MASDT[0][0][0], pm.FIs * MNST * NMSDT,
+                    (long int)(MNST * NMSDT), _comment, brief_mode);
+    prar.writeArray(f_C1, &pm.XcapA[0][0], pm.FIs * MNST, (long int)MNST, _comment,
                     brief_mode);
-    prar.writeArray(f_MASDT, &pm.MASDT[0][0], pm.FIs * pm.FIat, pm.FIat,
-                    _comment, brief_mode);
-    prar.writeArray(f_C1, &pm.XcapA[0][0], pm.FIs * pm.FIat, pm.FIat, _comment,
+    prar.writeArray(f_C2, &pm.XcapB[0][0], pm.FIs * MNST, (long int)MNST, _comment,
                     brief_mode);
-    prar.writeArray(f_C2, &pm.XcapB[0][0], pm.FIs * pm.FIat, pm.FIat, _comment,
+    prar.writeArray(f_C3, &pm.XcapC[0][0], pm.FIs * MNST, (long int)MNST, _comment,
                     brief_mode);
-    prar.writeArray(f_C3, &pm.XcapC[0][0], pm.FIs * pm.FIat, pm.FIat, _comment,
+    prar.writeArray(f_CZ, &pm.XcapZ[0][0], pm.FIs * MNST, (long int)MNST, _comment,
                     brief_mode);
-    prar.writeArray(f_CZ, &pm.XcapZ[0][0], pm.FIs * pm.FIat, pm.FIat, _comment,
+    prar.writeArray(f_CD, &pm.XcapD[0][0], pm.FIs * MNST, (long int)MNST, _comment,
                     brief_mode);
-    prar.writeArray(f_CD, &pm.XcapD[0][0], pm.FIs * pm.FIat, pm.FIat, _comment,
-                    brief_mode);
-    prar.writeArray(f_pCh, &pm.Xetaf[0][0], pm.FIs * pm.FIat, pm.FIat, _comment,
-                    brief_mode);
+    prar.writeArray(f_pCh, &pm.Xetaf[0][0][0], pm.FIs * MNST * NCIEC,
+                    (long int)(MNST * NCIEC), _comment, brief_mode);
     prar.writeArray(f_SATX, &pm.SATX[0][0], pm.Lads * 4, 4L, _comment,
                     brief_mode);
-    prar.writeArray(f_MASDJ, &pm.MASDJ[0][0], pm.Lads * DFCN, (long int)DFCN,
+    prar.writeArray(f_MASDJ, &pm.MASDJ[0][0], pm.Lads * DNFCN, (long int)DNFCN,
                     _comment, brief_mode);
-    prar.writeArrayF(f_SCM, pm.SCM[0], pm.FIs, pm.FIat, _comment, brief_mode);
+    prar.writeArrayF(f_SCM, &pm.SCM[0][0][0], pm.FIs, (long int)(MNST * NSCMC), _comment, brief_mode);
     prar.writeArrayF(f_SACT, pm.SATT, pm.Lads, 1L, _comment, brief_mode);
     prar.writeArrayF(f_DCads, pm.DCC3, pm.Lads, 1L, _comment, brief_mode);
   }
@@ -965,7 +971,7 @@ void TMultiBase::from_text_file_gemipm(TIO &in_format, DATACH *dCH) {
   ConvertDCC();
 
   // dynamic data
-  io_formats::TReadArrays<TIO> rddar(81, MULTI_dynamic_fields, in_format);
+  io_formats::TReadArrays<TIO> rddar(MULTI_dynamic_fields.size(), MULTI_dynamic_fields, in_format);
 
   // set up array flags for permanent fields
 
@@ -1127,7 +1133,7 @@ void TMultiBase::from_text_file_gemipm(TIO &in_format, DATACH *dCH) {
       if (mCDcSum) {
         rddar.readNext("mCDc");
         alloc_mCDc(mCDcSum);
-        rddar.readArray("mCDc", pm.mCDc, mCDcSum);
+        rddar.readArray("mCDc", (double*)pm.mCDc, mCDcSum);
       }
       break;
     }
@@ -1243,42 +1249,45 @@ void TMultiBase::from_text_file_gemipm(TIO &in_format, DATACH *dCH) {
     case f_Nfsp:
       if (!pm.Nfsp)
         Error("Error", "Array Nfsp not used in this problem");
-      rddar.readArray("Nfsp", &pm.Nfsp[0][0], pm.FIs * pm.FIat);
+      // SCM Modernization: 3D read
+      rddar.readArray("Nfsp", &pm.Nfsp[0][0][0], pm.FIs * NSURFSITES * NFSIT);
       break;
     case f_MASDT:
       if (!pm.MASDT)
         Error("Error", "Array MASDT not used in this problem");
-      rddar.readArray("MASDT", &pm.MASDT[0][0], pm.FIs * pm.FIat);
+      // SCM Modernization: 3D read
+      rddar.readArray("MASDT", &pm.MASDT[0][0][0], pm.FIs * MNST * NMSDT);
       break;
     case f_C1:
       if (!pm.XcapA)
         Error("Error", "Array XcapA not used in this problem");
-      rddar.readArray("C1", &pm.XcapA[0][0], pm.FIs * pm.FIat);
+      rddar.readArray("C1", &pm.XcapA[0][0], pm.FIs * MNST);
       break;
     case f_C2:
       if (!pm.XcapB)
         Error("Error", "Array XcapB not used in this problem");
-      rddar.readArray("C2", &pm.XcapB[0][0], pm.FIs * pm.FIat);
+      rddar.readArray("C2", &pm.XcapB[0][0], pm.FIs * MNST);
       break;
     case f_C3:
       if (!pm.XcapC)
         Error("Error", "Array XcapC not used in this problem");
-      rddar.readArray("C3", &pm.XcapC[0][0], pm.FIs * pm.FIat);
+      rddar.readArray("C3", &pm.XcapC[0][0], pm.FIs * MNST);
       break;
     case f_CZ:
       if (!pm.XcapZ)
         Error("Error", "Array XcapZ not used in this problem");
-      rddar.readArray("C3", &pm.XcapZ[0][0], pm.FIs * pm.FIat);
+      rddar.readArray("CZ", &pm.XcapZ[0][0], pm.FIs * MNST);
       break;
     case f_CD:
       if (!pm.XcapD)
-        Error("Error", "Array XcapC not used in this problem");
-      rddar.readArray("C3", &pm.XcapD[0][0], pm.FIs * pm.FIat);
+        Error("Error", "Array XcapD not used in this problem");
+      rddar.readArray("CD", &pm.XcapD[0][0], pm.FIs * MNST);
       break;
     case f_pCh:
       if (!pm.Xetaf)
         Error("Error", "Array Xetaf not used in this problem");
-      rddar.readArray("pCh", &pm.Xetaf[0][0], pm.FIs * pm.FIat);
+      // SCM Modernization: 3D read
+      rddar.readArray("pCh", &pm.Xetaf[0][0][0], pm.FIs * MNST * NCIEC);
       break;
     case f_SATX:
       if (!pm.SATX)
@@ -1288,12 +1297,13 @@ void TMultiBase::from_text_file_gemipm(TIO &in_format, DATACH *dCH) {
     case f_MASDJ:
       if (!pm.MASDJ)
         Error("Error", "Array MASDJ not used in this problem");
-      rddar.readArray("MASDJ", &pm.MASDJ[0][0], pm.Lads * DFCN);
+      rddar.readArray("MASDJ", &pm.MASDJ[0][0], pm.Lads * DNFCN);
       break;
     case f_SCM:
       if (!pm.SCM)
         Error("Error", "Array SCM not used in this problem");
-      rddar.readArray("SCM", pm.SCM[0], pm.FIs, pm.FIat);
+      // SCM Modernization: 3D read
+      rddar.readArray("SCM", &pm.SCM[0][0][0], pm.FIs, (long int)(MNST * NSCMC));
       break;
     case f_SACT:
       if (!pm.SATT)

@@ -73,7 +73,7 @@ TMultiBase::TMultiBase(TNode *na_)
     sizeFIs = 0;
     phSolMod = nullptr;
     sizeFIa = 0;
-    phSorpMod = nullptr;
+    // phSorpMod = nullptr;
     sizeFI = 0;
     phKinMet = nullptr;
 
@@ -182,7 +182,7 @@ void TMultiBase::alloc_EImc( long int EImcSum )
 void TMultiBase::alloc_mCDc( long int mCDcSum )
 {
     if(pm.mCDc) delete[] pm.mCDc;
-    pm.mCDc = new double[mCDcSum];
+    pm.mCDc = (double (*)[DMCDC])new double[mCDcSum];
 }
 
 void TMultiBase::alloc_xSKrC( long int xSKrCSum )

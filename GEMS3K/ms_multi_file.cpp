@@ -625,39 +625,41 @@ void TMultiBase::to_file(GemDataStream &ff) {
 
   if (pm.FIat > 0 && /*pm.Lads > 0 &&Sveta 12/09/99*/ pm.FIs >
                          0) { /* ADSORPTION AND ION EXCHANGE */
-    ff.writeArray((char *)pm.SCM, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.Nfsp, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.MASDT, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XcapA, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XcapB, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XcapC, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XcapZ, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XcapD, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XdlA, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XdlB, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XdlC, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XdlD, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XpsiA, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XpsiB, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XpsiC, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XpsiD, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XpsiZ, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XlamA, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.Xetaf, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XetaA, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XetaB, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XetaC, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XetaD, pm.FIs * pm.FIat);
-    ff.writeArray((double *)pm.XFTS, pm.FIs * pm.FIat);
+    // SCM Modernization: 3D and 2D unified sorption arrays
+    ff.writeArray((char *)pm.SCM, pm.FIs * MNST * NSCMC);
+    ff.writeArray((double *)pm.Nfsp, pm.FIs * NSURFSITES * NFSIT);
+    ff.writeArray((double *)pm.MASDT, pm.FIs * MNST * NMSDT);
+    ff.writeArray((double *)pm.XcapA, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XcapB, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XcapC, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XcapZ, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XcapD, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XdlA, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XdlB, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XdlC, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XdlD, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XpsiA, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XpsiB, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XpsiC, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XpsiD, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XpsiZ, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XlamA, pm.FIs * MNST);
+    ff.writeArray((double *)pm.Xetaf, pm.FIs * MNST * NCIEC);
+    ff.writeArray((double *)pm.XetaA, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XetaB, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XetaC, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XetaD, pm.FIs * MNST);
+    ff.writeArray((double *)pm.XFTS, pm.FIs * MNST);
 
     ff.writeArray((long int *)pm.SATX, pm.Lads * 4);
     ff.writeArray(pm.SATT, pm.Lads);
-    ff.writeArray((double *)pm.MASDJ, pm.Lads * DFCN);
-    //      ff.writeArray(pm.MASDJ, pm.Ls);
+    ff.writeArray((double *)pm.MASDJ, pm.Lads * DNFCN);
+    if (pm.mCDc)
+      ff.writeArray((double *)pm.mCDc, pm.Lads * DMCDC);
     ff.writeArray((double *)pm.lnSAC, pm.Lads * 4);
     ff.writeArray((char *)pm.SM3, MAXDCNAME * pm.Lads);
     ff.writeArray(pm.DCC3, pm.Lads);
-    ff.writeArray((double *)pm.D, MST * MST);
+    ff.writeArray((double *)pm.D, MNST * MNST);
   }
 
   if (pm.PG > 0) {
@@ -713,7 +715,7 @@ void TMultiBase::to_file(GemDataStream &ff) {
     ff.writeArray(pm.IsoSc, IsoScSum);
     ff.writeArray(pm.IsoCt, IsoCtSum);
     ff.writeArray(pm.EImc, EImcSum);
-    ff.writeArray(pm.mCDc, mCDcSum);
+    ff.writeArray((double*)pm.mCDc, mCDcSum);
 
     ff.writeArray(pm.lnScalT, pm.Ls);
     ff.writeArray(pm.lnSACT, pm.Ls);
@@ -893,41 +895,42 @@ void TMultiBase::from_file(GemDataStream &ff) {
     ff.readArray(pm.Xeps, pm.FI);
   }
 
-  if (pm.FIat > 0 && /*pm.Lads > 0 &&Sveta 12/09/99*/ pm.FIs >
-                         0) { /* ADSORBTION AND ION IXCHANDG */
-    ff.readArray((char *)pm.SCM, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.Nfsp, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.MASDT, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XcapA, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XcapB, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XcapC, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XcapZ, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XcapD, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XdlA, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XdlB, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XdlC, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XdlD, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XpsiA, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XpsiB, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XpsiC, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XpsiD, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XpsiZ, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XlamA, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.Xetaf, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XetaA, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XetaB, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XetaC, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XetaD, pm.FIs * pm.FIat);
-    ff.readArray((double *)pm.XFTS, pm.FIs * pm.FIat);
+  if (pm.FIat > 0 && /*pm.Lads > 0 &&Sveta 12/09/99*/ pm.FIs > 0) {
+    // SCM Modernization: 3D and 2D unified sorption arrays
+    ff.readArray((char *)pm.SCM, pm.FIs * MNST * NSCMC);
+    ff.readArray((double *)pm.Nfsp, pm.FIs * NSURFSITES * NFSIT);
+    ff.readArray((double *)pm.MASDT, pm.FIs * MNST * NMSDT);
+    ff.readArray((double *)pm.XcapA, pm.FIs * MNST);
+    ff.readArray((double *)pm.XcapB, pm.FIs * MNST);
+    ff.readArray((double *)pm.XcapC, pm.FIs * MNST);
+    ff.readArray((double *)pm.XcapZ, pm.FIs * MNST);
+    ff.readArray((double *)pm.XcapD, pm.FIs * MNST);
+    ff.readArray((double *)pm.XdlA, pm.FIs * MNST);
+    ff.readArray((double *)pm.XdlB, pm.FIs * MNST);
+    ff.readArray((double *)pm.XdlC, pm.FIs * MNST);
+    ff.readArray((double *)pm.XdlD, pm.FIs * MNST);
+    ff.readArray((double *)pm.XpsiA, pm.FIs * MNST);
+    ff.readArray((double *)pm.XpsiB, pm.FIs * MNST);
+    ff.readArray((double *)pm.XpsiC, pm.FIs * MNST);
+    ff.readArray((double *)pm.XpsiD, pm.FIs * MNST);
+    ff.readArray((double *)pm.XpsiZ, pm.FIs * MNST);
+    ff.readArray((double *)pm.XlamA, pm.FIs * MNST);
+    ff.readArray((double *)pm.Xetaf, pm.FIs * MNST * NCIEC);
+    ff.readArray((double *)pm.XetaA, pm.FIs * MNST);
+    ff.readArray((double *)pm.XetaB, pm.FIs * MNST);
+    ff.readArray((double *)pm.XetaC, pm.FIs * MNST);
+    ff.readArray((double *)pm.XetaD, pm.FIs * MNST);
+    ff.readArray((double *)pm.XFTS, pm.FIs * MNST);
 
     ff.readArray((long int *)pm.SATX, pm.Lads * 4);
     ff.readArray(pm.SATT, pm.Lads);
-    ff.readArray((double *)pm.MASDJ, pm.Lads * DFCN);
-    //      ff.readArray(pm.MASDJ, pm.Ls);
+    ff.readArray((double *)pm.MASDJ, pm.Lads * DNFCN);
+    if (pm.mCDc)
+      ff.readArray((double *)pm.mCDc, pm.Lads * DMCDC);
     ff.readArray((double *)pm.lnSAC, pm.Lads * 4);
     ff.readArray((char *)pm.SM3, MAXDCNAME * pm.Lads);
     ff.readArray(pm.DCC3, pm.Lads);
-    ff.readArray((double *)pm.D, MST * MST);
+    ff.readArray((double *)pm.D, MNST * MNST);
   }
 
   if (pm.PG > 0) {
@@ -1004,7 +1007,7 @@ void TMultiBase::from_file(GemDataStream &ff) {
     ff.readArray(pm.IsoSc, IsoScSum);
     ff.readArray(pm.IsoCt, IsoCtSum);
     ff.readArray(pm.EImc, EImcSum);
-    ff.readArray(pm.mCDc, mCDcSum);
+    ff.readArray((double*)pm.mCDc, mCDcSum);
 
     ff.readArray(pm.lnScalT, pm.Ls);
     ff.readArray(pm.lnSACT, pm.Ls);
@@ -1193,37 +1196,38 @@ void TMultiBase::to_text_file(const std::string &path, bool append) {
     prar.writeArray("Xeps", pm.Xeps, pm.FI);
   }
 
-  if (pm.FIat > 0 && /*pm.Lads > 0 &&Sveta 12/09/99*/ pm.FIs >
-                         0) { /* ADSORPTION AND ION EXCHANGE */
-    prar.writeArray("Nfsp", &pm.Nfsp[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("MASDT", &pm.MASDT[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XcapA", &pm.XcapA[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XcapB", &pm.XcapB[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XcapC", &pm.XcapC[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XcapZ", &pm.XcapZ[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XcapD", &pm.XcapD[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XdlA", &pm.XdlA[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XdlB", &pm.XdlB[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XdlC", &pm.XdlC[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XdlD", &pm.XdlD[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XpsiA", &pm.XpsiA[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XpsiB", &pm.XpsiB[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XpsiC", &pm.XpsiC[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XpsiD", &pm.XpsiD[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XpsiZ", &pm.XpsiZ[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XlamA", &pm.XlamA[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("Xetaf", &pm.Xetaf[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XetaA", &pm.XetaA[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XetaB", &pm.XetaB[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XetaC", &pm.XetaC[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XetaD", &pm.XetaD[0][0], pm.FIs * pm.FIat);
-    prar.writeArray("XFTS", &pm.XFTS[0][0], pm.FIs * pm.FIat);
+  if (pm.FIat > 0 && /*pm.Lads > 0 &&Sveta 12/09/99*/ pm.FIs > 0) {
+    // SCM Modernization: 3D and 2D unified sorption arrays
+    prar.writeArray("Nfsp", &pm.Nfsp[0][0][0], pm.FIs * NSURFSITES * NFSIT);
+    prar.writeArray("MASDT", &pm.MASDT[0][0][0], pm.FIs * MNST * NMSDT);
+    prar.writeArray("XcapA", &pm.XcapA[0][0], pm.FIs * MNST);
+    prar.writeArray("XcapB", &pm.XcapB[0][0], pm.FIs * MNST);
+    prar.writeArray("XcapC", &pm.XcapC[0][0], pm.FIs * MNST);
+    prar.writeArray("XcapZ", &pm.XcapZ[0][0], pm.FIs * MNST);
+    prar.writeArray("XcapD", &pm.XcapD[0][0], pm.FIs * MNST);
+    prar.writeArray("XdlA", &pm.XdlA[0][0], pm.FIs * MNST);
+    prar.writeArray("XdlB", &pm.XdlB[0][0], pm.FIs * MNST);
+    prar.writeArray("XdlC", &pm.XdlC[0][0], pm.FIs * MNST);
+    prar.writeArray("XdlD", &pm.XdlD[0][0], pm.FIs * MNST);
+    prar.writeArray("XpsiA", &pm.XpsiA[0][0], pm.FIs * MNST);
+    prar.writeArray("XpsiB", &pm.XpsiB[0][0], pm.FIs * MNST);
+    prar.writeArray("XpsiC", &pm.XpsiC[0][0], pm.FIs * MNST);
+    prar.writeArray("XpsiD", &pm.XpsiD[0][0], pm.FIs * MNST);
+    prar.writeArray("XpsiZ", &pm.XpsiZ[0][0], pm.FIs * MNST);
+    prar.writeArray("XlamA", &pm.XlamA[0][0], pm.FIs * MNST);
+    prar.writeArray("Xetaf", &pm.Xetaf[0][0][0], pm.FIs * MNST * NCIEC);
+    prar.writeArray("XetaA", &pm.XetaA[0][0], pm.FIs * MNST);
+    prar.writeArray("XetaB", &pm.XetaB[0][0], pm.FIs * MNST);
+    prar.writeArray("XetaC", &pm.XetaC[0][0], pm.FIs * MNST);
+    prar.writeArray("XetaD", &pm.XetaD[0][0], pm.FIs * MNST);
+    prar.writeArray("XFTS", &pm.XFTS[0][0], pm.FIs * MNST);
 
     prar.writeArray("SATX", &pm.SATX[0][0], pm.Lads * 4);
-    //     prar.writeArray(  "MASDJ", pm.MASDJ, pm.Ls);
-    prar.writeArray("MASDJ", &pm.MASDJ[0][0], pm.Lads * DFCN);
+    prar.writeArray("MASDJ", &pm.MASDJ[0][0], pm.Lads * DNFCN);
+    if (pm.mCDc)
+      prar.writeArray("mCDc", &pm.mCDc[0][0], pm.Lads * DMCDC);
     prar.writeArray("lnSAC", &pm.lnSAC[0][0], pm.Lads * 4);
-    prar.writeArray("D", &pm.D[0][0], MST * MST);
+    prar.writeArray("D", &pm.D[0][0], MNST * MNST);
   }
 
   if (pm.PG > 0) {
