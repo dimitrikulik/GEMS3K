@@ -248,7 +248,7 @@ void TMultiBase::set_def(int) {
   pm.mui = nullptr;
   pm.muk = nullptr;
   pm.muj = nullptr;
-  pm.SATX = nullptr;
+  pm.SATC = nullptr;
   pm.DUL = nullptr;
   pm.DLL = nullptr;
   pm.fDQF = nullptr;
@@ -301,7 +301,7 @@ void TMultiBase::set_def(int) {
   pm.XpsiZ = nullptr;
   pm.Xr0h0 = nullptr;
   pm.XlamA = nullptr;
-  pm.Xetaf = nullptr;
+  pm.XfIEC = nullptr;
   pm.Xcond = nullptr;
   pm.Xeps = nullptr;
   pm.Awt = nullptr;
@@ -372,7 +372,7 @@ void TMultiBase::set_def(int) {
   pm.ICC = nullptr;
   pm.DCC = nullptr;
   pm.PHC = nullptr;
-  pm.SCM = nullptr;
+  pm.SCMC = nullptr;
   pm.SATT = nullptr;
   pm.DCCW = nullptr;
   //     pm.XcapF = nullptr;
@@ -407,7 +407,7 @@ void TMultiBase::set_def(int) {
   // TSorpMod stuff
   pm.LsESmo = 0;
   pm.LsISmo = 0;
-  pm.xSMd = 0;
+  pm.XSMD = 0;
   pm.EImc = 0;
   pm.mCDc = 0;
   pm.IsoPc = 0;
@@ -626,7 +626,7 @@ void TMultiBase::to_file(GemDataStream &ff) {
   if (pm.FIat > 0 && /*pm.Lads > 0 &&Sveta 12/09/99*/ pm.FIs >
                          0) { /* ADSORPTION AND ION EXCHANGE */
     // SCM Modernization: 3D and 2D unified sorption arrays
-    ff.writeArray((char *)pm.SCM, pm.FIs * MNST * NSCMC);
+    ff.writeArray((char *)pm.SCMC, pm.FIs * MNST * NSCMC);
     ff.writeArray((double *)pm.Nfsp, pm.FIs * NSURFSITES * NFSIT);
     ff.writeArray((double *)pm.MASDT, pm.FIs * MNST * NMSDT);
     ff.writeArray((double *)pm.XcapA, pm.FIs * MNST);
@@ -644,14 +644,14 @@ void TMultiBase::to_file(GemDataStream &ff) {
     ff.writeArray((double *)pm.XpsiD, pm.FIs * MNST);
     ff.writeArray((double *)pm.XpsiZ, pm.FIs * MNST);
     ff.writeArray((double *)pm.XlamA, pm.FIs * MNST);
-    ff.writeArray((double *)pm.Xetaf, pm.FIs * MNST * NCIEC);
+    ff.writeArray((double *)pm.XfIEC, pm.FIs * MNST * NCIEC);
     ff.writeArray((double *)pm.XetaA, pm.FIs * MNST);
     ff.writeArray((double *)pm.XetaB, pm.FIs * MNST);
     ff.writeArray((double *)pm.XetaC, pm.FIs * MNST);
     ff.writeArray((double *)pm.XetaD, pm.FIs * MNST);
     ff.writeArray((double *)pm.XFTS, pm.FIs * MNST);
 
-    ff.writeArray((long int *)pm.SATX, pm.Lads * 4);
+    ff.writeArray((long int *)pm.SATC, pm.Lads * 4);
     ff.writeArray(pm.SATT, pm.Lads);
     ff.writeArray((double *)pm.MASDJ, pm.Lads * DNFCN);
     if (pm.mCDc)
@@ -710,7 +710,7 @@ void TMultiBase::to_file(GemDataStream &ff) {
     long int IsoCtSum, IsoScSum;
     long int IsoPcSum, xSMdSum;
     getLsISmosum(IsoCtSum, IsoScSum, IsoPcSum, xSMdSum);
-    ff.writeArray(pm.xSMd, xSMdSum);
+    ff.writeArray((long int *)pm.XSMD, xSMdSum);
     ff.writeArray(pm.IsoPc, IsoPcSum);
     ff.writeArray(pm.IsoSc, IsoScSum);
     ff.writeArray(pm.IsoCt, IsoCtSum);
@@ -897,7 +897,7 @@ void TMultiBase::from_file(GemDataStream &ff) {
 
   if (pm.FIat > 0 && /*pm.Lads > 0 &&Sveta 12/09/99*/ pm.FIs > 0) {
     // SCM Modernization: 3D and 2D unified sorption arrays
-    ff.readArray((char *)pm.SCM, pm.FIs * MNST * NSCMC);
+    ff.readArray((char *)pm.SCMC, pm.FIs * MNST * NSCMC);
     ff.readArray((double *)pm.Nfsp, pm.FIs * NSURFSITES * NFSIT);
     ff.readArray((double *)pm.MASDT, pm.FIs * MNST * NMSDT);
     ff.readArray((double *)pm.XcapA, pm.FIs * MNST);
@@ -915,14 +915,14 @@ void TMultiBase::from_file(GemDataStream &ff) {
     ff.readArray((double *)pm.XpsiD, pm.FIs * MNST);
     ff.readArray((double *)pm.XpsiZ, pm.FIs * MNST);
     ff.readArray((double *)pm.XlamA, pm.FIs * MNST);
-    ff.readArray((double *)pm.Xetaf, pm.FIs * MNST * NCIEC);
+    ff.readArray((double *)pm.XfIEC, pm.FIs * MNST * NCIEC);
     ff.readArray((double *)pm.XetaA, pm.FIs * MNST);
     ff.readArray((double *)pm.XetaB, pm.FIs * MNST);
     ff.readArray((double *)pm.XetaC, pm.FIs * MNST);
     ff.readArray((double *)pm.XetaD, pm.FIs * MNST);
     ff.readArray((double *)pm.XFTS, pm.FIs * MNST);
 
-    ff.readArray((long int *)pm.SATX, pm.Lads * 4);
+    ff.readArray((long int *)pm.SATC, pm.Lads * 4);
     ff.readArray(pm.SATT, pm.Lads);
     ff.readArray((double *)pm.MASDJ, pm.Lads * DNFCN);
     if (pm.mCDc)
@@ -995,14 +995,14 @@ void TMultiBase::from_file(GemDataStream &ff) {
     long int IsoPcSum, xSMdSum;
     getLsISmosum(IsoCtSum, IsoScSum, IsoPcSum, xSMdSum);
 
-    alloc_xSMd(xSMdSum);
+    alloc_XSMD(xSMdSum);
     alloc_IsoPc(IsoPcSum);
     alloc_IsoSc(IsoScSum);
     alloc_IsoCt(IsoCtSum);
     alloc_EImc(EImcSum);
     alloc_mCDc(mCDcSum);
 
-    ff.readArray(pm.xSMd, xSMdSum);
+    ff.readArray((long int *)pm.XSMD, xSMdSum);
     ff.readArray(pm.IsoPc, IsoPcSum);
     ff.readArray(pm.IsoSc, IsoScSum);
     ff.readArray(pm.IsoCt, IsoCtSum);
@@ -1198,6 +1198,7 @@ void TMultiBase::to_text_file(const std::string &path, bool append) {
 
   if (pm.FIat > 0 && /*pm.Lads > 0 &&Sveta 12/09/99*/ pm.FIs > 0) {
     // SCM Modernization: 3D and 2D unified sorption arrays
+    prar.writeArray("SCMC", &pm.SCMC[0][0][0], pm.FIs * MNST * NSCMC);
     prar.writeArray("Nfsp", &pm.Nfsp[0][0][0], pm.FIs * NSURFSITES * NFSIT);
     prar.writeArray("MASDT", &pm.MASDT[0][0][0], pm.FIs * MNST * NMSDT);
     prar.writeArray("XcapA", &pm.XcapA[0][0], pm.FIs * MNST);
@@ -1215,14 +1216,14 @@ void TMultiBase::to_text_file(const std::string &path, bool append) {
     prar.writeArray("XpsiD", &pm.XpsiD[0][0], pm.FIs * MNST);
     prar.writeArray("XpsiZ", &pm.XpsiZ[0][0], pm.FIs * MNST);
     prar.writeArray("XlamA", &pm.XlamA[0][0], pm.FIs * MNST);
-    prar.writeArray("Xetaf", &pm.Xetaf[0][0][0], pm.FIs * MNST * NCIEC);
+    prar.writeArray("XfIEC", &pm.XfIEC[0][0][0], pm.FIs * MNST * NCIEC);
     prar.writeArray("XetaA", &pm.XetaA[0][0], pm.FIs * MNST);
     prar.writeArray("XetaB", &pm.XetaB[0][0], pm.FIs * MNST);
     prar.writeArray("XetaC", &pm.XetaC[0][0], pm.FIs * MNST);
     prar.writeArray("XetaD", &pm.XetaD[0][0], pm.FIs * MNST);
     prar.writeArray("XFTS", &pm.XFTS[0][0], pm.FIs * MNST);
 
-    prar.writeArray("SATX", &pm.SATX[0][0], pm.Lads * 4);
+    prar.writeArray("SATC", &pm.SATC[0][0], pm.Lads * 4);
     prar.writeArray("MASDJ", &pm.MASDJ[0][0], pm.Lads * DNFCN);
     if (pm.mCDc)
       prar.writeArray("mCDc", &pm.mCDc[0][0], pm.Lads * DMCDC);
@@ -1276,7 +1277,7 @@ void TMultiBase::to_text_file(const std::string &path, bool append) {
     long int IsoPcSum, xSMdSum;
     getLsISmosum(IsoCtSum, IsoScSum, IsoPcSum, xSMdSum);
     prar.writeArray("LsISmo", pm.LsISmo, pm.FIs * 4);
-    prar.writeArray("xSMd", pm.xSMd, xSMdSum);
+    prar.writeArray("XSMD", (long int *)pm.XSMD, xSMdSum);
     prar.writeArray("IsoPc", pm.IsoPc, IsoPcSum);
     prar.writeArray("IsoSc", pm.IsoSc, IsoScSum);
     prar.writeArray("IsoCt", pm.IsoCt, IsoCtSum, 1L);
@@ -1284,7 +1285,7 @@ void TMultiBase::to_text_file(const std::string &path, bool append) {
     getLsESmosum(EImcSum, mCDcSum);
     prar.writeArray("LsESmo", pm.LsESmo, pm.FIs * 4);
     prar.writeArray("EImc", pm.EImc, EImcSum);
-    prar.writeArray("mCDc", pm.mCDc, mCDcSum);
+    prar.writeArray("mCDc", (double *)pm.mCDc, mCDcSum);
 
     prar.writeArray("lnScalT", pm.lnScalT, pm.Ls);
     prar.writeArray("lnSACT", pm.lnSACT, pm.Ls);

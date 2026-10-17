@@ -328,7 +328,7 @@ double TActivity::DC_PrimalChemicalPotentialUpdate( long int j, long int k )
 //    if( act.FIat > 0 && j < act.Ls && j >= act.Ls - act.Lads )
 //    {
 //        ja = j - ( act.Ls - act.Lads );
-//        jc = act.SATX[ja][XL_EM];
+//        jc = act.SATC[ja][XL_EM];
 // Workaround 08.02.2011 by DK to prevent crash on inconsistent sorption DC
 //        if( jc >= act.L1[k] )
 //            jc = -1;
@@ -383,8 +383,8 @@ case DC_SCM_SPECIES:
             break;
         F0 = act.lnGmM[j]; / * + act.lnGam[j]; * /
         // get ist - index of surface type and isp - index of surface plane
-/ *!!!!!* /  ist = act.SATX[ja][XL_ST];  // / MSPN;
-/ *!!!!!* /  isp = act.SATX[ja][XL_SP]; // % MSPN;
+/ *!!!!!* /  ist = act.SATC[ja][XL_ST];  // / MSPN;
+/ *!!!!!* /  isp = act.SATC[ja][XL_SP]; // % MSPN;
         // SCM Modernization: charges from mCDc[ja][0..1]
         CD0 = act.mCDc ? act.mCDc[ja][0] : 0.0;  // species charge that goes into 0 plane
         CDb = act.mCDc ? act.mCDc[ja][1] : 0.0;  // species charge that goes into B plane

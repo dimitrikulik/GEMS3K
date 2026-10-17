@@ -445,7 +445,7 @@ void TActivity::CalculateConcentrations( double X[], double XF[], double XFA[])
                 }
                 else
                 {
-/ *!!!!! * /           ist = act.SATX[jja][XL_ST];
+/ *!!!!! * /           ist = act.SATC[jja][XL_ST];
                     act.XFTS[k][ist] += X[jj];
                 }
             }

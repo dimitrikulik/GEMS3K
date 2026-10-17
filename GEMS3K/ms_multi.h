@@ -328,15 +328,14 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
   // TSorpMod stuff
   long int *LsESmo, ///< new: number of EIL model layers; EIL params per layer;
                     ///< CD coefs per DC; reserved  [Fis][4]
-      *LsISmo,      ///< new: number of surface sites; isotherm coeffs per site;
+      *LsISmo;      ///< new: number of surface sites; isotherm coeffs per site;
                     ///< isotherm coeffs per DC; max.denticity of DC [Fis][4]
-      *xSMd; ///< new: denticity of surface species per surface site (site
-             ///< allocation) (-> L1[k]*LsISmo[k][3]] )
   long int (
-      *SATX)[MNCAS]; ///< Setup of surface sites and species (will be applied
+      *SATC)[MNCAS]; ///< Setup of surface sites and species (will be applied
                      ///< separately within each sorption phase) [Lads]
   /// link indexes to surface type [XL_ST]; sorbent em [XL_EM]; surf.site
   /// [XL-SI] and EDL plane [XL_SP]  called char(*)[MNCAS] SATC in ms_system.h
+  #define SATX SATC
   // TKinMet stuff
   long int *LsKin, ///< new: number of parallel reactions nPRk[k]; number of
                    ///< species in activity products nSkr[k];
@@ -464,10 +463,14 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
                         ///< [FIs][FIat], reserved
   double (
       *XlamA)[MNST]; ///< Factor of EDL discretness  A < 1 [FIs][FIat], reserved
-  double (*Xetaf)[MNST][NCIEC]; ///< SCM Modernization: Fixed permanent charge
+  double (*XfIEC)[MNST][NCIEC]; ///< SCM Modernization: Fixed permanent charge
                                 ///< density or IEC [FIs][MNST=6][NCIEC=2]
+  #define Xetaf XfIEC
   double (*MASDJ)[DNFCN];       ///< Parameters of surface species in surface
                                 ///< complexation models [Lads][DNFCN]
+  long int (*XSMD)[NSURFSITES]; ///< SCM Modernization: denticity of surface species per site
+                                // (species-site allocation) [Lads][NSURFSITES]
+  #define xSMd XSMD
   // Contents defined in the enum below this structure
   // Other data
   double *XFs, ///< Current quantities of phases X_a at IPM iterations [0:FI-1]
@@ -544,7 +547,7 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
   double *lnSACT;  ///< new: ln isotherm-specific SACT for surface species [Ls_]
   double *lnGammF; ///< new: Frumkin or BET non-electrostatic activity
                    ///< coefficients [Ls_]
-  double *CTerms;  ///< new: Coulombic terms (electrostatic activity
+  double *CTerms;  ///< new: Coulomb terms for DCs (electrostatic activity
                    ///< coefficients) [Ls_]
 
   double
@@ -639,9 +642,10 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
       *DCC,  ///< Classifier of DC { TESKWL GVCHNI JMFD QPR <0-9>  AB  XYZ O }
              ///< [L]
       *PHC;  ///< Classifier of phases { a g f p m l x d h } [FI]
-  char (*SCM)[MNST]
+  char (*SCMC)[MNST]
              [NSCMC]; ///< SCM Modernization: Classifier of EIL models and SACT
                       ///< codes applied to surface types [FIs][MNST=6][NSCMC=2]
+  #define SCM SCMC
   char *SATT, ///< Classifier of applied SACT equations (isotherm corrections)
               ///< [Lads]
       *DCCW;  ///< internal DC class codes [L]
@@ -713,14 +717,13 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
                   ///< system size
 } MULTI;
 
-/// Indexation in a row of the pmp->SATX[][] array.
-/// [0] - max site density in mkmol/(g sorbent);
-/// [1] - species charge allocated to 0 plane;
-/// [2] - surface species charge allocated to beta -or third plane;
-/// [3] - Frumkin interaction parameter;
-/// [4] species denticity or coordination number;
-/// [5]  - reserved parameter (e.g. species charge on 3rd EIL plane)
-enum IndexationSATX { XL_ST = 0, XL_EM = 1, XL_SI = 2, XL_SP = 3 };
+/// Indexation in a row of the pmp->SATC[][] array.
+/// [0] - surface type index (XL_ST);
+/// [1] - carrier end-member DC index (XL_EM);
+/// [2] - surface site index (XL_SI);
+/// [3] - EIL plane index (XL_SP).
+enum IndexationSATC { XL_ST = 0, XL_EM = 1, XL_SI = 2, XL_SP = 3 };
+using IndexationSATX = IndexationSATC;
 
 extern const BASE_PARAM pa_p_;
 
@@ -920,7 +923,8 @@ protected:
   virtual void alloc_DQFc(long int DQFcSum);
   virtual void alloc_PhLin(long int PhLinSum);
   virtual void alloc_lPhc(long int lPhcSum);
-  virtual void alloc_xSMd(long int xSMdSum);
+  virtual void alloc_XSMD(long int xSMdSum);
+  virtual void alloc_xSMd(long int xSMdSum) { alloc_XSMD(xSMdSum); }
   virtual void alloc_IsoPc(long int IsoPcSum);
   virtual void alloc_IsoSc(long int IsoScSum);
   virtual void alloc_IsoCt(long int IsoCtSum);
@@ -1148,10 +1152,13 @@ typedef enum { // Field index into outField structure
   f_C3,
   f_CZ,
   f_CD,
-  f_pCh,
-  f_SATX,
+  f_XfIEC,
+  f_pCh = f_XfIEC,
+  f_SATC,
+  f_SATX = f_SATC,
   f_MASDJ,
-  f_SCM,
+  f_SCMC,
+  f_SCM = f_SCMC,
   f_SACT,
   f_DCads,
   // static

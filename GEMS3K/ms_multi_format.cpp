@@ -148,13 +148,13 @@ std::vector<io_formats::outField> MULTI_dynamic_fields = { // 83 (SCM Modernizat
      "\n# CZ: Location of slip plane for zeta potential, nm [nPS*6]"},
     {"CD", 0, 0, 0,
      "\n# CD: Effective capacitance density of diffuse layer, F/m2 [nPS*6]"},
-    {"pCh", 0, 0, 0,
-     "\n# pCh: Density of permanent surface type charge (mkeq/m2) for each "
-     "surface type on sorption phases [nPS*6]"},
-    {"SATX", 0, 0, 0,
-     "\n# SATX: Setup of surface sites and species (will be applied separately "
+    {"XfIEC", 0, 0, 0,
+     "\n# XfIEC: Density of permanent surface type charge (mkeq/m2) and IEC (meq/g) for each "
+     "surface type on sorption phases [nPS*6*2]"},
+    {"SATC", 0, 0, 0,
+     "\n# SATC: Setup of surface sites and species (will be applied separately "
      "within each sorption phase) [Lads*4]"
-     "\n# [0] surface type; [1] sorbent emd member; [2] surface site in surf. "
+     "\n# [0] surface type; [1] sorbent end member; [2] surface site in surf. "
      "type; [3] surface EDL plane"},
     {"MASDJ", 0, 0, 0,
      "\n# MASDJ: Parameters of surface species in surface complexation models "
@@ -164,9 +164,9 @@ std::vector<io_formats::outField> MULTI_dynamic_fields = { // 83 (SCM Modernizat
      "isotherm interaction parameter;"
      "\n# [4] denticity or coordination number CN; [5] reserved isoterm "
      "parameter"},
-    {"SCM", 0, 0, 0,
-     "\n# SCM: Classifier of built-in electrostatic models applied to surface "
-     "types in sorption phases [nPS*6]"},
+    {"SCMC", 0, 0, 0,
+     "\n# SCMC: Classifier of built-in electrostatic models applied to surface "
+     "types in sorption phases [nPS*6*2]"},
     {"SACT", 0, 0, 0,
      "\n# SACT: Classifier of applied SACT equations (isotherm corrections) "
      "[Lads]"},
@@ -375,10 +375,10 @@ void TMultiBase::to_text_file_gemipm(TIO &out_format, bool addMui,
     prar.setNoAlws(f_C3);
     prar.setNoAlws(f_CZ);
     prar.setNoAlws(f_CD);
-    prar.setNoAlws(f_pCh);
-    prar.setNoAlws(f_SATX);
+    prar.setNoAlws(f_XfIEC);
+    prar.setNoAlws(f_SATC);
     prar.setNoAlws(f_MASDJ);
-    prar.setNoAlws(f_SCM);
+    prar.setNoAlws(f_SCMC);
     prar.setNoAlws(f_SACT);
     prar.setNoAlws(f_DCads);
   }
@@ -627,9 +627,9 @@ void TMultiBase::to_text_file_gemipm(TIO &out_format, bool addMui,
     prar.writeArray(f_LsISmo, pm.LsISmo, pm.FIs * 4, 4L, _comment, brief_mode);
     if (xSMdSum) {
       if (_comment)
-        prar.writeComment(_comment, "\n# xSMd:  denticity of surface species "
+        prar.writeComment(_comment, "\n# XSMD:  denticity of surface species "
                                     "per surface site (site allocation) ");
-      prar.writeArray("xSMd", pm.xSMd, xSMdSum);
+      prar.writeArray("XSMD", (long int *)pm.XSMD, xSMdSum);
     }
     if (IsoPcSum) {
       if (_comment)
@@ -781,13 +781,13 @@ void TMultiBase::to_text_file_gemipm(TIO &out_format, bool addMui,
                     brief_mode);
     prar.writeArray(f_CD, &pm.XcapD[0][0], pm.FIs * MNST, (long int)MNST, _comment,
                     brief_mode);
-    prar.writeArray(f_pCh, &pm.Xetaf[0][0][0], pm.FIs * MNST * NCIEC,
+    prar.writeArray(f_XfIEC, &pm.XfIEC[0][0][0], pm.FIs * MNST * NCIEC,
                     (long int)(MNST * NCIEC), _comment, brief_mode);
-    prar.writeArray(f_SATX, &pm.SATX[0][0], pm.Lads * 4, 4L, _comment,
+    prar.writeArray(f_SATC, &pm.SATC[0][0], pm.Lads * 4, 4L, _comment,
                     brief_mode);
     prar.writeArray(f_MASDJ, &pm.MASDJ[0][0], pm.Lads * DNFCN, (long int)DNFCN,
                     _comment, brief_mode);
-    prar.writeArrayF(f_SCM, &pm.SCM[0][0][0], pm.FIs, (long int)(MNST * NSCMC), _comment, brief_mode);
+    prar.writeArrayF(f_SCMC, &pm.SCMC[0][0][0], pm.FIs, (long int)(MNST * NSCMC), _comment, brief_mode);
     prar.writeArrayF(f_SACT, pm.SATT, pm.Lads, 1L, _comment, brief_mode);
     prar.writeArrayF(f_DCads, pm.DCC3, pm.Lads, 1L, _comment, brief_mode);
   }
@@ -992,10 +992,10 @@ void TMultiBase::from_text_file_gemipm(TIO &in_format, DATACH *dCH) {
     rddar.setNoAlws(f_C3);
     rddar.setNoAlws(f_CZ);
     rddar.setNoAlws(f_CD);
-    rddar.setNoAlws(f_pCh);
-    rddar.setNoAlws(f_SATX);
+    rddar.setNoAlws(f_XfIEC);
+    rddar.setNoAlws(f_SATC);
     rddar.setNoAlws(f_MASDJ);
-    rddar.setNoAlws(f_SCM);
+    rddar.setNoAlws(f_SCMC);
     rddar.setNoAlws(f_SACT);
     rddar.setNoAlws(f_DCads);
   }
@@ -1097,9 +1097,9 @@ void TMultiBase::from_text_file_gemipm(TIO &in_format, DATACH *dCH) {
       getLsISmosum(IsoCtSum, IsoScSum, IsoPcSum, xSMdSum);
 
       if (xSMdSum) {
-        rddar.readNext("xSMd");
-        alloc_xSMd(xSMdSum);
-        rddar.readArray("xSMd", pm.xSMd, xSMdSum);
+        rddar.readNext("XSMD");
+        alloc_XSMD(xSMdSum);
+        rddar.readArray(rddar.getLastKey().empty() ? "XSMD" : rddar.getLastKey(), (long int *)pm.XSMD, xSMdSum);
       }
       if (IsoPcSum) {
         rddar.readNext("IsoPc");
@@ -1283,27 +1283,27 @@ void TMultiBase::from_text_file_gemipm(TIO &in_format, DATACH *dCH) {
         Error("Error", "Array XcapD not used in this problem");
       rddar.readArray("CD", &pm.XcapD[0][0], pm.FIs * MNST);
       break;
-    case f_pCh:
-      if (!pm.Xetaf)
-        Error("Error", "Array Xetaf not used in this problem");
+    case f_XfIEC:
+      if (!pm.XfIEC)
+        Error("Error", "Array XfIEC not used in this problem");
       // SCM Modernization: 3D read
-      rddar.readArray("pCh", &pm.Xetaf[0][0][0], pm.FIs * MNST * NCIEC);
+      rddar.readArray(rddar.getLastKey().empty() ? "XfIEC" : rddar.getLastKey(), &pm.XfIEC[0][0][0], pm.FIs * MNST * NCIEC);
       break;
-    case f_SATX:
-      if (!pm.SATX)
-        Error("Error", "Array SATX not used in this problem");
-      rddar.readArray("SATX", &pm.SATX[0][0], pm.Lads * 4);
+    case f_SATC:
+      if (!pm.SATC)
+        Error("Error", "Array SATC not used in this problem");
+      rddar.readArray(rddar.getLastKey().empty() ? "SATC" : rddar.getLastKey(), &pm.SATC[0][0], pm.Lads * 4);
       break;
     case f_MASDJ:
       if (!pm.MASDJ)
         Error("Error", "Array MASDJ not used in this problem");
       rddar.readArray("MASDJ", &pm.MASDJ[0][0], pm.Lads * DNFCN);
       break;
-    case f_SCM:
-      if (!pm.SCM)
-        Error("Error", "Array SCM not used in this problem");
+    case f_SCMC:
+      if (!pm.SCMC)
+        Error("Error", "Array SCMC not used in this problem");
       // SCM Modernization: 3D read
-      rddar.readArray("SCM", &pm.SCM[0][0][0], pm.FIs, (long int)(MNST * NSCMC));
+      rddar.readArray(rddar.getLastKey().empty() ? "SCMC" : rddar.getLastKey(), &pm.SCMC[0][0][0], pm.FIs, (long int)(MNST * NSCMC));
       break;
     case f_SACT:
       if (!pm.SATT)

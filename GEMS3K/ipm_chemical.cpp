@@ -66,10 +66,10 @@ void TMultiBase::XmaxSAT_IPM2() {
             pm.DCC[j] == DC_SUR_CARRIER)
           continue;
         /*!!!!!!*/ ist =
-            pm.SATX[ja][XL_ST]; // / MSPN; MSPN = 2 - number of EDL planes
+            pm.SATC[ja][XL_ST]; // / MSPN; MSPN = 2 - number of EDL planes
         continue;
       }
-      /*!!!!!!*/ ist = pm.SATX[ja][XL_ST]; //  / MSPN;
+      /*!!!!!!*/ ist = pm.SATC[ja][XL_ST]; //  / MSPN;
       iSite[ist] = j;                      // To be checked !!!
     }
 
@@ -99,9 +99,9 @@ void TMultiBase::XmaxSAT_IPM2() {
       case DC_SUR_IPAIR:
       case DC_IESC_A:
         // Calculate ist - index of surface type
-        /*!!!!!!*/ ist = pm.SATX[ja][XL_ST]; // / MSPN;
+        /*!!!!!!*/ ist = pm.SATC[ja][XL_ST]; // / MSPN;
         // Cj - index of carrier DC
-        Cj = pm.SATX[ja][XL_EM];
+        Cj = pm.SATC[ja][XL_EM];
         if (Cj < 0) { // Assigned to the whole sorbent
           XVk = pm.XFA[k];
           Mm = pm.FWGT[k] / XVk;
@@ -415,7 +415,7 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   Fold = pm.F0[j];
   if (pm.FIat > 0 && j < pm.Ls && j >= pm.Ls - pm.Lads) {
     ja = j - (pm.Ls - pm.Lads);
-    jc = pm.SATX[ja][XL_EM];
+    jc = pm.SATC[ja][XL_EM];
     // Workaround 08.02.2011 by DK to prevent crash on inconsistent sorption DC
     if (jc >= pm.L1[k])
       jc = -1;
@@ -468,8 +468,8 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
       break;
     F0 = pm.lnGmM[j]; /* + pm.lnGam[j]; */
     // get ist - index of surface type and isp - index of surface plane
-    /*!!!!!*/ ist = pm.SATX[ja][XL_ST]; // / MSPN;
-    /*!!!!!*/ isp = pm.SATX[ja][XL_SP]; // % MSPN;
+    /*!!!!!*/ ist = pm.SATC[ja][XL_ST]; // / MSPN;
+    /*!!!!!*/ isp = pm.SATC[ja][XL_SP]; // % MSPN;
     // SCM Modernization: charges from mCDc[ja][0..1]
     CDA = pm.mCDc ? pm.mCDc[ja][0] : 0.0;
     CD0 = CDA; // species charge that goes into 0 plane
@@ -491,14 +491,14 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
       F0 += psiA * Ez * pm.FRT;
     } else // This is B plane
     {
-      // SCM Modernization: SCM[k][ist][0] is EIL model code
-      if (pm.SCM[k][ist][0] == SC_MTL || pm.SCM[k][ist][0] == SC_MXC) {
+      // SCM Modernization: SCMC[k][ist][0] is EIL model code
+      if (pm.SCMC[k][ist][0] == SC_MTL || pm.SCMC[k][ist][0] == SC_MXC) {
         // Modified TL: Robertson, 1997; also XTLM Kulik 2002
         if (fabs(CDb) > 1e-20) // Doubtful...
           Ez = CDb;
         F0 += psiB * Ez * pm.FRT;
       }
-      if (pm.SCM[k][ist][0] == SC_TLM || pm.SCM[k][ist][0] == SC_3LM) {
+      if (pm.SCMC[k][ist][0] == SC_TLM || pm.SCMC[k][ist][0] == SC_3LM) {
         // New 3LM - CD version of TLM - added 25.10.2004
         if (fabs(CD0) > 1e-20 && fabs(CDb) > 1e-20)
           F0 += (psiA * CD0 + psiB * CDb) * pm.FRT;
@@ -514,9 +514,9 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
             F0 += (Ez * psiB - psiA) * pm.FRT;
           }
         }
-      } else if (pm.SCM[k][ist][0] == SC_BSM || pm.SCM[k][ist][0] == SC_CCM ||
-                 pm.SCM[k][ist][0] == SC_ISCCM) { // Basic Stern model, Christl &
-                                               // Kretzschmar, 1999
+      } else if (pm.SCMC[k][ist][0] == SC_BSM || pm.SCMC[k][ist][0] == SC_CCM ||
+                 pm.SCMC[k][ist][0] == SC_ISCCM) { // Basic Stern model, Christl &
+                                                // Kretzschmar, 1999
         // New CD version of TLM  added 25.10.2004
         if (fabs(CD0) > 1e-20 && fabs(CDb) > 1e-20)
           F0 += (psiA * CD0 + psiB * CDb) * pm.FRT;
@@ -538,8 +538,8 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
       // carrier
       // SCM Modernization: MASDT[k][ist][MSDT_FSUTSA] is reactive area fraction
       FactSurT = FactSur * (pm.MASDT[k][ist][MSDT_FSUTSA]);
-      if (pm.SCM[k][ist][0] == SC_MXC || pm.SCM[k][ist][0] == SC_NNE ||
-          pm.SCM[k][ist][0] == SC_IEV)
+      if (pm.SCMC[k][ist][0] == SC_MXC || pm.SCMC[k][ist][0] == SC_NNE ||
+          pm.SCMC[k][ist][0] == SC_IEV)
         // F0 -= log( Mk * (pm.Nfsp[k][ist]) *
         // (pm.Aalp[k]) * pa->p.DNS*1.66054 );
         F0 -= log(FactSurT);

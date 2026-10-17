@@ -163,7 +163,7 @@ void TMultiBase::copyMULTI( const TMultiBase& otherMulti )
 
     if( pm.FIat > 0 && /*pm.Lads > 0 &&Sveta 12/09/99*/ pm.FIs > 0 )
     { // SCM Modernization: 3D and 2D unified sorption arrays
-        copyValues((char*)pm.SCM, (char*)otherPM->SCM, pm.FIs * MNST * NSCMC);
+        copyValues((char*)pm.SCMC, (char*)otherPM->SCMC, pm.FIs * MNST * NSCMC);
         copyValues((double*)pm.Nfsp, (double*)otherPM->Nfsp, pm.FIs * NSURFSITES * NFSIT);
         copyValues((double*)pm.MASDT, (double*)otherPM->MASDT, pm.FIs * MNST * NMSDT);
         copyValues((double*)pm.XcapA, (double*)otherPM->XcapA, pm.FIs * MNST);
@@ -181,14 +181,14 @@ void TMultiBase::copyMULTI( const TMultiBase& otherMulti )
         copyValues((double*)pm.XpsiD, (double*)otherPM->XpsiD, pm.FIs * MNST);
         copyValues((double*)pm.XpsiZ, (double*)otherPM->XpsiZ, pm.FIs * MNST);
         copyValues((double*)pm.XlamA, (double*)otherPM->XlamA, pm.FIs * MNST);
-        copyValues((double*)pm.Xetaf, (double*)otherPM->Xetaf, pm.FIs * MNST * NCIEC);
+        copyValues((double*)pm.XfIEC, (double*)otherPM->XfIEC, pm.FIs * MNST * NCIEC);
         copyValues((double*)pm.XetaA, (double*)otherPM->XetaA, pm.FIs * MNST);
         copyValues((double*)pm.XetaB, (double*)otherPM->XetaB, pm.FIs * MNST);
         copyValues((double*)pm.XetaC, (double*)otherPM->XetaC, pm.FIs * MNST);
         copyValues((double*)pm.XetaD, (double*)otherPM->XetaD, pm.FIs * MNST);
         copyValues((double*)pm.XFTS, (double*)otherPM->XFTS, pm.FIs * MNST);
 
-        copyValues((long int*)pm.SATX, (long int*)otherPM->SATX, pm.Lads*4);
+        copyValues((long int*)pm.SATC, (long int*)otherPM->SATC, pm.Lads*4);
         copyValues(pm.SATT, otherPM->SATT, pm.Lads);
         copyValues((double*)pm.MASDJ, (double*)otherPM->MASDJ, pm.Lads * DNFCN);
         if (pm.mCDc && otherPM->mCDc)
@@ -264,14 +264,14 @@ void TMultiBase::copyMULTI( const TMultiBase& otherMulti )
         long int IsoPcSum, xSMdSum;
         getLsISmosum( IsoCtSum,IsoScSum,IsoPcSum, xSMdSum );
 
-        alloc_xSMd(xSMdSum);
+        alloc_XSMD(xSMdSum);
         alloc_IsoPc(IsoPcSum);
         alloc_IsoSc(IsoScSum);
         alloc_IsoCt(IsoCtSum);
         alloc_EImc(EImcSum);
         alloc_mCDc(mCDcSum);
 
-        copyValues(  pm.xSMd, otherPM->xSMd, xSMdSum);
+        copyValues(  (long int*)pm.XSMD, (long int*)otherPM->XSMD, xSMdSum);
         copyValues(  pm.IsoPc,  otherPM->IsoPc,  IsoPcSum);
         copyValues(  pm.IsoSc, otherPM->IsoSc, IsoScSum);
         copyValues(  pm.IsoCt,  otherPM->IsoCt,  IsoCtSum);
@@ -639,13 +639,13 @@ void TMultiBase::multi_realloc( char PAalp, char PSigm )
     if( pm.FIat > 0 /*&& pm.Lads > 0*/ && pm.FIs > 0 )
     { // ADSORBTION AND ION IXCHANDG
         // SCM Modernization: Allocation and initialization of unified sorption arrays
-        pm.SATX = new long int[pm.Lads][4];
+        pm.SATC = new long int[pm.Lads][4];
         pm.MASDJ = new double[pm.Lads][DNFCN];
         pm.mCDc = new double[pm.Lads][DMCDC];
         pm.lnSAC = new double[pm.Lads][4];
         for( ii=0; ii<pm.Lads; ii++ )
         {
-            pm.SATX[ii][0] = pm.SATX[ii][1] = pm.SATX[ii][2] = pm.SATX[ii][3] = 0;
+            pm.SATC[ii][0] = pm.SATC[ii][1] = pm.SATC[ii][2] = pm.SATC[ii][3] = 0;
             pm.lnSAC[ii][0] = pm.lnSAC[ii][1] = pm.lnSAC[ii][2] = pm.lnSAC[ii][3] = 0.0;
             for( jj=0; jj<DNFCN; jj++ )
                 pm.MASDJ[ii][jj] = 0.0;
@@ -653,7 +653,7 @@ void TMultiBase::multi_realloc( char PAalp, char PSigm )
                 pm.mCDc[ii][jj] = 0.0;
         }
 
-        pm.SCM  = new char[pm.FIs][MNST][NSCMC];
+        pm.SCMC  = new char[pm.FIs][MNST][NSCMC];
         pm.Nfsp = new double[pm.FIs][NSURFSITES][NFSIT];
         pm.MASDT = new double[pm.FIs][MNST][NMSDT];
         pm.XcapA = new double[pm.FIs][MNST];
@@ -671,7 +671,7 @@ void TMultiBase::multi_realloc( char PAalp, char PSigm )
         pm.XpsiD = new double[pm.FIs][MNST];
         pm.XpsiZ = new double[pm.FIs][MNST];
         pm.XlamA = new double[pm.FIs][MNST];
-        pm.Xetaf = new double[pm.FIs][MNST][NCIEC];
+        pm.XfIEC = new double[pm.FIs][MNST][NCIEC];
         pm.XetaA = new double[pm.FIs][MNST];
         pm.XetaB = new double[pm.FIs][MNST];
         pm.XetaC = new double[pm.FIs][MNST];
@@ -682,11 +682,11 @@ void TMultiBase::multi_realloc( char PAalp, char PSigm )
             for( jj=0; jj<MNST; jj++ )
             {
                 for( int kk=0; kk<NSCMC; kk++ )
-                    pm.SCM[ii][jj][kk] = 0;
+                    pm.SCMC[ii][jj][kk] = 0;
                 for( int kk=0; kk<NMSDT; kk++ )
                     pm.MASDT[ii][jj][kk] = 0.0;
                 for( int kk=0; kk<NCIEC; kk++ )
-                    pm.Xetaf[ii][jj][kk] = 0.0;
+                    pm.XfIEC[ii][jj][kk] = 0.0;
                 pm.XcapA[ii][jj] = 0.0;
                 pm.XcapB[ii][jj] = 0.0;
                 pm.XcapC[ii][jj] = 0.0;
@@ -731,7 +731,7 @@ void TMultiBase::multi_realloc( char PAalp, char PSigm )
     }
     else
     { // ADSORPTION AND ION EXCHANGE
-        pm.SCM  = 0;
+        pm.SCMC  = 0;
         pm.Nfsp = 0;
         pm.MASDT = 0;
         pm.XcapA = 0;
@@ -749,7 +749,7 @@ void TMultiBase::multi_realloc( char PAalp, char PSigm )
         pm.XpsiD = 0;
         pm.XpsiZ = 0;
         pm.XlamA = 0;
-        pm.Xetaf = 0;
+        pm.XfIEC = 0;
         pm.XetaA = 0;
         pm.XetaB = 0;
         pm.XetaC = 0;
@@ -911,7 +911,7 @@ void TMultiBase::multi_realloc( char PAalp, char PSigm )
         {    pm.LsESmo[ii] =0;
             pm.LsISmo[ii] =0;
         }
-        pm.xSMd   = 0;
+        pm.XSMD   = 0;
         pm.EImc   = 0;
         pm.mCDc   = 0;
         pm.IsoPc   = 0;
@@ -990,7 +990,7 @@ void TMultiBase::multi_realloc( char PAalp, char PSigm )
         // TSorpMod stuff
         pm.LsESmo   = 0;
         pm.LsISmo   = 0;
-        pm.xSMd   = 0;
+        pm.XSMD   = 0;
         pm.EImc   = 0;
         pm.mCDc   = 0;
         pm.IsoPc   = 0;
@@ -1127,8 +1127,8 @@ void TMultiBase::multi_kill()
 
 
     // SCM Modernization: Cleanup of unified sorption arrays
-    if( pm.SATX ) delete[] pm.SATX;
-    if( pm.SCM ) delete[] pm.SCM;
+    if( pm.SATC ) delete[] pm.SATC;
+    if( pm.SCMC ) delete[] pm.SCMC;
     if( pm.Nfsp ) delete[] pm.Nfsp;
     if( pm.MASDT ) delete[] pm.MASDT;
     if( pm.XcapA ) delete[] pm.XcapA;
@@ -1146,7 +1146,7 @@ void TMultiBase::multi_kill()
     if( pm.XpsiD ) delete[] pm.XpsiD;
     if( pm.XpsiZ ) delete[] pm.XpsiZ;
     if( pm.XlamA ) delete[] pm.XlamA;
-    if( pm.Xetaf ) delete[] pm.Xetaf;
+    if( pm.XfIEC ) delete[] pm.XfIEC;
     if( pm.XetaA ) delete[] pm.XetaA;
     if( pm.XetaB ) delete[] pm.XetaB;
     if( pm.XetaC ) delete[] pm.XetaC;
@@ -1222,7 +1222,7 @@ void TMultiBase::multi_kill()
     // TSorpMod stuff
     if(pm.LsESmo) delete[] pm.LsESmo;
     if(pm.LsISmo) delete[] pm.LsISmo;
-    if(pm.xSMd) delete[] pm.xSMd;
+    if(pm.XSMD) delete[] pm.XSMD;
     if(pm.EImc) delete[] pm.EImc;
     if(pm.mCDc) delete[] pm.mCDc;
     if(pm.IsoPc) delete[] pm.IsoPc;

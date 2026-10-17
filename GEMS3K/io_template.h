@@ -269,6 +269,8 @@ public:
        in_format.reset();
     }
 
+    std::string last_name_key;
+
     /// Read next name from file and find in fields list
     long int findNext()
     {
@@ -279,6 +281,7 @@ public:
             ii = findFld( name_key );
             if( ii >= 0 )
             {
+                last_name_key = name_key;
                 flds[ii].readed = 1;
                 return ii;
             }
@@ -286,16 +289,33 @@ public:
         return -3;
     }
 
+    const std::string& getLastKey() const { return last_name_key; }
+
     /// Read next label from file ( must be exist, otherwise error )
     void  readNext( const std::string& label)
     {
         if( !in_format.test_next_is( label )  )
         {
+            std::string alias = "";
+            if( label == "XSMD" ) alias = "xSMd";
+            else if( label == "xSMd" ) alias = "XSMD";
+            else if( label == "SCMC" ) alias = "SCM";
+            else if( label == "SCM" ) alias = "SCMC";
+            else if( label == "SATC" ) alias = "SATX";
+            else if( label == "SATX" ) alias = "SATC";
+            else if( label == "XfIEC" ) alias = "pCh";
+            else if( label == "pCh" ) alias = "XfIEC";
+            if( !alias.empty() && in_format.test_next_is( alias ) )
+            {
+                last_name_key = alias;
+                return;
+            }
             std::string msg = label;
             msg += " - No data where expected.\n";
             msg += current_readed;
             Error( "TReadArrays read error 01", msg );
         }
+        last_name_key = label;
     }
 
     /// Reads array from a TIO format.

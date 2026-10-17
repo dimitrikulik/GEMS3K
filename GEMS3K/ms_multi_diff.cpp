@@ -149,10 +149,10 @@ void TMultiBase::alloc_lPhc( long int lPhcSum )
     pm.lPhc = new double[lPhcSum];
 }
 
-void TMultiBase::alloc_xSMd( long int xSMdSum )
+void TMultiBase::alloc_XSMD( long int xSMdSum )
 {
-    if(pm.xSMd) delete[] pm.xSMd;
-    pm.xSMd = new long int[xSMdSum];
+    if(pm.XSMD) delete[] pm.XSMD;
+    pm.XSMD = (long int (*)[NSURFSITES])(new long int[xSMdSum]);
 }
 
 void TMultiBase::alloc_IsoPc( long int IsoPcSum )

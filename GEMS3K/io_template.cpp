@@ -33,6 +33,15 @@ long int TRWArrays::findFld(  const std::string& name  ) const
     for( long int ii=0; ii < num_flds; ii++ )
         if( flds[ii].name == name )
             return ii;
+    // SCM Modernization: Allow alias mappings for renamed sorption arrays
+    if( name == "SCM" ) return findFld("SCMC");
+    if( name == "SCMC" ) return findFld("SCM");
+    if( name == "SATX" ) return findFld("SATC");
+    if( name == "SATC" ) return findFld("SATX");
+    if( name == "pCh" ) return findFld("XfIEC");
+    if( name == "XfIEC" ) return findFld("pCh");
+    if( name == "xSMd" ) return findFld("XSMD");
+    if( name == "XSMD" ) return findFld("xSMd");
     return -1;
 }
 

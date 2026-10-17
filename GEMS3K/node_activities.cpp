@@ -289,8 +289,8 @@ TNode::InitCopyActivities( DATACH* csd, MULTI* mp, DATABR* cnd )
         // TSorpMod stuff
         ap->LsESmo = mp->LsESmo; //< new: number of EIL model layers; EIL params per layer; CD coefs per DC; reserved  [nPS][4]
         ap->LsISmo = mp->LsISmo; //< new: number of surface sites; isotherm coeffs per site; isotherm coeffs per DC; max.denticity of DC [nPS][4]
-        ap->xSMd = mp->xSMd;     //< new: denticity of surface species per surface site (site allocation) (-> L1[k]*LsISmo[k][3]] )
-        ap->SATX = mp->SATX;     //< Setup of surface sites and species (will be applied separately within each sorption phase) [Lads]
+        ap->XSMD = mp->XSMD;     //< new: denticity of surface species per surface site (site allocation) (-> L1[k]*LsISmo[k][3]] )
+        ap->SATC = mp->SATC;     //< Setup of surface sites and species (will be applied separately within each sorption phase) [Lads]
                     // link indexes to surface type [XL_ST]; sorbent em [XL_EM]; surf.site [XL-SI] and EDL plane [XL_SP]
         ap->EImc = mp->EImc;     //< new: Collected EIL model coefficients k -> += LsESmo[k][0]*LsESmo[k][1]
         ap->mCDc = mp->mCDc;     //< new: Collected CD EIL model coefficients per DC k -> += L1[k]*LsESmo[k][2]
