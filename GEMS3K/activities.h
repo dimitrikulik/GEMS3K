@@ -187,8 +187,8 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
                  ///< DDF correction [0:L-1]
 
   // TSorpMod stuff (TBD)
-  double *lnScalT; ///< new: Surface/volume scaling activity correction terms
-                   ///< [nDCs]              -      -      +     +
+  double *FWGTS; ///< new: Masses of sorbent (real or virtual) for SCMS [FIs] -
+                 ///< -      +     +
   double *lnSACT; ///< new: ln isotherm-specific SACT for surface species [nDCs]
                   ///< -      -      +     +
   double *lnGammF; ///< new: Frumkin or BET non-electrostatic activity
@@ -228,7 +228,7 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
   double *MM;   //< DC molar masses, g/mol [L]
   double *FWGT; //< phase (carrier) masses, g                [0:FI-1]
   double *YOF; //< Surface free energy parameter for phases (J/g) (to accomodate
-               //for variable phase composition) [FI]
+               // for variable phase composition) [FI]
 
   // Work part (to compute concentrations and chem.potentials), takeover from
   // MULTI
@@ -241,7 +241,7 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
       FIs,    // Number of phases-solutions,
       K2,
       *L1; //< l_a vector - number of DCs included into each phase [nPH]; copy
-           //of nDCinPH
+           // of nDCinPH
 
   double *A, ///< DC stoichiometry matrix A composed of a_ji [0:N-1][0:L-1]
       *Awt,  ///< IC atomic (molar) mass, g/mole [0:N-1]

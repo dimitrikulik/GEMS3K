@@ -217,7 +217,7 @@ void TMultiBase::set_def(int) {
   pm.DHBM = 0.; // Adjusted balance precision criterion (IPM-2 )
   pm.DSM = 0.;  // min value phase DS (IPM-2)
   pm.GWAT = 55.50837344; // used in ipm_gamma()
-  pm.YMET = 0.;          // reserved
+  pm.Zeff = 1.0;         // Effective valency of ions in aqueous solution
   fillValue(pm.denW, 0., 5);
   fillValue(pm.denWg, 0., 5);
   fillValue(pm.epsW, 0., 5);
@@ -412,7 +412,7 @@ void TMultiBase::set_def(int) {
   pm.mCDc = 0;
   pm.IsoPc = 0;
   pm.IsoSc = 0;
-  pm.lnScalT = 0;
+  pm.FWGTS = 0;
   pm.lnSACT = 0;
   pm.lnGammF = 0;
   pm.CTerms = 0;
@@ -659,7 +659,7 @@ void TMultiBase::to_file(GemDataStream &ff) {
     ff.writeArray((double *)pm.lnSAC, pm.Lads * 4);
     ff.writeArray((char *)pm.SM3, MAXDCNAME * pm.Lads);
     ff.writeArray(pm.DCC3, pm.Lads);
-    ff.writeArray((double *)pm.D, MNST * MNST);
+    ff.writeArray((double *)pm.D, NSURFSITES * MNST);
   }
 
   if (pm.PG > 0) {
@@ -715,9 +715,9 @@ void TMultiBase::to_file(GemDataStream &ff) {
     ff.writeArray(pm.IsoSc, IsoScSum);
     ff.writeArray(pm.IsoCt, IsoCtSum);
     ff.writeArray(pm.EImc, EImcSum);
-    ff.writeArray((double*)pm.mCDc, mCDcSum);
+    ff.writeArray((double *)pm.mCDc, mCDcSum);
 
-    ff.writeArray(pm.lnScalT, pm.Ls);
+    ff.writeArray(pm.FWGTS, pm.FIs);
     ff.writeArray(pm.lnSACT, pm.Ls);
     ff.writeArray(pm.lnGammF, pm.Ls);
     ff.writeArray(pm.CTerms, pm.Ls);
@@ -930,7 +930,7 @@ void TMultiBase::from_file(GemDataStream &ff) {
     ff.readArray((double *)pm.lnSAC, pm.Lads * 4);
     ff.readArray((char *)pm.SM3, MAXDCNAME * pm.Lads);
     ff.readArray(pm.DCC3, pm.Lads);
-    ff.readArray((double *)pm.D, MNST * MNST);
+    ff.readArray((double *)pm.D, NSURFSITES * MNST);
   }
 
   if (pm.PG > 0) {
@@ -1007,9 +1007,9 @@ void TMultiBase::from_file(GemDataStream &ff) {
     ff.readArray(pm.IsoSc, IsoScSum);
     ff.readArray(pm.IsoCt, IsoCtSum);
     ff.readArray(pm.EImc, EImcSum);
-    ff.readArray((double*)pm.mCDc, mCDcSum);
+    ff.readArray((double *)pm.mCDc, mCDcSum);
 
-    ff.readArray(pm.lnScalT, pm.Ls);
+    ff.readArray(pm.FWGTS, pm.FIs);
     ff.readArray(pm.lnSACT, pm.Ls);
     ff.readArray(pm.lnGammF, pm.Ls);
     ff.readArray(pm.CTerms, pm.Ls);
@@ -1228,7 +1228,7 @@ void TMultiBase::to_text_file(const std::string &path, bool append) {
     if (pm.mCDc)
       prar.writeArray("mCDc", &pm.mCDc[0][0], pm.Lads * DMCDC);
     prar.writeArray("lnSAC", &pm.lnSAC[0][0], pm.Lads * 4);
-    prar.writeArray("D", &pm.D[0][0], MNST * MNST);
+    prar.writeArray("D", &pm.D[0][0], NSURFSITES * MNST);
   }
 
   if (pm.PG > 0) {
@@ -1287,7 +1287,7 @@ void TMultiBase::to_text_file(const std::string &path, bool append) {
     prar.writeArray("EImc", pm.EImc, EImcSum);
     prar.writeArray("mCDc", (double *)pm.mCDc, mCDcSum);
 
-    prar.writeArray("lnScalT", pm.lnScalT, pm.Ls);
+    prar.writeArray("FWGTS", pm.FWGTS, pm.FIs);
     prar.writeArray("lnSACT", pm.lnSACT, pm.Ls);
     prar.writeArray("lnGammF", pm.lnGammF, pm.Ls);
     prar.writeArray("CTerms", pm.CTerms, pm.Ls);

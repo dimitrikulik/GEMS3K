@@ -242,8 +242,8 @@ typedef struct {            // MULTI is base structure to Project (local values)
       Eh,      ///< Eh of aqueous solution, V
       DHBM,    ///< balance (relative) precision criterion
       DSM,     ///< min amount of phase DS
-      GWAT,    ///< used in ipm_gamma()
-      YMET,    ///< reserved
+      GWAT,    ///<  GWAT reserved
+      Zeff,    ///< Effective mean-field valency of aqueous 17.10.26 // YMET,
       PCI,     ///< Current value of Dikin criterion of IPM convergence DK>=DX
       CondNum, ///< Estimated 2-norm condition number of the IPM linear system A
                ///< (worst case over this GEM call, power/inverse iteration on
@@ -333,9 +333,9 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
   long int (
       *SATC)[MNCAS]; ///< Setup of surface sites and species (will be applied
                      ///< separately within each sorption phase) [Lads]
-  /// link indexes to surface type [XL_ST]; sorbent em [XL_EM]; surf.site
-  /// [XL-SI] and EDL plane [XL_SP]  called char(*)[MNCAS] SATC in ms_system.h
-  #define SATX SATC
+/// link indexes to surface type [XL_ST]; sorbent em [XL_EM]; surf.site
+/// [XL-SI] and EDL plane [XL_SP]  called char(*)[MNCAS] SATC in ms_system.h
+#define SATX SATC
   // TKinMet stuff
   long int *LsKin, ///< new: number of parallel reactions nPRk[k]; number of
                    ///< species in activity products nSkr[k];
@@ -453,24 +453,26 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
                          ///< (fraction of Debye length) [FIs][FIat]
   double (
       *XcapD)[MNST]; ///< Eff. cap. density of diffuse layer, F/m2 [FIs][FIat]
-  double (*XdlA)[MNST]; ///< Effective thickness of A EDL layer, nm [FIs][FIat],
-                        ///< reserved
-  double (*XdlB)[MNST]; ///< Effective thickness of B EDL layer, nm [FIs][FIat],
-                        ///< reserved
-  double (*XdlC)[MNST]; ///< Effective thickness of C EDL layer, nm [FIs][FIat],
-                        ///< reserved
+  double (*XdlA)[MNST]; ///< Effective thickness of 0-1 A EDL layer, nm
+                        ///< [FIs][FIat], tbd
+  double (*XdlB)[MNST]; ///< Effective thickness of 0-2 B EDL layer, nm
+                        ///< [FIs][FIat], tbd
+  double (*XdlC)[MNST]; ///< Effective thickness of 0-d C EDL layer, nm
+                        ///< [FIs][FIat], tbd
   double (*XdlD)[MNST]; ///< Effective thickness of diffuse layer, nm
-                        ///< [FIs][FIat], reserved
+                        ///< [FIs][FIat], tbd
   double (
       *XlamA)[MNST]; ///< Factor of EDL discretness  A < 1 [FIs][FIat], reserved
-  double (*XfIEC)[MNST][NCIEC]; ///< SCM Modernization: Fixed permanent charge
-                                ///< density or IEC [FIs][MNST=6][NCIEC=2]
-  #define Xetaf XfIEC
+  double (*XfIEC)[MNST]
+                 [NCIEC]; ///< SCM Modernization: Fixed permanent charge
+                          ///< density in 1/nm2 and eq/kg [FIs][MNST=6][NCIEC=2]
+#define Xetaf XfIEC
   double (*MASDJ)[DNFCN];       ///< Parameters of surface species in surface
                                 ///< complexation models [Lads][DNFCN]
-  long int (*XSMD)[NSURFSITES]; ///< SCM Modernization: denticity of surface species per site
+  long int (*XSMD)[NSURFSITES]; ///< SCM Modernization: denticity of surface
+                                ///< species per site
                                 // (species-site allocation) [Lads][NSURFSITES]
-  #define xSMd XSMD
+#define xSMd XSMD
   // Contents defined in the enum below this structure
   // Other data
   double *XFs, ///< Current quantities of phases X_a at IPM iterations [0:FI-1]
@@ -519,10 +521,10 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
               ///< correction [0:L-1]
       *EZ,    ///< Formula charge of DC in multi-component phases [0:Ls-1]
       *FVOL,  ///< phase volumes, cm3 comment corrected DK 04.08.2009  [0:FI-1]
-      *FWGT,  ///< phase (carrier) masses, g                [0:FI-1]
-      //
-      *G,  ///< Normalized DC energy function c(j), mole/mole [0:L-1] -->
-           ///< activities.h
+      *FWGT,  ///< phase (carrier) masses, g, [0:FI-1] also virtual for sorption
+              ///< models with site balances
+      *G,     ///< Normalized DC energy function c(j), mole/mole [0:L-1] -->
+              ///< activities.h
       *G0, ///< Input normalized g0_j(T,P) for DC at unified standard scale[L]
            ///< --> activities.h
       *lnGam, ///< ln of DC activity coefficients in unified (mole-fraction)
@@ -542,14 +544,13 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
   double
       *lnCnft; ///< new: configurational terms adding to overall activity [Ls_]
   // TSorpMod stuff
-  double
-      *lnScalT; ///< new: Surface/volume scaling activity correction terms [Ls_]
+  double *FWGTS; ///< new: Mass (g) of implicit sorbent in site-balance-based
+                 ///< SCMs [FIs] // was FWGTS unused: Surface/volume SACTs [Ls_]
   double *lnSACT;  ///< new: ln isotherm-specific SACT for surface species [Ls_]
   double *lnGammF; ///< new: Frumkin or BET non-electrostatic activity
                    ///< coefficients [Ls_]
   double *CTerms;  ///< new: Coulomb terms for DCs (electrostatic activity
                    ///< coefficients) [Ls_]
-
   double
       *B, ///< Input bulk chem. compos. of the system - b vector, moles of IC[N]
       *U, ///< IC chemical potentials u_i (mole/mole) - dual IPM solution [N]
@@ -638,14 +639,14 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
       *RSC,  ///< Units of metastability/kinetic constraints for DCs  [L]
       *RFLC, ///< Classifier of restriction types for XF_a [FIs]
       *RFSC, ///< Classifier of restriction scales for XF_a [FIs]
-      *ICC,  ///< Classifier of IC { e o h a z v i <int> } [N]
+      *ICC,  ///< Classifier of IC { e o h f a z v i s <int> } [N]
       *DCC,  ///< Classifier of DC { TESKWL GVCHNI JMFD QPR <0-9>  AB  XYZ O }
              ///< [L]
       *PHC;  ///< Classifier of phases { a g f p m l x d h } [FI]
-  char (*SCMC)[MNST]
-             [NSCMC]; ///< SCM Modernization: Classifier of EIL models and SACT
-                      ///< codes applied to surface types [FIs][MNST=6][NSCMC=2]
-  #define SCM SCMC
+  char (*SCMC)[MNST][NSCMC]; ///< SCM Modernization: Classifier of EIL models
+                             ///< and SACT codes applied to surface types
+                             ///< [FIs][MNST=6][NSCMC=2]
+#define SCM SCMC
   char *SATT, ///< Classifier of applied SACT equations (isotherm corrections)
               ///< [Lads]
       *DCCW;  ///< internal DC class codes [L]
@@ -726,6 +727,20 @@ enum IndexationSATC { XL_ST = 0, XL_EM = 1, XL_SI = 2, XL_SP = 3 };
 using IndexationSATX = IndexationSATC;
 
 extern const BASE_PARAM pa_p_;
+
+// Added for SCM modernization Oct 18 2026  DK ClaySorEl project
+typedef struct {
+  char modelcode; // Model code '4', '3', 'T', 'B', 'C', 'D', 'N'
+  std::string name;
+  double sigma0, sigma1, sigma2, sigmad,
+      sigmanet; // Plane charges (C/m²): '0', '1', '2', 'd', 'net'
+  double psi0, psi1, psi2, psid; // Plane Potentials (V): '0', '1', '2', 'd'
+  double zeta;                   // Electrokinetic Zeta potential (V)
+  double cap_d;                  // Capacitance of diffuse layer (F/m2)?
+  double sld01, sld02, sld0d,
+      dlth; // distances from 0 plane to 1, 2, d, slip plane, and
+            // diffuse layer thickness counted from 0 plane
+} EILModelResult;
 
 // Data of MULTI
 class TMultiBase {
@@ -979,15 +994,45 @@ protected:
                  double BF[]);
   void phase_bfc(long int k, long int jj);
   double bfc_mass(void);
+  // ipm_chemical2.cpp
   void CalculateConcentrationsInPhase(double X[], double XF[], double XFA[],
                                       double Factor, double MMC, double Dsur,
                                       long int jb, long int je, long int k);
   void CalculateConcentrations(double X[], double XF[], double XFA[]);
   void IS_EtaCalc();
+  // Added on 18.10.2026 DK  ClaySorEl project
+  double virtualSorbentMass(long int jb, long int je, long int N);
+  double calc_water_permittivity(double T_kelvin = 298.15,
+                                 double P_bar = 1.0) const;
+  double calc_debye_length(double I) const;
+  double calc_cap_d_from_sigma_d(double sigma_d, double I) const;
+  double calc_psi_d_from_sigma_d(double sigma_d, double I, double z_eff) const;
+  double calc_gc_potential_at_distance(double psi_d, double I, double x_dist,
+                                       double z_eff = 1.0) const;
+  // Individual EIL Model Solvers
+  EILModelResult compute_flm(char ModCode, double I, double z_eff, double C1,
+                             double C2, double C3, double sig0, double sig1,
+                             double sig2, double x_slip, double debye_m) const;
+  EILModelResult compute_tlm(char ModCode, double I, double z_eff, double C1,
+                             double C2, double sig0, double sig1, double x_slip,
+                             double debye_m) const;
+  EILModelResult compute_cd_music(char ModCode, double I, double z_eff,
+                                  double C1, double C2, double sig0,
+                                  double sig1, double x_slip,
+                                  double debye_m) const;
+  EILModelResult compute_bsm(char ModCode, double I, double z_eff, double C1,
+                             double sig0, double x_slip, double debye_m) const;
+  EILModelResult compute_ddl(char ModCode, double I, double z_eff, double sig0,
+                             double x_slip) const;
+  EILModelResult compute_ccm(char ModCode, double C1, double sig0) const;
+  EILModelResult compute_nem(char ModCode, double sig0) const;
+  // Calculation of any of 6 EIL models and NEM
   long int GouyChapman(long int jb, long int je, long int k);
   //  Surface activity coefficient terms
   long int SurfaceActivityCoeff(long int jb, long int je, long int jpb,
                                 long int jdb, long int k);
+  long int denticity_total(long int j);
+  long int denticity_num_site_types(long int j);
 
   // ipm_chemical3.cpp
   double SmoothingFactor();

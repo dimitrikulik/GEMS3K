@@ -875,7 +875,7 @@ void TMultiBase::MultiConstInit() // from MultiRemake
   pm.FX = 7777777.;
   if( pm.pH < -15. || pm.pH > 16.  )   // Check for trash in pH - bugfix 19.06.2013
       pm.pH = pm.Eh = pm.pe = 0.0;
-  pm.YMET = 0;                      // always 0.0 ????
+  pm.Zeff = 1.0;                      // Effective valency of ions in aqueous solution
   pm.PCI = 1.0;
   pm.FitVar[4] = 1.0;
 

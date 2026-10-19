@@ -83,21 +83,12 @@ void TMultiBase::XmaxSAT_IPM2() {
       {
       default: // pm.lnGam[j] = 0.0;
         continue;
-      case DC_SSC_A0:
-      case DC_SSC_A1:
-      case DC_SSC_A2:
-      case DC_SSC_A3:
-      case DC_SSC_A4:
-      case DC_WSC_A0:
-      case DC_WSC_A1:
-      case DC_WSC_A2:
-      case DC_WSC_A3:
-      case DC_WSC_A4:
       case DC_SUR_GROUP:
       case DC_IEWC_B:
       case DC_SUR_COMPLEX:
       case DC_SUR_IPAIR:
       case DC_IESC_A:
+      case DC_SUR_SPECIES:
         // Calculate ist - index of surface type
         /*!!!!!!*/ ist = pm.SATC[ja][XL_ST]; // / MSPN;
         // Cj - index of carrier DC
@@ -116,7 +107,8 @@ void TMultiBase::XmaxSAT_IPM2() {
         //            a=1.0;  Frumkin factor - reserved for extension to FFG
         //            isotherm
         switch (pm.SATT[ja]) {
-        case SAT_COMP: // Competitive surface species on a surface type
+        case SACT_LAN_COMP:
+          // case SAT_COMP: // Competitive surface species on a surface site
           if (iSite[ist] < 0)
             xjn = 0.0;
           else
@@ -135,18 +127,20 @@ void TMultiBase::XmaxSAT_IPM2() {
             xj0 = rIEPS; // ensuring that it will not zero off
           pm.DUL[j] = xj0;
           break;
-        case SAT_L_COMP:
-        case SAT_QCA_NCOMP:
-        case SAT_QCA1_NCOMP:
-        case SAT_QCA2_NCOMP:
-        case SAT_QCA3_NCOMP:
-        case SAT_QCA4_NCOMP:
-        case SAT_BET_NCOMP:
-        case SAT_FRUM_COMP:
-        case SAT_FRUM_NCOMP:
-        case SAT_PIVO_NCOMP:
-        case SAT_VIR_NCOMP:
-        case SAT_NCOMP: // Non-competitive surface species
+        // case SACT_LAN_COMP:
+        case SACT_LAN_NCOMP:
+        case SACT_QCA_NCOMP:
+        case SACT_QCA1_NCOMP:
+        case SACT_QCA2_NCOMP:
+        case SACT_QCA3_NCOMP:
+        case SACT_QCA4_NCOMP:
+        case SACT_FFG_COMP:
+        case SACT_FFG_NCOMP:
+        case SACT_PIV_NCOMP:
+        case SACT_VIR_NCOMP:
+        case SACT_FREU_NCOMP:
+        case SACT_BET_NCOMP:
+          // case SAT_NCOMP: // Non-competitive surface species
           xj0 = fabs(pm.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6 *
                 pm.MASDT[k][ist][MSDT_FSUTSA]; // in moles
           pm.DUL[j] = xj0 - rIEPS;
@@ -154,15 +148,17 @@ void TMultiBase::XmaxSAT_IPM2() {
         case SAT_SOLV: // Neutral surface site (e.g. >O0.5H@ group)
           rIEPS = base_param()->IEPS;
           XS0 = fabs(pm.MASDJ[ja][PI_DEN]);
-          XS0 = XS0 * XVk * Mm / 1e6 * pm.MASDT[k][ist][MSDT_FSUTSA]; // in moles
+          XS0 =
+              XS0 * XVk * Mm / 1e6 * pm.MASDT[k][ist][MSDT_FSUTSA]; // in moles
 
           pm.DUL[j] = XS0 - rIEPS;
           if (pm.DUL[j] <= rIEPS)
             pm.DUL[j] = rIEPS;
           break;
           // New methods added by KD 13.04.04
-        case SAT_INDEF: // No SAT calculation
-        default:        // pm.lnGam[j] = 0.0;
+        // case SAT_INDEF: // No SAT calculation
+        case SACT_INDEF:
+        default: // pm.lnGam[j] = 0.0;
           break;
         }
       }
@@ -408,7 +404,7 @@ void TMultiBase::TotalPhasesAmounts(double X[], double XF[], double XFA[]) {
 double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   long int ja = 0, ist, isp, jc = -1;
   double F0 = 0.0, Fold, dF0, Mk = 0.0, Ez;
-  double psiA, psiB, psiC, CDA, CDB, CDC, CD0, CDb, ObS;
+  double psiA, psiB, psiC, CDA, CDB, CDC, CD0, CDb, CDc, ObS, Coulomb = 0.0;
   double FactSur, FactSurT;
   const BASE_PARAM *pa_p = base_param();
 
@@ -427,6 +423,8 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
       Mk = pm.MM[jc] * (pm.X[jc] / pm.XFA[k]) * 1e-6;
     // DC carrier molar mass g/mkmol
   }
+  if (j < pm.Ls) // Cleaning Coulomb term
+    pm.CTerms[j] = 0.0;
   switch (pm.DCC[j]) { // analyse species class code
   case DC_SCP_CONDEN:
   case DC_AQ_PROTON:
@@ -448,89 +446,90 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   case DC_SOL_MAJDEP:
     F0 = pm.lnGmM[j];
     break;
-    // adsorption
-  case DC_SSC_A0:
-  case DC_SSC_A1:
-  case DC_SSC_A2:
-  case DC_SSC_A3:
-  case DC_SSC_A4:
-  case DC_WSC_A0:
-  case DC_WSC_A1:
-  case DC_WSC_A2:
-  case DC_WSC_A3:
-  case DC_WSC_A4:
+  // adsorption
   case DC_SUR_GROUP:
   case DC_SUR_COMPLEX:
   case DC_SUR_IPAIR:
   case DC_IESC_A:
   case DC_IEWC_B:
-    if (!pm.Lads || !pm.FIat) // Foolproof - to prevent crash DK 22.12.2009
+  case DC_SUR_SPECIES:
+    if (!pm.Lads) // Foolproof - to prevent crash
       break;
     F0 = pm.lnGmM[j]; /* + pm.lnGam[j]; */
-    // get ist - index of surface type and isp - index of surface plane
-    /*!!!!!*/ ist = pm.SATC[ja][XL_ST]; // / MSPN;
-    /*!!!!!*/ isp = pm.SATC[ja][XL_SP]; // % MSPN;
+    // FInd out to which site type and surface type this surface species belongs
+    ist = pm.SATC[ja][SURSP_ALLOC_SURFTYPE];
     // SCM Modernization: charges from mCDc[ja][0..1]
-    CDA = pm.mCDc ? pm.mCDc[ja][0] : 0.0;
+    CDA = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_A] : 0.0;
     CD0 = CDA; // species charge that goes into 0 plane
-    CDb = pm.mCDc ? pm.mCDc[ja][1] : 0.0;
-    CDB = CDb; // species charge that goes into B plane
-    ObS = pm.MASDJ[ja][PI_DEN]; // obsolete - the sign for outer-sphere charge
-    if (ObS >= 0.0)
-      ObS = 1.0;
-    else
-      ObS = -1.0;
+    CDB = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_B] : 0.0;
+    CDb = CDB; // species charge that goes into B plane
+    CDC = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_C] : 0.0;
+    CDc = CDC; // species charge that goes into C plane
+    // reading out the computed surface plane potentials
     psiA = pm.XpsiA[k][ist];
     psiB = pm.XpsiB[k][ist];
     psiC = pm.XpsiC[k][ist];
+    // Getting surface species formula charge
     Ez = double(pm.EZ[j]);
-    if (!isp) // This is the 0 (A) plane species
-    {
-      if (fabs(CD0) > 1e-20) // Doubtful...
-        Ez = CD0;
-      F0 += psiA * Ez * pm.FRT;
-    } else // This is B plane
-    {
-      // SCM Modernization: SCMC[k][ist][0] is EIL model code
-      if (pm.SCMC[k][ist][0] == SC_MTL || pm.SCMC[k][ist][0] == SC_MXC) {
-        // Modified TL: Robertson, 1997; also XTLM Kulik 2002
-        if (fabs(CDb) > 1e-20) // Doubtful...
-          Ez = CDb;
-        F0 += psiB * Ez * pm.FRT;
-      }
-      if (pm.SCMC[k][ist][0] == SC_TLM || pm.SCMC[k][ist][0] == SC_3LM) {
-        // New 3LM - CD version of TLM - added 25.10.2004
-        if (fabs(CD0) > 1e-20 && fabs(CDb) > 1e-20)
-          F0 += (psiA * CD0 + psiB * CDb) * pm.FRT;
-        // see also Table 4 in Zachara & Westall, 1999
-        // Old version:  TLM Hayes & Leckie, 1987 uses the sign indicator at
-        // density
-        else {
-          if (ObS < 0) {
-            Ez -= 1.0;
-            F0 += (psiA + Ez * psiB) * pm.FRT;
-          } else {
-            Ez += 1.0;
-            F0 += (Ez * psiB - psiA) * pm.FRT;
+    if (pm.mCDc) {
+      // Calculating contributions to Coulomb term of (electro)chemical
+      // potential
+      Coulomb += psiA * CDA * pm.FRT;
+      Coulomb += psiB * CDB * pm.FRT;
+      Coulomb += psiC * CDC * pm.FRT;
+    } else
+      Coulomb += psiA * Ez * pm.FRT; // Charge distro array not provided
+    pm.CTerms[j] = Coulomb; // Collecting COulomb terms for surface species
+    F0 += Coulomb;
+    /*
+        if (!isp) // This is the 0 (A) plane species
+        {
+          if (fabs(CD0) > 1e-20) // Doubtful...
+            Ez = CD0;
+          F0 += psiA * Ez * pm.FRT;
+        } else // This is B plane
+        {
+          // SCM Modernization: SCMC[k][ist][0] is EIL model code
+          if (pm.SCMC[k][ist][0] == SC_MTL || pm.SCMC[k][ist][0] == SC_MXC) {
+            // Modified TL: Robertson, 1997; also XTLM Kulik 2002
+            if (fabs(CDb) > 1e-20) // Doubtful...
+              Ez = CDb;
+            F0 += psiB * Ez * pm.FRT;
+          }
+          if (pm.SCMC[k][ist][0] == SC_TLM || pm.SCMC[k][ist][0] == SC_3LM) {
+            // New 3LM - CD version of TLM - added 25.10.2004
+            if (fabs(CD0) > 1e-20 && fabs(CDb) > 1e-20)
+              F0 += (psiA * CD0 + psiB * CDb) * pm.FRT;
+            // see also Table 4 in Zachara & Westall, 1999
+            // Old version:  TLM Hayes & Leckie, 1987 uses the sign indicator at
+            // density
+            else {
+              if (ObS < 0) {
+                Ez -= 1.0;
+                F0 += (psiA + Ez * psiB) * pm.FRT;
+              } else {
+                Ez += 1.0;
+                F0 += (Ez * psiB - psiA) * pm.FRT;
+              }
+            }
+          } else if (pm.SCMC[k][ist][0] == SC_BSM || pm.SCMC[k][ist][0] ==
+       SC_CCM || pm.SCMC[k][ist][0] == SC_ISCCM) { // Basic Stern model, Christl
+                                                       // & Kretzschmar, 1999
+            // New CD version of TLM  added 25.10.2004
+            if (fabs(CD0) > 1e-20 && fabs(CDb) > 1e-20)
+              F0 += (psiA * CD0 + psiB * CDb) * pm.FRT;
+            else {
+              if (ObS < 0) {
+                Ez -= 1.0;
+                F0 += (psiA + Ez * psiB) * pm.FRT;
+              } else {
+                Ez += 1.0;
+                F0 += (Ez * psiB - psiA) * pm.FRT;
+              }
+            }
           }
         }
-      } else if (pm.SCMC[k][ist][0] == SC_BSM || pm.SCMC[k][ist][0] == SC_CCM ||
-                 pm.SCMC[k][ist][0] == SC_ISCCM) { // Basic Stern model, Christl &
-                                                // Kretzschmar, 1999
-        // New CD version of TLM  added 25.10.2004
-        if (fabs(CD0) > 1e-20 && fabs(CDb) > 1e-20)
-          F0 += (psiA * CD0 + psiB * CDb) * pm.FRT;
-        else {
-          if (ObS < 0) {
-            Ez -= 1.0;
-            F0 += (psiA + Ez * psiB) * pm.FRT;
-          } else {
-            Ez += 1.0;
-            F0 += (Ez * psiB - psiA) * pm.FRT;
-          }
-        }
-      }
-    }
+     */
     if (Mk > 1e-9) // Mk is carrier molar mass in g/mkmol
     { // Correction for standard density, surface area and surface type fraction
       FactSur = Mk * (pm.Aalp[k]) * pa_p->DNS * 1.66054;
@@ -577,6 +576,7 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
     if (pm.X[j] > std::min(pm.lowPosNum, pm.DcMinM) && fabs(dF0) >= SmoSensT)
       F0 = Fold + dF0 * SmoothingFactor(); // Changed 18.06.2008 DK
   }
+  // Add smoothing in case of SATC application in sorption models?
   return F0;
 }
 
@@ -856,22 +856,12 @@ double TMultiBase::ConvertGj_toUniformStandardState(double g0, long int j,
       if (noZero(YOF))
         G += YOF;
     break;
-    // Sorption phases
-  case DC_SSC_A0:
-  case DC_SSC_A1:
-  case DC_SSC_A2:
-  case DC_SSC_A3:
-  case DC_SSC_A4:
-  case DC_WSC_A0:
-  case DC_WSC_A1:
-  case DC_WSC_A2:
-  case DC_WSC_A3:
-  case DC_WSC_A4:
   case DC_SUR_GROUP:
   case DC_SUR_COMPLEX:
   case DC_SUR_IPAIR:
   case DC_IESC_A:
   case DC_IEWC_B:
+  case DC_SUR_SPECIES:
     G += pm.ln5551;
     break;
   default: // error - returning 7777777
@@ -922,19 +912,17 @@ void TMultiBase::ConvertDCC() {
       case DC_AQ_SOLVENT:
         DCCW = DC_ASYM_CARRIER;
         break;
-      case DC_IESC_A:
-      case DC_IEWC_B:
-        DCCW = DC_ASYM_SPECIES;
-        break;
         // Remapping
       case DC_SUR_GROUP:
-      case DC_SUR_COMPLEX:
         DCCW = DC_ASYM_SPECIES;
-        pm.DCC[j] = DC_SSC_A0;
         break;
+      case DC_IESC_A:
+      case DC_IEWC_B:
+      case DC_SUR_COMPLEX:
+      case DC_SUR_SPECIES:
       case DC_SUR_IPAIR:
         DCCW = DC_ASYM_SPECIES;
-        pm.DCC[j] = DC_WSC_A0;
+        //       pm.DCC[j] = DC_SUR_SPECIES;
         break;
       case DC_SUR_MINAL:
       case DC_SUR_CARRIER:
@@ -1026,10 +1014,9 @@ void TMultiBase::KarpovsPhaseStabilityCriteria() {
   for (ii = 0; ii < pm.L; ii++)
     EMU[ii] = NMU[ii] = 0.0;
   j = 0;
-  pm.YMET = 0.0;                // check setup!
   for (k = 0; k < pm.FI; k++) { // phases
     ii = j + pm.L1[k];
-    pm.Falp[k] = pm.YMET; // metastability parameter
+    pm.Falp[k] = 0.0; // pm.YMET = 0.0; // metastability parameter obsolete
     pm.logXw = -76.;
     pm.logYFk = -76.;
 
@@ -1689,18 +1676,9 @@ void TMultiBase::StabilityIndexes(void) {
         ln_ax_dual -=
             lnFmol; // maybe more correction is needed for surface species
         break;
-      case DC_SSC_A0:
-      case DC_SSC_A1:
-      case DC_SSC_A2:
-      case DC_SSC_A3:
-      case DC_SSC_A4:
-      case DC_WSC_A0:
-      case DC_WSC_A1:
-      case DC_WSC_A2:
-      case DC_WSC_A3:
-      case DC_WSC_A4:
       case DC_SUR_COMPLEX:
       case DC_SUR_IPAIR:
+      case DC_SUR_SPECIES:
       case DC_IESC_A:
       case DC_IEWC_B:
         ln_ax_dual -= lnFmol;
@@ -1936,19 +1914,10 @@ double TMultiBase::RaiseDC_Value(const long int j) {
     RaiseZeroVal = pm.DFYrM;
     break;
     // adsorption
-  case DC_SSC_A0:
-  case DC_SSC_A1:
-  case DC_SSC_A2:
-  case DC_SSC_A3:
-  case DC_SSC_A4: // obsolete
-  case DC_WSC_A0:
-  case DC_WSC_A1:
-  case DC_WSC_A2:
-  case DC_WSC_A3:
-  case DC_WSC_A4: // obsolete
   case DC_SUR_GROUP:
   case DC_SUR_COMPLEX:
   case DC_SUR_IPAIR:
+  case DC_SUR_SPECIES:
   case DC_IESC_A:
   case DC_IEWC_B:
     RaiseZeroVal = pm.DFYaqM;

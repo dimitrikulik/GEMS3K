@@ -228,16 +228,7 @@ double TMultiBase::PhaseSpecificGamma(long int j, long int jb, long int je,
       lnGamS += NonLogTermS;
       break;
       // Sorption phases
-    case DC_SSC_A0:
-    case DC_SSC_A1:
-    case DC_SSC_A2:
-    case DC_SSC_A3:
-    case DC_SSC_A4:
-    case DC_WSC_A0:
-    case DC_WSC_A1:
-    case DC_WSC_A2:
-    case DC_WSC_A3:
-    case DC_WSC_A4:
+    case DC_SUR_SPECIES:
     case DC_SUR_GROUP:
     case DC_SUR_COMPLEX:
     case DC_SUR_IPAIR:
@@ -293,16 +284,7 @@ double TMultiBase::PhaseSpecificGamma(long int j, long int jb, long int je,
       lnGam -= NonLogTermS;
       break;
       // Sorption phases
-    case DC_SSC_A0:
-    case DC_SSC_A1:
-    case DC_SSC_A2:
-    case DC_SSC_A3:
-    case DC_SSC_A4:
-    case DC_WSC_A0:
-    case DC_WSC_A1:
-    case DC_WSC_A2:
-    case DC_WSC_A3:
-    case DC_WSC_A4:
+    case DC_SUR_SPECIES:
     case DC_SUR_GROUP:
     case DC_SUR_COMPLEX:
     case DC_SUR_IPAIR:

@@ -194,7 +194,8 @@ enum solmod_switches { // indexes of keys of phase (solution, sorption, kinetic)
   */
 };
 
-typedef enum { // classes of independent components IC, used in ccIC code list
+typedef enum { // classes of independent components IC, used in ccIC/ICC code
+               // list
   IC_ELEMENT = 'e',   // chemical element (except oxygen and hydrogen)
   IC_OXYGEN = 'o',    // oxygen
   IC_HYDROGEN = 'h',  // hydrogen (natural mixture of isotopes) H
@@ -210,7 +211,7 @@ typedef enum { // classes of independent components IC, used in ccIC code list
   IC_OXYGEN18 = 'r',  // r: oxygen 18O (reserved)
   IC_CHARGE = 'z',    // z: electrical charge
   IC_VOLUME = 'v',    // volume
-  IC_SITE = 's'       // sorption site for site balance constraint (ClaySor)
+  IC_SSITE = 's'      // sorption site for site balance constraint (ClaySor)
 } IC_CLASSES;
 
 typedef enum { // Classifications of DC
@@ -246,23 +247,23 @@ typedef enum { // Classifications of DC
   DC_SUR_CARRIER = 'Q', // Principal end-member of solid carrier
   DC_SUR_MINAL = 'P',   // Minor end-member of solid carrier
   DC_PEL_CARRIER = 'R', // Carrier of poly(oligo)electrolyte
-  DC_SSC_A0 = '0',      // Strong surface complex on site type 0 (A plane)
-  DC_SSC_A1 = '2',      // Strong surface complex on site type 2 (A plane)
-  DC_SSC_A2 = '4',      // Strong surface complex on site type 4 (A plane)
-  DC_SSC_A3 = '6',      // Strong surface complex on site type 6 (A plane)
-  DC_SSC_A4 = '8',      // Strong surface complex on site type 8 (A plane)
-  DC_WSC_A0 = '1',      // Weak surface complex on site type 1 (B plane)
-  DC_WSC_A1 = '3',      // Weak surface complex on site type 3 (B plane)
-  DC_WSC_A2 = '5',      // Weak surface complex on site type 5 (B plane)
-  DC_WSC_A3 = '7',      // Weak surface complex on site type 7 (B plane)
-  DC_WSC_A4 = '9',      // Weak surface complex on site type 9 (B plane)
-  DC_IESC_A = 'A',      // Strong exchange ion const-charge plane
-  DC_IEWC_B = 'B',      // Weak exchange ion const-charge plane
-
-  // Aliaces for 1-site model
-  DC_SUR_GROUP = 'X',   // Surface site A plane -> '0'
-  DC_SUR_COMPLEX = 'Y', // Strong sur. complex A plane -> '0'
-  DC_SUR_IPAIR = 'Z',   // Weak sur complex B plane -> '1'
+  //  DC_SSC_A0 = '0',      // Strong surface complex on site type 0 (A plane)
+  //  DC_SSC_A1 = '2',      // Strong surface complex on site type 2 (A plane)
+  //  DC_SSC_A2 = '4',      // Strong surface complex on site type 4 (A plane)
+  //  DC_SSC_A3 = '6',      // Strong surface complex on site type 6 (A plane)
+  //  DC_SSC_A4 = '8',      // Strong surface complex on site type 8 (A plane)
+  //  DC_WSC_A0 = '1',      // Weak surface complex on site type 1 (B plane)
+  //  DC_WSC_A1 = '3',      // Weak surface complex on site type 3 (B plane)
+  //  DC_WSC_A2 = '5',      // Weak surface complex on site type 5 (B plane)
+  //  DC_WSC_A3 = '7',      // Weak surface complex on site type 7 (B plane)
+  //  DC_WSC_A4 = '9',      // Weak surface complex on site type 9 (B plane)
+  DC_IESC_A = 'A', // Strong exchange ion const-charge A plane
+  DC_IEWC_B = 'B', // Weak exchange ion const-charge B or C plane
+  // Aliases for multi-site model   Revision 17.10.2026  DK
+  DC_SUR_GROUP = '@',   // Surface amphoteric group on A plane -> '0'  was 'X'
+  DC_SUR_COMPLEX = 'X', // Strong surface complex on only A plane -> '0' was 'Y'
+  DC_SUR_IPAIR = 'Y',   // Weak sur complex on A, B or C plane -> '1' was 'Z'
+  DC_SUR_SPECIES = 'Z', // Generic CD-MUSIC surface species (surf.complex)
 
   // Single-component phases
   DC_SCP_CONDEN = 'O', // DC forming a single-component phase
@@ -305,13 +306,13 @@ enum sorption_control {
   SC_NEM = 'N', // Non-electrostatic model, charge densities on zero plane
                 // calculated, but potentials and Coulomb terms are neglected
   // Main EIL models (revision 2026, cf. [Hiemstra & Lutzenkirchen 2025])
-  SC_4LM = '4',  // Four-layer model
-  SC_3LM = '3',  // Three-layer EIL model for CD-MUSIC
-  SC_TLM = 'T',  // Triple-layer model
-  SC_BSM = 'S',  // Basic Stern model
-  SC_DDLM = 'D', // Diffuse double-layer model
-  SC_CCM = 'C',  // Constant-capacitance model
-  // Auxiliary models (experimental)
+  SC_4LM = '4', // Four-layer model
+  SC_3LM = '3', // Three-layer EIL model for CD-MUSIC
+  SC_TLM = 'T', // Triple-layer model
+  SC_BSM = 'S', // Basic Stern model
+  SC_DDL = 'D', // Double-layer model
+  SC_CCM = 'C', // Constant-capacitance model
+  // Auxiliary models (experimental), now disabled since 18.10.2026
   SC_MTL = 'M',
   SC_MXC = 'E',
   SC_NNE = 'X',
@@ -337,18 +338,22 @@ enum sorption_control {
   SAT_INDEF = 'I',
 
   // New methods for surface activity coefficient terms (2004)
-  SAT_L_COMP = 'L',
-  SAT_QCA_NCOMP = 'Q',
-  SAT_QCA1_NCOMP = '1',
-  SAT_QCA2_NCOMP = '2',
-  SAT_QCA3_NCOMP = '3',
-  SAT_FREU_NCOMP = 'f',
-  SAT_QCA4_NCOMP = '4',
-  SAT_BET_NCOMP = 'B',
-  SAT_VIR_NCOMP = 'W',
-  SAT_FRUM_NCOMP = 'F',
-  SAT_FRUM_COMP = 'R',
-  SAT_PIVO_NCOMP = 'P',
+  SACT_INDEF = 'I',
+  SACT_LAN_NCOMP = 'L',
+  SACT_LAN_COMP = 'C',
+  SACT_QCA_NCOMP = 'Q',
+  SACT_QCA1_NCOMP = '1',
+  SACT_QCA2_NCOMP = '2',
+  SACT_QCA3_NCOMP = '3',
+  SACT_QCA4_NCOMP = '4',
+  SACT_FFG_NCOMP = 'F',
+  SACT_FFG_COMP = 'R',
+  SACT_PIV_NCOMP = 'P',
+  SACT_FREU_NCOMP = 'f',
+  SACT_BET_NCOMP = 'B',
+  SACT_VIR_NCOMP = 'W',
+  // TBD: codes for surface type isotherms with species bound to different site
+  // types
 
   // Assignment of surtype to carrier (end-member)
   CCA_VOL = 'V',
@@ -406,15 +411,25 @@ enum sorption_control {
   // Number of parameters per surface species in the MaSdj array
   // MCAS = 4 = DNFCN ; position index    added by KD 25.10.2004,
   // mod. 11.10.2026
-  // Column indices of surface species allocation table MCAS
-  SA_MCA = 0,
-  SA_EMX,
-  SA_STX,
-  SA_PLAX,
-  SA_SITX,
-  SA_UNIT,
+  COV_DENS = 0,
+  ISOTH_PAR_1,
+  ISOTH_PAR_2,
+  ISOTH_PAR_3,
 
-  // SCM Modernization: Column indices of MaSdj table of adsorption parameters [DNFCN=4]
+  // Column indices of surface species allocation table SATC [MCAS]
+  SURSP_ALLOC_SURFTYPE = 0,
+  SURSP_INDIV_SACT_CODE,
+  SURSP_ALLOC_SORBENT_EM,
+  SURSP_COV_DENS_UNITS,
+
+  // SCM Modernization: Column indices of mCDc table of charge distribution
+  CHARGE_ON_A = 0,
+  CHARGE_ON_B,
+  CHARGE_ON_C,
+  CHARGE_BAL,
+
+  // SCM Modernization: Column indices of MaSdj table of adsorption parameters
+  // [DNFCN=4]
   PI_DEN = 0, // Complete coverage density (1/nm2)
   PI_P1 = 1,  // SACT isotherm parameter 1 (Frumkin interaction alpha)
   PI_P2 = 2,  // SACT isotherm parameter 2 (q in QCA/BET/Pivovarov)
