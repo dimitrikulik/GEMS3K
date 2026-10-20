@@ -569,8 +569,8 @@ void TMultiBase::IS_EtaCalc() {
 
   for (k = 0; k < pm.FIs; k++) { // loop over all solution phases
     i = j + pm.L1[k];
-    if (pm.PHC[k] == PH_POLYEL || pm.PHC[k] == PH_SORPTION ||
-        pm.PHC[k] == PH_ADSSBEIL)        // :  pm.FIat > 0)
+    if (pm.FIat > 0 && (pm.PHC[k] == PH_POLYEL || pm.PHC[k] == PH_SORPTION ||
+                        pm.PHC[k] == PH_ADSSBEIL))
       for (ist = 0; ist < MNST; ist++) { // Replaced pm.FIat with MNST
         pm.XetaA[k][ist] = 0.0;          // plane charges in eq (moles)
         pm.XetaB[k][ist] = 0.0;
@@ -668,9 +668,12 @@ void TMultiBase::IS_EtaCalc() {
       }
     } // j
     // Charge balance for d-plane on all surface types
-    for (ist = 0; ist < MNST; ist++) {
-      pm.XetaD[k][ist] =
-          0.0 - pm.XetaA[k][ist] - pm.XetaB[k][ist] - pm.XetaC[k][ist];
+    if (pm.FIat > 0 && (pm.PHC[k] == PH_POLYEL || pm.PHC[k] == PH_SORPTION ||
+                        pm.PHC[k] == PH_ADSSBEIL)) {
+      for (ist = 0; ist < MNST; ist++) {
+        pm.XetaD[k][ist] =
+            0.0 - pm.XetaA[k][ist] - pm.XetaB[k][ist] - pm.XetaC[k][ist];
+      }
     }
   NEXT_PHASE:
     j = i;
