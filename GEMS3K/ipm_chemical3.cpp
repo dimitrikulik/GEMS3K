@@ -416,6 +416,9 @@ long int TMultiBase::CalculateActivityCoefficients(long int LinkMode) {
     for (k = 0; k < pm.FIs; k++) { // loop on solution phases
       jb = je;
       je += pm.L1[k];
+      if (pm.L1[k] <= 1 && !(pm.PHC[k] == PH_GASMIX || pm.PHC[k] == PH_PLASMA ||
+                             pm.PHC[k] == PH_FLUID))
+        continue;
       sMod = pm.sMod[k];
       switch (pm.PHC[k]) {
       case PH_AQUEL:
@@ -680,7 +683,6 @@ void TMultiBase::SolModCreate(
   // long int *aIPx;
   // char *DCCp;
   SolutionData sd;
-
   sd.NSpecies = pm.L1[k]; // Number of components (end members) in the phase
   sd.NParams = pm.LsMod[k * 3]; // Number of interaction parameters
   sd.NPcoefs =
@@ -1017,7 +1019,9 @@ void TMultiBase::SolModParPT(long int k, char ModCode) {
   case SM_PR78FL:
   case SM_CORKFL:
   case SM_STFLUID: {
-    ErrorIf(!phSolMod[k], "SolModParPT: ", "Invalid index of phase");
+    if (!phSolMod || !phSolMod[k]) {
+      break;
+    }
     TSolMod *mySM = phSolMod[k];
     mySM->PTparam();
     break;
@@ -1064,7 +1068,9 @@ void TMultiBase::SolModActCoeff(long int k, char ModCode) {
   case SM_PR78FL:
   case SM_CORKFL:
   case SM_STFLUID: {
-    ErrorIf(!phSolMod[k], "SolModActCoeff: ", "Invalid index of phase");
+    if (!phSolMod || !phSolMod[k]) {
+      break;
+    }
     TSolMod *mySM = phSolMod[k];
     mySM->MixMod();
     if (TSolMod::solmod_logger->should_log(spdlog::level::debug)) {
@@ -1124,7 +1130,9 @@ void TMultiBase::SolModExcessProp(long int k, char ModCode) {
   case SM_PR78FL:
   case SM_CORKFL:
   case SM_STFLUID: {
-    ErrorIf(!phSolMod[k], "SolModExcessProp: ", "Invalid index of phase");
+    if (!phSolMod || !phSolMod[k]) {
+      break;
+    }
     TSolMod *mySM = phSolMod[k];
     mySM->ExcessProp(zex);
     break;
@@ -1197,7 +1205,9 @@ void TMultiBase::SolModIdealProp(/*long int jb,*/ long int k, char ModCode) {
   case SM_PR78FL:
   case SM_CORKFL:
   case SM_STFLUID: {
-    ErrorIf(!phSolMod[k], "SolModIdealProp: ", "Invalid index of phase");
+    if (!phSolMod || !phSolMod[k]) {
+      break;
+    }
     TSolMod *mySM = phSolMod[k];
     mySM->IdealProp(zid);
     break;
@@ -1304,7 +1314,9 @@ void TMultiBase::SolModStandProp(/*long int jb,*/ long int k, char ModCode) {
   case SM_PR78FL:
   case SM_CORKFL:
   case SM_STFLUID: {
-    ErrorIf(!phSolMod[k], "SolModIdealProp: ", "Invalid index of phase");
+    if (!phSolMod || !phSolMod[k]) {
+      break;
+    }
     TSolMod *mySM = phSolMod[k];
     mySM->StandardProp(zst);
     break;

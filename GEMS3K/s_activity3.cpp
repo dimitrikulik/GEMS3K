@@ -297,6 +297,9 @@ long int TActivity::CalculateActivityCoefficients(long int LinkMode) {
     for (k = 0; k < act.FIs; k++) { // loop on solution phases
       jb = je;
       je += act.L1[k];
+      if (act.L1[k] <= 1 && !(act.PHC[k] == PH_GASMIX || act.PHC[k] == PH_PLASMA ||
+                             act.PHC[k] == PH_FLUID))
+        continue;
       sMod = act.sMod[k];
       switch (act.PHC[k]) {
       case PH_AQUEL:
@@ -537,7 +540,6 @@ void TActivity::SolModCreate(
   // long int *aIPx;
   // char *DCCp;
   SolutionData sd;
-
   sd.NSpecies = act.L1[k]; // Number of components (end members) in the phase
   sd.NParams = act.LsMod[k * 3]; // Number of interaction parameters
   sd.NPcoefs =
@@ -849,7 +851,9 @@ void TActivity::SolModParPT(long int k, char ModCode) {
   case SM_PR78FL:
   case SM_CORKFL:
   case SM_STFLUID: {
-    ErrorIf(!phSolMod[k], "SolModParPT: ", "Invalid index of phase");
+    if (!phSolMod || !phSolMod[k]) {
+      break;
+    }
     TSolMod *mySM = phSolMod[k];
     mySM->PTparam();
     break;
@@ -894,7 +898,9 @@ void TActivity::SolModActCoeff(long int k, char ModCode) {
   case SM_PR78FL:
   case SM_CORKFL:
   case SM_STFLUID: {
-    ErrorIf(!phSolMod[k], "SolModActCoeff: ", "Invalid index of phase");
+    if (!phSolMod || !phSolMod[k]) {
+      break;
+    }
     TSolMod *mySM = phSolMod[k];
     mySM->MixMod();
     break;
@@ -948,7 +954,9 @@ void TActivity::SolModExcessProp(long int k, char ModCode) {
   case SM_PR78FL:
   case SM_CORKFL:
   case SM_STFLUID: {
-    ErrorIf(!phSolMod[k], "SolModExcessProp: ", "Invalid index of phase");
+    if (!phSolMod || !phSolMod[k]) {
+      break;
+    }
     TSolMod *mySM = phSolMod[k];
     mySM->ExcessProp(zex);
     break;
@@ -1016,7 +1024,9 @@ void TActivity::SolModIdealProp(/*long int jb,*/ long int k, char ModCode) {
   case SM_PR78FL:
   case SM_CORKFL:
   case SM_STFLUID: {
-    ErrorIf(!phSolMod[k], "SolModIdealProp: ", "Invalid index of phase");
+    if (!phSolMod || !phSolMod[k]) {
+      break;
+    }
     TSolMod *mySM = phSolMod[k];
     mySM->IdealProp(zid);
     break;
