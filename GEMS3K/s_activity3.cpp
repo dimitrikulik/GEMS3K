@@ -297,8 +297,9 @@ long int TActivity::CalculateActivityCoefficients(long int LinkMode) {
     for (k = 0; k < act.FIs; k++) { // loop on solution phases
       jb = je;
       je += act.L1[k];
-      if (act.L1[k] <= 1 && !(act.PHC[k] == PH_GASMIX || act.PHC[k] == PH_PLASMA ||
-                             act.PHC[k] == PH_FLUID))
+      if (act.L1[k] <= 1 &&
+          !(act.PHC[k] == PH_GASMIX || act.PHC[k] == PH_PLASMA ||
+            act.PHC[k] == PH_FLUID))
         continue;
       sMod = act.sMod[k];
       switch (act.PHC[k]) {
@@ -335,24 +336,27 @@ long int TActivity::CalculateActivityCoefficients(long int LinkMode) {
       act.lnGam[j] = 0.;
       act.Gamma[j] = 1.;
     }
-    /*
-            if( act.E && act.LO ) // checking electrostatics
+    if (act.E && act.LO) // checking electrostatics
+    {
+      IS_EtaCalc(); //  calculating charges and charge densities
+      if (act.FIat > 0)
+        for (k = 0; k < act.FIs; k++) {
+          if (act.PHC[k] == PH_POLYEL || act.PHC[k] == PH_SORPTION
+              //     || act.PHC[k] == PH_ADSORPT || act.PHC[k] == PH_IONEX
+              //      to  activate later
+          ) {
+            long int ist;
+            for (ist = 0; ist < act.FIat; ist++) // loop over surface types
             {
-              IS_EtaCalc();  //  calculating charges and charge densities
-              if( act.FIat > 0 )
-                 for( k=0; k<act.FIs; k++ )
-                 {
-                   if( act.PHC[k] == PH_POLYEL || act.PHC[k] == PH_SORPTION )
-                   {  long int ist;
-                      for( ist=0; ist<act.FIat; ist++ ) // loop over surface
-       types
-                      {
-                         act.XpsiA[k][ist] = 0.0;        // cleaning Psi before
-       GouyChapman() act.XpsiB[k][ist] = 0.0; act.XpsiD[k][ist] = 0.0; }  // ist
-                    }
-                 }  // k
-             } // act.E
-    */
+              act.XpsiA[k][ist] = 0.0; // cleaning Psi before GouyChapman()
+              act.XpsiB[k][ist] = 0.0;
+              act.XpsiC[k][ist] = 0.0;
+              act.XpsiD[k][ist] = 0.0;
+              act.XpsiZ[k][ist] = 0.0;
+            } // ist
+          }
+        } // k
+    } // act.E
     break;
   default:
     Error("CalculateActivityCoefficients()",
@@ -464,22 +468,30 @@ long int TActivity::CalculateActivityCoefficients(long int LinkMode) {
         }
         goto END_LOOP;
         break;
-      /*        case PH_POLYEL:  // PoissonBoltzmann( q, jb, je, k ); break;
-              case PH_SORPTION: // electrostatic potenials from Gouy-Chapman eqn
-                      if( act.PHC[0] == PH_AQUEL && pmpXFk > act.DSM
-                      && (act.XFA[0] > act.XwMinM && act.XF[0] > act.DSM ))
-                      {
-                          if( act.E )
-                          {
-                             statusGC = GouyChapman( jb, je, k );
-                          // PoissonBoltzmann( q, jb, je, k )
-                          }
-                          // Calculating surface activity coefficient terms
-                          statusSACT = SurfaceActivityCoeff(  jb, je, jpb, jdb,
-         k );
-                      }
-                      break;
-      */
+      case PH_POLYEL:   // PoissonBoltzmann( q, jb, je, k ); break;
+      case PH_SORPTION: // electrostatic potenials from Gouy-Chapman eqn
+        if (act.PHC[0] == PH_AQUEL && pmpXFk > act.DSM &&
+            (act.XFA[0] > act.XwMinM && act.XF[0] > act.DSM)) {
+          if (act.E) {
+            statusGC = GouyChapman(jb, je, k);
+            // PoissonBoltzmann( q, jb, je, k )
+          }
+          // Calculating surface activity coefficient terms
+          statusSACT = SurfaceActivityCoeff(jb, je, jpb, jdb, k);
+        }
+        break;
+      case PH_ADSSBEIL: // Extension of electrostatic models to site-balance SCM
+        if (act.PHC[0] == PH_AQUEL && pmpXFk > act.DSM &&
+            (act.XFA[0] > act.XwMinM && act.XF[0] > act.DSM)) {
+          if (act.E) {
+            statusGC = GouyChapman(jb, je, k);
+            // PoissonBoltzmann( q, jb, je, k )
+          }
+          // Calculating surface activity coefficient terms - not for
+          // site-balance SCMs!
+          // statusSACT = SurfaceActivityCoeff(jb, je, jpb, jdb, k);
+        }
+        break;
       default:
         goto END_LOOP;
       } // end switch

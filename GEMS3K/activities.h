@@ -53,14 +53,15 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
       RT, // RT product
       ln5551, // ln(H2O_mol_to_kg) = log(55.50837344)
               //
-      IC, ///< Effective aqueous ionic strength (molal)                    - -
-          ///< +     +
-      pH, ///< pH of aqueous solution in the activity scale (-log10 molal) - -
-          ///< +     +
-      pe, ///< pe of aqueous solution in the activity scale (-log10 molal) - -
-          ///< +     +
-      Eh; ///< Eh of aqueous solution (V)                                  - -
-          ///< +     +
+      IC,   ///< Effective aqueous ionic strength (molal)                    - -
+            ///< +     +
+      Zeff, ///< Effective ion valence of aqueous electrolyte
+      pH,   ///< pH of aqueous solution in the activity scale (-log10 molal) - -
+            ///< +     +
+      pe,   ///< pe of aqueous solution in the activity scale (-log10 molal) - -
+            ///< +     +
+      Eh;   ///< Eh of aqueous solution (V)                                  - -
+            ///< +     +
 
   double Pc, Tc; // T in K, P in bar
   // Here TSolMod, TSorpMod, TKinMet parameters & coefficients moved from TMULTI
@@ -137,16 +138,35 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
                      ///< separately within each sorption phase) [Lads]
 #define xSMd XSMD
 #define SATX SATC
-                     /// link indexes to surface type [XL_ST]; sorbent em
-                     /// [XL_EM]; surf.site [XL-SI] and EDL plane [XL_SP]
-  double *EImc,       ///< new: Collected EIL model coefficients k -> +=
-                      ///< LsESmo[k][0]*LsESmo[k][1]
-      (*mCDc)[DMCDC], ///< SCM Modernization: Array of charges of surface
-                      ///< species [Lads][DMCDC=4]
-      *IsoPc,         ///< new: Collected isotherm coefficients per DC k -> +=
-                      ///< L1[k]*LsISmo[k][2];
-      *IsoSc;         ///< new: Collected isotherm coeffs per site k -> +=
-                      ///< LsISmo[k][0]*LsISmo[k][1];
+  double *Aalp; ///< Full vector of specific surface areas of phases (m2/g)
+                ///< [0:FI-1]
+  double (*XfIEC)[MNST]
+                 [NCIEC]; ///< SCM Modernization: Fixed permanent charge
+                          ///< density in 1/nm2 and eq/kg [FIs][MNST=6][NCIEC=2]
+                          /// link indexes to surface type [XL_ST]; sorbent em
+                          /// [XL_EM]; surf.site [XL-SI] and EDL plane [XL_SP]
+  double *EImc,           ///< new: Collected EIL model coefficients k -> +=
+                          ///< LsESmo[k][0]*LsESmo[k][1]
+      (*mCDc)[DMCDC],     ///< SCM Modernization: Array of charges of surface
+                          ///< species [Lads][DMCDC=4]
+      (*MASDT)[MNST][NMSDT], ///< SCM Modernization: Area fraction and patch
+                             ///< isotherm parameters [FIs][MNST=6][NMSDT=4]
+      (*MASDJ)[DNFCN],       ///< Parameters of surface species in surface
+                             ///< complexation models [Lads][DNFCN]
+      *IsoPc, ///< new: Collected isotherm coefficients per DC k -> +=
+              ///< L1[k]*LsISmo[k][2];
+      *IsoSc; ///< new: Collected isotherm coeffs per site k -> +=
+              ///< LsISmo[k][0]*LsISmo[k][1];
+  double (
+      *XcapA)[MNST]; ///< Capacitance density of 0 EDL layer, F/m2 [FIs][FIat]
+  double (
+      *XcapB)[MNST]; ///< Capacitance density of B EDL layer, F/m2 [FIs][FIat]
+  double (
+      *XcapC)[MNST]; ///< Capacitance density of Ba EDL layer F/m2 [FIs][FIat]
+  double (*XcapZ)[MNST]; ///< Location of slip plane for zeta potential
+                         ///< (fraction of Debye length) [FIs][FIat]
+  double (
+      *XcapD)[MNST]; ///< Eff. cap. density of diffuse layer, F/m2 [FIs][FIat]
   // TSorpMod & TKinMet stuff
   double *
       SorMc; ///< new: Phase-related kinetics and sorption model parameters:
@@ -187,8 +207,8 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
                  ///< DDF correction [0:L-1]
 
   // TSorpMod stuff (TBD)
-  double *FWGTS; ///< new: Masses of sorbent (real or virtual) for SCMS [FIs] -
-                 ///< -      +     +
+  double *FWGTS;  ///< new: Masses of sorbent (real or virtual) for SCMS [FIs] -
+                  ///< -      +     +
   double *lnSACT; ///< new: ln isotherm-specific SACT for surface species [nDCs]
                   ///< -      -      +     +
   double *lnGammF; ///< new: Frumkin or BET non-electrostatic activity
@@ -224,7 +244,11 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
   char *PHC;  ///< Classifier of phases { a g f p m l x d h } [FI]
   char *DCCW; ///< internal DC class codes for calculation of primal chemical
               ///< potentials [L]
-
+  char (*SCMC)[MNST][NSCMC]; ///< SCM Modernization: Classifier of EIL models
+                             ///< and SACT codes applied to surface types
+                             ///< [FIs][MNST=6][NSCMC=2]
+  char *SATT;   ///< Classifier of applied SACT equations (isotherm corrections)
+                ///< [Lads]
   double *MM;   //< DC molar masses, g/mol [L]
   double *FWGT; //< phase (carrier) masses, g                [0:FI-1]
   double *YOF; //< Surface free energy parameter for phases (J/g) (to accomodate
@@ -232,16 +256,19 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
 
   // Work part (to compute concentrations and chem.potentials), takeover from
   // MULTI
-  long int N, // Number of ICs
+  long int N, ///< Number of ICs
       NR,     ///< NR - dimensions of R matrix
-      L,      // Number of DCs
-      Ls,     // Total number of DCs in phases-solutions
-      LO,     // LO -   index of water-solvent in DC list
-      FI,     // Number of phases
-      FIs,    // Number of phases-solutions,
-      K2,
-      *L1; //< l_a vector - number of DCs included into each phase [nPH]; copy
-           // of nDCinPH
+      L,      ///< Number of DCs
+      Ls,     ///< Total number of DCs in phases-solutions
+      Lads,   ///< Total number of DCs in sorption phases
+      LO,     ///< LO -   index of water-solvent in DC list
+      FI,     ///< Number of phases
+      FIs,    ///< Number of phases-solutions,
+      FIat,   ///< Number of surface types in sorption phases
+      E,      ///< PE - flag of electroneutrality constraint { 0 1 }
+      K2,     // not needed?
+      *L1;    ///< l_a vector - number of DCs included into each phase [nPH];
+              // copy of nDCinPH
 
   double *A, ///< DC stoichiometry matrix A composed of a_ji [0:N-1][0:L-1]
       *Awt,  ///< IC atomic (molar) mass, g/mole [0:N-1]
@@ -259,6 +286,40 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
       *U,    ///< IC chemical potentials u_i (mole/mole) - dual IPM solution [N]
       *Falp; ///< Phase stability index (PC==2) [FI]
 
+  double *IC_m, ///< Total IC molalities in aqueous phase (excl.solvent) [0:N-1]
+      *IC_lm,   ///< log total IC molalities in aqueous phase [0:N-1]
+      *IC_wm;   ///< Total dissolved IC concentrations in g/kg_soln [0:N-1]
+
+  // old sorption models - EIL models (data for EIL activity coefficients)
+  double (
+      *XetaA)[MNST]; ///< Total EIL charge on A (0) EIL plane, mol [FIs][FIat]
+  double (*XetaB)[MNST]; ///< Total charge on B (1) EIL plane, mol [FIs][FIat]
+  double (*XetaC)[MNST]; ///< New Total charge on C (2, gamma) EIL plane,
+                         ///< mol [FIs][FIat]
+  double (*XetaD)[MNST]; ///< Total charge on D (3) EDL plane, mol [FIs][FIat]
+  double (
+      *XpsiA)[MNST]; ///< Relative potential at A (0) EDL plane,V [FIs][FIat]
+  double (*XpsiB)[MNST]; ///< Relative potential at B (1, beta) EDL plane,V
+                         ///< [FIs][FIat]
+  double (*XpsiC)[MNST]; ///< New Relative potential at C (2, gamma) EDL plane,V
+                         ///< [FIs][FIat]
+  double (*XpsiD)[MNST]; ///< Relative potential at D (2) plane,V [FIs][FIat]
+  double (*XpsiZ)[MNST]; ///< New Zeta potential at slip plane,V [FIs][FIat]
+  double (*XdlA)[MNST];  ///< Effective thickness of 0-1 A EDL layer, nm
+                         ///< [FIs][FIat], tbd
+  double (*XdlB)[MNST];  ///< Effective thickness of 0-2 B EDL layer, nm
+                         ///< [FIs][FIat], tbd
+  double (*XdlC)[MNST];  ///< Effective thickness of 0-d C EDL layer, nm
+                         ///< [FIs][FIat], tbd
+  double (*XdlD)[MNST];  ///< Effective thickness of diffuse layer, nm
+                         ///< [FIs][FIat], tbd
+  double (*XFTS)[MNST]; ///< Total number of moles of surface DC at surface type
+                        ///< [FIs][FIat]
+  // Old sorption models
+  double (*D)[MNST];  ///< Reserved; new work array for calc. surface act.coeff.
+  double (*lnSAC)[4]; ///< former lnSAT ln surface activity coeff and Coulomb's
+                      ///< term  [Lads][4]
+
   double *GamFs; ///< Copy of activity coefficients Gamma [L]
   double *fDQF,  ///< Increments to molar G0 values of DCs from pure gas
                  ///< fugacities or DQF terms, normalized [L]
@@ -268,6 +329,8 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
       *NMU,      ///< DC increments to F_a criterion for phase [L]
       *Y_la,     ///< log activity of DC in phases (mju-mji0) [0:L-1]
       *Y_m,      ///< Molalities of aqueous species and sorbates [0:Ls-1]
+      *Y_w,      ///< Mass concentrations of DC in multi-component
+                 ///< phases,%(ppm)[0:Ls-1]
       *Pparc,    ///< Partial pressures or fugacities of pure DC, bar (Pc by
                  ///< default) [0:L-1]
       *EZ,       ///< Formula charge of DC in multi-component phases [0:Ls-1]
@@ -299,19 +362,25 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
       //    SMols,      ///< Standart total moles (upscaled) {1000}
       //    MBX,       ///< Total mass of the system, kg
       //    FX,    	    ///< Current Gibbs potential of the system in IPM,
-      //    moles IC,         ///< Effective molal ionic strength of aqueous
-      //    electrolyte pH,         ///< pH of aqueous solution pe,         ///<
-      //    pe of aqueous solution Eh,         ///< Eh of aqueous solution, V
-      //    DHBM,       ///< balance (relative) precision criterion
-      DSM, ///< min amount of phase DS
-           //    GWAT,       ///< used in ipm_gamma()
-           //    YMET,       ///< reserved
+      // IC,         ///< Effective molal ionic strength of aqueous electrolyte
+      // pH,         ///< pH of aqueous solution
+      // pe,         ///<  pe of aqueous solution Eh,         ///< Eh of aqueous
+      // solution, V
+      DHBM,    ///< balance (relative) precision criterion
+      DSM,     ///< min amount of phase DS
+      GWAT,    ///< used in ipm_gamma()
+      YMET,    ///< reserved
+      IEPS;    // SACT control  from pa_p->IEPS
+  long int PC; //  Control from pa_p->PC
+  double W1,   //   Control from pa_p->W1
+      DNS,     // Control from pa_p->DNS
       //    PCI,        ///< Current value of Dikin criterion of IPM convergence
       //    DK>=DX DXM,        ///< IPM convergence criterion threshold DX
       //    (1e-5) lnP,        ///< log Ptotal RT,         ///< RT: 8.31451*T
-      //    (J/mole/K) FRT,        ///< F/RT, F - Faraday constant = 96485.309
-      //    C/mol Yw,         ///< Current number of moles of solvent in aqueous
-      //    phase ln5551,     ///< ln(55.50837344)
+      //    (J/mole/K)
+      FRT, ///< F/RT, F - Faraday constant = 96485.309
+      Yw,  ///< Current number of moles of solvent in aqueous phase
+      // ln5551,     ///< ln(55.50837344)
       ICmin,     ///< tolerance for minimum ionic strength to calculate aqueous
                  ///< activity models
       aqsTail,   ///< v_j asymmetry correction factor for aqueous species
@@ -324,6 +393,23 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
 
 // class TNode;
 
+#ifndef EIL_MODEL_RESULT_DEFINED
+#define EIL_MODEL_RESULT_DEFINED
+// Added for SCM modernization Oct 18 2026  DK ClaySorEl project
+struct EILModelResult {
+  char modelcode; // Model code '4', '3', 'T', 'B', 'C', 'D', 'N'
+  std::string name;
+  double sigma0, sigma1, sigma2, sigmad,
+      sigmanet; // Plane charges (C/m²): '0', '1', '2', 'd', 'net'
+  double psi0, psi1, psi2, psid; // Plane Potentials (V): '0', '1', '2', 'd'
+  double zeta;                   // Electrokinetic Zeta potential (V)
+  double cap_d;                  // Capacitance of diffuse layer (F/m2)?
+  double sld01, sld02, sld0d,
+      dlth; // distances from 0 plane to 1, 2, d, slip plane, and
+            // diffuse layer thickness counted from 0 plane
+};
+#endif
+
 class TActivity {
   ACTIVITY act;
 
@@ -332,14 +418,6 @@ class TActivity {
   DATABR *cnd;
   // Current pointer to TNode class instance
   TNode *cno;
-
-  // Internal arrays for the performance optimization  (since version 2.0.0) <-
-  // MULTI
-  long int sizeN; /*, sizeL, sizeAN;*/
-  double *AA;
-  double *BB;
-  long int *arrL;
-  long int *arrAN;
 
   size_t sizeFIs;     ///< current size of phSolMod
   TSolMod **phSolMod; ///< size current FIs - number of multicomponent phases
@@ -357,7 +435,16 @@ class TActivity {
                   ///<      FitVar[1], [2] reserved
                   ///<       FitVar[4] is the AG smoothing parameter;
                   ///<       FitVar[3] is the actual smoothing coefficient
+
 protected:
+  // Internal arrays for the performance optimization  (since version 2.0.0) <-
+  // MULTI
+  long int sizeN; /*, sizeL, sizeAN;*/
+  double *AA;
+  double *BB;
+  long int *arrL;
+  long int *arrAN;
+
   void set_def();
   void Alloc_TSolMod(size_t newFIs);
   void Free_TSolMod();
@@ -418,16 +505,43 @@ public:
                                       double Factor, double MMC, double Dsur,
                                       long int jb, long int je, long int k);
   void CalculateConcentrations(double X[], double XF[], double XFA[]);
-  //        long int GouyChapman(  long int jb, long int je, long int k );
-
+  // Added on 18.10.2026 DK  ClaySorEl project
+  void IS_EtaCalc(); // Calculation of surface charge densities on surf. patches
+  double virtualSorbentMass(long int jb, long int je, long int N);
+  double calc_water_permittivity(double T_kelvin = 298.15,
+                                 double P_bar = 1.0) const;
+  double calc_debye_length(double I) const;
+  double calc_cap_d_from_sigma_d(double sigma_d, double I) const;
+  double calc_psi_d_from_sigma_d(double sigma_d, double I, double z_eff) const;
+  double calc_gc_potential_at_distance(double psi_d, double I, double x_dist,
+                                       double z_eff = 1.0) const;
+  // Individual EIL Model Solvers
+  EILModelResult compute_flm(char ModCode, double I, double z_eff, double C1,
+                             double C2, double C3, double sig0, double sig1,
+                             double sig2, double x_slip, double debye_m) const;
+  EILModelResult compute_tlm(char ModCode, double I, double z_eff, double C1,
+                             double C2, double sig0, double sig1, double x_slip,
+                             double debye_m) const;
+  EILModelResult compute_cd_music(char ModCode, double I, double z_eff,
+                                  double C1, double C2, double sig0,
+                                  double sig1, double x_slip,
+                                  double debye_m) const;
+  EILModelResult compute_bsm(char ModCode, double I, double z_eff, double C1,
+                             double sig0, double x_slip, double debye_m) const;
+  EILModelResult compute_ddl(char ModCode, double I, double z_eff, double sig0,
+                             double x_slip) const;
+  EILModelResult compute_ccm(char ModCode, double C1, double sig0) const;
+  EILModelResult compute_nem(char ModCode, double sig0) const;
+  EILModelResult compute_tce(char ModCode, double I, double z_eff, double C1,
+                             double C2, double sig0, double sig1, double par[],
+                             double x_slip, double debye_m) const;
+  // Calculation of any of 6 EIL models and NEM
+  long int GouyChapman(long int jb, long int je, long int k);
   //  Surface activity coefficient terms
-  //        long int SurfaceActivityCoeff( long int jb, long int je, long int
-  //        jpb, long int jdb, long int k );
-  //    void SurfaceActivityTerm( long int jb, long int je, long int k );  //
-  //    Obsolete / deleted
-
-  //  ipm_chemical3.cpp
-  //        void IS_EtaCalc();
+  long int SurfaceActivityCoeff(long int jb, long int je, long int jpb,
+                                long int jdb, long int k);
+  long int denticity_total(long int j);
+  long int denticity_num_site_types(long int j);
   //        void pm_GC_ods_link( long int k, long int jb, long int jpb, long int
   //        jdb, long int ipb ); double SmoothingFactor( ); void
   //        SetSmoothingFactor( long int mode ); // new smoothing function (3

@@ -312,6 +312,7 @@ enum sorption_control {
   SC_BSM = 'S', // Basic Stern model
   SC_DDL = 'D', // Double-layer model
   SC_CCM = 'C', // Constant-capacitance model
+  SC_TCE = 'E', // Tournassat EIL for clay edge zero plane potential
   // Auxiliary models (experimental), now disabled since 18.10.2026
   SC_MTL = 'M',
   SC_MXC = 'E',
@@ -394,11 +395,11 @@ enum sorption_control {
   // New: Column index in SCMC array (rows for surface types/patches)
   SCMC_EILM_CODE = 0,
   SCMC_SACT_CODE = 1,
-  // New: Column index in MSDT array (rows for surface types/patches)
+  // New: Column index in MASDT array (rows for surface types/patches)
   MSDT_FSUTSA = 0, // Fraction of this surface type rel. to sorbent surface area
-  MSDT_ISOPAR1 = 1,  // SACT isotherm parameter 1 (FFG, BET)
-  MSDT_ISOPAR2 = 2,  // SACT isotherm parameter 2 (BET)
-  MSDT_CSPOVPAR = 3, // Perm.charge spillover parameter (Tournassat)
+  MSDT_TCE_PA1 = 1, // Tournassat parameter A1 for clay edge
+  MSDT_TCE_PA2 = 2, // Tournassat parameter A2 for clay edge
+  MSDT_TCE_PA3 = 3, // Tournassat parameter A3 for clay edge
   // NEW: Column index in CapT array (capacitances F/m2 of EIL layers)
   CAPT_A_CAPD = 0, // Capacitance density of A layer (0-1 plane)
   CAPT_B_CAPD = 1, // Capacitance density of B layer (1-2 or 1-d plane)
@@ -411,10 +412,10 @@ enum sorption_control {
   // Number of parameters per surface species in the MaSdj array
   // MCAS = 4 = DNFCN ; position index    added by KD 25.10.2004,
   // mod. 11.10.2026
-  COV_DENS = 0,
-  ISOTH_PAR_1,
-  ISOTH_PAR_2,
-  ISOTH_PAR_3,
+  COV_DENS = 0, // Max. full-site-coverage density of species 1/nm2
+  ISOTH_PAR_1,  // SACT isotherm parameter 1 (FFG, BET)
+  ISOTH_PAR_2,  // SACT isotherm parameter 2 (BET, Pivovarov)
+  ISOTH_PAR_3,  // SACT isotherm parameter 3 (BET etc.)
 
   // Column indices of surface species allocation table SATC [MCAS]
   SURSP_ALLOC_SURFTYPE = 0,

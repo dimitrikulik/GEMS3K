@@ -714,17 +714,6 @@ double TActivity::ConvertGj_toUniformStandardState(double g0, long int j,
     if (noZero(YOF))
       G += YOF;
     break;
-    // Sorption phases
-    //  case DC_SSC_A0:
-    //  case DC_SSC_A1:
-    //  case DC_SSC_A2:
-    //  case DC_SSC_A3:
-    //  case DC_SSC_A4:
-    //  case DC_WSC_A0:
-    //  case DC_WSC_A1:
-    //  case DC_WSC_A2:
-    //  case DC_WSC_A3:
-    //  case DC_WSC_A4:
   case DC_SUR_GROUP:
   case DC_SUR_COMPLEX:
   case DC_SUR_IPAIR:
@@ -915,16 +904,6 @@ void TActivity::StabilityIndexes(void) {
         ln_ax_dual -=
             lnFmol; // maybe more correction is needed for surface species
         break;
-        //     case DC_SSC_A0:
-        //     case DC_SSC_A1:
-        //     case DC_SSC_A2:
-        //     case DC_SSC_A3:
-        //     case DC_SSC_A4:
-        //     case DC_WSC_A0:
-        //     case DC_WSC_A1:
-        //     case DC_WSC_A2:
-        //     case DC_WSC_A3:
-        //     case DC_WSC_A4:
       case DC_SUR_COMPLEX:
       case DC_SUR_IPAIR:
       case DC_SUR_SPECIES:

@@ -602,18 +602,18 @@ long int TMultiBase::CalculateActivityCoefficients(long int LinkMode) {
           statusSACT = SurfaceActivityCoeff(jb, je, jpb, jdb, k);
         }
         break;
-        //      case PH_ADSORPT: // Extension of electrostatic models to
-        //      site-balance SCM case PH_IONEX:
-        //        if (pm.PHC[0] == PH_AQUEL && pmpXFk > pm.DSM &&
-        //            (pm.XFA[0] > pm.XwMinM && pm.XF[0] > pm.DSM)) {
-        //          if (pm.E) {
-        //            statusGC = GouyChapman(jb, je, k);
-        //            // PoissonBoltzmann( q, jb, je, k )
-        //          }
-        //          // Calculating surface activity coefficient terms
-        //          // statusSACT = SurfaceActivityCoeff(jb, je, jpb, jdb, k);
-        //        }
-        //        break;
+      case PH_ADSSBEIL: // Extension of electrostatic models to site-balance SCM
+        if (pm.PHC[0] == PH_AQUEL && pmpXFk > pm.DSM &&
+            (pm.XFA[0] > pm.XwMinM && pm.XF[0] > pm.DSM)) {
+          if (pm.E) {
+            statusGC = GouyChapman(jb, je, k);
+            // PoissonBoltzmann( q, jb, je, k )
+          }
+          // Calculating surface activity coefficient terms - not for
+          // site-balance SCMs!
+          // statusSACT = SurfaceActivityCoeff(jb, je, jpb, jdb, k);
+        }
+        break;
       default:
         goto END_LOOP;
       } // end switch

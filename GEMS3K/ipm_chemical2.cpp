@@ -157,16 +157,6 @@ void TMultiBase::CalculateConcentrationsInPhase(double X[], double XF[],
         pm.Y_la[j] =
             ln_to_lg * (Muj - pm.G0[j]); // + lnFmol ); corr. 06.10.10 DK
         break;
-        //    case DC_SSC_A0:
-        //    case DC_SSC_A1:
-        //    case DC_SSC_A2:
-        //    case DC_SSC_A3:
-        //   case DC_SSC_A4:
-        //    case DC_WSC_A0:
-        //    case DC_WSC_A1:
-        //    case DC_WSC_A2:
-        //    case DC_WSC_A3:
-        //    case DC_WSC_A4:
       case DC_SUR_COMPLEX:
       case DC_SUR_IPAIR:
       case DC_SUR_SPECIES:
@@ -279,17 +269,7 @@ void TMultiBase::CalculateConcentrationsInPhase(double X[], double XF[],
       pm.Y_la[j] = ln_to_lg * (Muj - pm.G0[j]); // + lnFmol ); corr. 06.10.10
       pm.FVOL[k] += pm.Vol[j] * X[j];           // fixed 11.03.2008 KD
       break;
-      //    case DC_SSC_A0:
-      //    case DC_SSC_A1:
-      //    case DC_SSC_A2:
-      //    case DC_SSC_A3:
-      //    case DC_SSC_A4:
-      //    case DC_WSC_A0:
-      //    case DC_WSC_A1:
-      //    case DC_WSC_A2:
-      //    case DC_WSC_A3:
-      //    case DC_WSC_A4:
-      // // case DC_SUR_GROUP:  // Check if commenting away of this is correct
+      // case DC_SUR_GROUP:  // Check if commenting away of this is correct
       // !!!
     case DC_SUR_COMPLEX:
     case DC_SUR_IPAIR:
@@ -564,7 +544,7 @@ double TMultiBase::virtualSorbentMass(long int jb, long int je, long int N) {
 /// Calculation of surface charge densities on multi-surface sorption phase
 // Revised by DK on 17.10.2026 using updated input data propagation
 void TMultiBase::IS_EtaCalc() {
-  long int k, i, ist, isp, j = 0, ja;
+  long int k, i, ist, j = 0, ja;
   double XetaS = 0., XetaW = 0., etaA, Ez, CDA, CDB, CDC;
 
   for (k = 0; k < pm.FIs; k++) { // loop over all solution phases
@@ -821,6 +801,12 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
       break;
     case SC_DDL: // Double-layer model
       emr = compute_ddl(SC_DDL, I, Zeff, SigmA[ist], x_slip);
+      break;
+    case SC_TCE: // Tournassat 2013 clay edge potential model with charge
+                 // spillover TBD
+      emr = compute_tce(SC_TCE, I, Zeff, pm.XcapA[k][ist], pm.XcapB[k][ist],
+                        SigmA[ist], SigmB[ist], pm.MASDT[k][ist], x_slip,
+                        debye_m);
       break;
     default:
       break;
@@ -1494,6 +1480,43 @@ EILModelResult TMultiBase::compute_nem(char ModCode, double sig0) const {
   res.zeta = 0.0;
   res.cap_d = 0.0;
   // res.sld01 = 0.0; ....
+  return res;
+}
+
+EILModelResult TMultiBase::compute_tce(char ModCode, double I, double z_eff,
+                                       double C1, double C2, double sig0,
+                                       double sig1, double par[], double x_slip,
+                                       double debye_m) const {
+
+  double A1 = par[1];
+  double A2 = par[2];
+  double A3 = par[3];
+  double sigma0 = sig0;
+  double sigma_beta = sig1;
+  double sigmad = -(sigma0 + sigma_beta);
+  double sigmanet = sigma0 + sigma_beta + sigmad;
+
+  double cap_d = calc_cap_d_from_sigma_d(sigmad, I);
+  double psi_d = calc_psi_d_from_sigma_d(sigmad, I, z_eff);
+  double psi_beta = psi_d - (sigmad / C2);
+  double psi_0 = psi_beta + (sigma0 / C1);
+  double zeta = calc_gc_potential_at_distance(psi_d, I, x_slip, z_eff);
+
+  EILModelResult res;
+  res.modelcode = ModCode;
+  res.name = "TLM for clay edge with charge spillover";
+  res.sigma0 = sigma0;
+  res.sigma1 = sigma_beta;
+  res.sigma2 = 0.0;
+  res.sigmad = sigmad;
+  res.sigmanet = sigmanet;
+  res.psi0 = psi_0;
+  res.psi1 = psi_beta;
+  res.psi2 = 0.0;
+  res.psid = psi_d;
+  res.zeta = zeta;
+  res.cap_d = cap_d;
+  // res.sld01 = dist01; ....
   return res;
 }
 

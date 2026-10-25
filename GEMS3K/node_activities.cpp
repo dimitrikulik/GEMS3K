@@ -27,6 +27,7 @@
 //
 
 #include "node.h"
+#include <cstring>
 
 // Generic access methods that use the new TActivity class
 // set temperature (in units of K)
@@ -289,15 +290,28 @@ void TNode::InitCopyActivities(DATACH *csd, MULTI *mp, DATABR *cnd) {
                        //separately within each sorption phase) [Lads]
                        // link indexes to surface type [XL_ST]; sorbent em
                        // [XL_EM]; surf.site [XL-SI] and EDL plane [XL_SP]
+  ap->Aalp = mp->Aalp; //< Full vector of specific surface areas of phases (m2/g) [0:FI-1]
+  ap->XfIEC = mp->XfIEC; //< Fixed permanent charge density in 1/nm2 and eq/kg [FIs][MNST][NCIEC]
   ap->EImc = mp->EImc; //< new: Collected EIL model coefficients k -> +=
                        //LsESmo[k][0]*LsESmo[k][1]
   ap->mCDc = mp->mCDc; //< new: Collected CD EIL model coefficients per DC k ->
                        //+= L1[k]*LsESmo[k][2]
+  ap->MASDT = mp->MASDT; //< SCM Modernization: Area fraction and patch isotherm parameters [FIs][MNST][NMSDT]
+  ap->MASDJ = mp->MASDJ; //< Parameters of surface species in surface complexation models [Lads][DNFCN]
   ap->IsoPc = mp->IsoPc; //< new: Collected isotherm coefficients per DC k -> +=
                          //L1[k]*LsISmo[k][2];
   ap->IsoSc = mp->IsoSc; //< new: Collected isotherm coeffs per site k -> +=
                          //LsISmo[k][0]*LsISmo[k][1];
-                         // TSorpMod & TKinMet stuff
+  ap->XcapA = mp->XcapA; //< Capacitance density of 0 EDL layer, F/m2 [FIs][FIat]
+  ap->XcapB = mp->XcapB; //< Capacitance density of B EDL layer, F/m2 [FIs][FIat]
+  ap->XcapC = mp->XcapC; //< Capacitance density of Ba EDL layer, F/m2 [FIs][FIat]
+  ap->XcapZ = mp->XcapZ; //< Location of slip plane for zeta potential [FIs][FIat]
+  ap->XcapD = mp->XcapD; //< Eff. cap. density of diffuse layer, F/m2 [FIs][FIat]
+  ap->XdlA = mp->XdlA;   //< Effective thickness of 0-1 A EDL layer, nm [FIs][FIat]
+  ap->XdlB = mp->XdlB;   //< Effective thickness of 0-2 B EDL layer, nm [FIs][FIat]
+  ap->XdlC = mp->XdlC;   //< Effective thickness of 0-d C EDL layer, nm [FIs][FIat]
+  ap->XdlD = mp->XdlD;   //< Effective thickness of diffuse layer, nm [FIs][FIat]
+  // TSorpMod & TKinMet stuff
   ap->SorMc = mp->SorMc; //< new: Phase-related kinetics and sorption model
                          //parameters: [nPS][16] < in the same order as from
                          //Asur until fRes2 in TPhase
@@ -371,6 +385,8 @@ void TNode::InitCopyActivities(DATACH *csd, MULTI *mp, DATABR *cnd) {
   ap->PHC = mp->PHC;   //< Classifier of phases { a g f p m l x d h } [FI]
   ap->DCCW = mp->DCCW; //< internal DC class codes for calculation of primal
                        //chemical potentials [L]
+  ap->SCMC = mp->SCMC; //< Classifier of EIL models and SACT codes applied to surface types [FIs][MNST][NSCMC]
+  ap->SATT = mp->SATT; //< Classifier of applied SACT equations [Lads]
 
   ap->MM = mp->MM;     //< DC molar masses, g/mol [L]
   ap->FWGT = mp->FWGT; //< phase (carrier) masses, g                [0:FI-1]
@@ -383,9 +399,12 @@ void TNode::InitCopyActivities(DATACH *csd, MULTI *mp, DATABR *cnd) {
   ap->NR = mp->NR;   //< NR - dimensions of R matrix
   ap->L = mp->L;     // Number of DCs
   ap->Ls = mp->Ls;   // Total number of DCs in phases-solutions
+  ap->Lads = mp->Lads; // Total number of DCs in sorption phases
   ap->LO = mp->LO;   // LO -   index of water-solvent in DC list
   ap->FI = mp->FI;   // Number of phases
   ap->FIs = mp->FIs; // Number of phases-solutions,
+  ap->FIat = mp->FIat; // Number of surface types in sorption phases
+  ap->E = mp->E;     // PE - flag of electroneutrality constraint { 0 1 }
   ap->K2 = mp->K2;
   ap->L1 = mp->L1; //< l_a vector - number of DCs included into each phase
                    //[nPH]; copy of nDCinPH
@@ -410,6 +429,23 @@ void TNode::InitCopyActivities(DATACH *csd, MULTI *mp, DATABR *cnd) {
       mp->U; //< IC chemical potentials u_i (mole/mole) - dual IPM solution [N]
   ap->Falp = mp->Falp; //< Phase stability index (PC==2) [FI]
 
+  ap->IC_m = mp->IC_m;   //< Total IC molalities in aqueous phase [0:N-1]
+  ap->IC_lm = mp->IC_lm; //< log total IC molalities in aqueous phase [0:N-1]
+  ap->IC_wm = mp->IC_wm; //< Total dissolved IC concentrations in g/kg_soln [0:N-1]
+
+  ap->XetaA = mp->XetaA; //< Total EIL charge on A (0) EIL plane, mol [FIs][FIat]
+  ap->XetaB = mp->XetaB; //< Total charge on B (1) EIL plane, mol [FIs][FIat]
+  ap->XetaC = mp->XetaC; //< Total charge on C (2, gamma) EIL plane, mol [FIs][FIat]
+  ap->XetaD = mp->XetaD; //< Total charge on D (3) EDL plane, mol [FIs][FIat]
+  ap->XpsiA = mp->XpsiA; //< Relative potential at A (0) EDL plane, V [FIs][FIat]
+  ap->XpsiB = mp->XpsiB; //< Relative potential at B (1, beta) EDL plane, V [FIs][FIat]
+  ap->XpsiC = mp->XpsiC; //< Relative potential at C (2, gamma) EDL plane, V [FIs][FIat]
+  ap->XpsiD = mp->XpsiD; //< Relative potential at D (2) plane, V [FIs][FIat]
+  ap->XpsiZ = mp->XpsiZ; //< Zeta potential at slip plane, V [FIs][FIat]
+  ap->XFTS = mp->XFTS;   //< Total number of moles of surface DC at surface type [FIs][FIat]
+  ap->D = mp->D;         //< Reserved work array for calc. surface act.coeff. [MNST]
+  ap->lnSAC = mp->lnSAC; //< ln surface activity coeff and Coulomb's term [Lads][4]
+
   ap->GamFs = mp->GamFs; //< Copy of activity coefficients Gamma [L]
   ap->fDQF = mp->fDQF;   //< Increments to molar G0 values of DCs from pure gas
                          //fugacities or DQF terms, normalized [L]
@@ -420,6 +456,7 @@ void TNode::InitCopyActivities(DATACH *csd, MULTI *mp, DATABR *cnd) {
   ap->NMU = mp->NMU;     //< DC increments to F_a criterion for phase [L]
   ap->Y_la = mp->Y_la;   //< log activity of DC in phases (mju-mji0) [0:L-1]
   ap->Y_m = mp->Y_m;     //< Molalities of aqueous species and sorbates [0:Ls-1]
+  ap->Y_w = mp->Y_w;     //< Mass concentrations of DC in multi-component phases, %(ppm) [0:Ls-1]
   ap->Pparc = mp->Pparc; //< Partial pressures or fugacities of pure DC, bar (Pc
                          //by default) [0:L-1]
   ap->EZ = mp->EZ;   //< Formula charge of DC in multi-component phases [0:Ls-1]
@@ -459,17 +496,24 @@ void TNode::InitCopyActivities(DATACH *csd, MULTI *mp, DATABR *cnd) {
   //    pH,         ///< pH of aqueous solution
   //    pe,         ///< pe of aqueous solution
   //    Eh,         ///< Eh of aqueous solution, V
-  //    DHBM,       ///< balance (relative) precision criterion
+  ap->DHBM = mp->DHBM; //< balance (relative) precision criterion
   ap->DSM = mp->DSM; //< min amount of phase DS
-                     //    GWAT,       ///< used in ipm_gamma()
-                     //    YMET,       ///< reserved
+  ap->GWAT = mp->GWAT; //< used in ipm_gamma()
+  ap->Zeff = mp->Zeff; //< Effective mean-field valency of aqueous
   //    PCI,        ///< Current value of Dikin criterion of IPM convergence
   //    DK>=DX DXM,        ///< IPM convergence criterion threshold DX (1e-5)
   //    lnP,        ///< log Ptotal
   //    RT,         ///< RT: 8.31451*T (J/mole/K)
-  //    FRT,        ///< F/RT, F - Faraday constant = 96485.309 C/mol
-  //    Yw,         ///< Current number of moles of solvent in aqueous phase
+  ap->FRT = mp->FRT;   //< F/RT, F - Faraday constant = 96485.309 C/mol
+  ap->Yw = mp->Yw;     //< Current number of moles of solvent in aqueous phase
+  ap->W1 = mp->W1;     //< Indicator of SpeciationCleanup() status
   //    ln5551,     ///< ln(55.50837344)
+  const BASE_PARAM *pa_p = multi_ptr()->base_param();
+  if (pa_p) {
+    ap->IEPS = pa_p->IEPS;
+    ap->PC = pa_p->PC;
+    ap->DNS = pa_p->DNS;
+  }
   ap->ICmin = 1e-4; // mp->ICmin;  //< tolerance for minimum ionic strength to
                     // calculate aqueous activity models
   ap->aqsTail =
@@ -485,6 +529,7 @@ void TNode::InitCopyActivities(DATACH *csd, MULTI *mp, DATABR *cnd) {
 
 /// This allocation is used only in standalone GEMS3K
 TActivity::TActivity(DATACH *csd1, DATABR *sbc, TNode *ptn) {
+  memset(&act, 0, sizeof(ACTIVITY));
   this->csd = csd1;
   this->cnd = sbc;
   this->cno = ptn;

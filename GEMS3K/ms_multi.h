@@ -728,8 +728,10 @@ using IndexationSATX = IndexationSATC;
 
 extern const BASE_PARAM pa_p_;
 
+#ifndef EIL_MODEL_RESULT_DEFINED
+#define EIL_MODEL_RESULT_DEFINED
 // Added for SCM modernization Oct 18 2026  DK ClaySorEl project
-typedef struct {
+struct EILModelResult {
   char modelcode; // Model code '4', '3', 'T', 'B', 'C', 'D', 'N'
   std::string name;
   double sigma0, sigma1, sigma2, sigmad,
@@ -740,7 +742,8 @@ typedef struct {
   double sld01, sld02, sld0d,
       dlth; // distances from 0 plane to 1, 2, d, slip plane, and
             // diffuse layer thickness counted from 0 plane
-} EILModelResult;
+};
+#endif
 
 // Data of MULTI
 class TMultiBase {
@@ -1026,6 +1029,9 @@ protected:
                              double x_slip) const;
   EILModelResult compute_ccm(char ModCode, double C1, double sig0) const;
   EILModelResult compute_nem(char ModCode, double sig0) const;
+  EILModelResult compute_tce(char ModCode, double I, double z_eff, double C1,
+                             double C2, double sig0, double sig1, double par[],
+                             double x_slip, double debye_m) const;
   // Calculation of any of 6 EIL models and NEM
   long int GouyChapman(long int jb, long int je, long int k);
   //  Surface activity coefficient terms
