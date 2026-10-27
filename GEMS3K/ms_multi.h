@@ -163,7 +163,7 @@ typedef struct {            // MULTI is base structure to Project (local values)
             ///< system.
       FI,   ///< FI -   number of phases in IPM problem
       FIs,  ///< FIs -   number of multicomponent phases
-      FIa,  ///< FIa -   number of sorption phases
+      FIa,  ///< FIa -   number of sorption phases (the last multicomp. phases)
       FI1,  ///< FI1 -   number of phases present in eqstate
       FI1s, ///< FI1s -   number of multicomponent phases present in eqstate
       FI1a, ///< FI1a -   number of sorption phases present in eqstate
@@ -631,6 +631,8 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
   char *DCC3; ///< Classifier of DCs involved in sorption phases [Lads]
   char (*SF2)[MAXPHNAME +
               MAXSYMB]; ///< List of multicomp. phase names in the syst [FIs]
+  char (*SF3)[MAXPHNAME +
+              MAXSYMB]; ///< List of sorption phase names in the system [FIa]
   char (*SFs)[MAXPHNAME + MAXSYMB]; ///< List of phases currently present in
                                     ///< non-zero quantities [FI]
   char *pbuf,                       ///< Text buffer for table printouts

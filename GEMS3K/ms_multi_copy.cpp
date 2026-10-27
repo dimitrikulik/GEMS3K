@@ -160,35 +160,35 @@ void TMultiBase::copyMULTI(const TMultiBase &otherMulti) {
   }
 
   if (pm.FIat > 0 &&
-      /*pm.Lads > 0 &&Sveta 12/09/99*/ pm.FIs >
+      /*pm.Lads > 0 &&Sveta 12/09/99*/ pm.FIa >
           0) { // SCM Modernization: 3D and 2D unified sorption arrays
-    copyValues((char *)pm.SCMC, (char *)otherPM->SCMC, pm.FIs * MNST * NSCMC);
+    copyValues((char *)pm.SCMC, (char *)otherPM->SCMC, pm.FIa * MNST * NSCMC);
     copyValues((double *)pm.Nfsp, (double *)otherPM->Nfsp,
-               pm.FIs * NSURFSITES * NFSIT);
+               pm.FIa * NSURFSITES * NFSIT);
     copyValues((double *)pm.MASDT, (double *)otherPM->MASDT,
-               pm.FIs * MNST * NMSDT);
-    copyValues((double *)pm.XcapA, (double *)otherPM->XcapA, pm.FIs * MNST);
-    copyValues((double *)pm.XcapB, (double *)otherPM->XcapB, pm.FIs * MNST);
-    copyValues((double *)pm.XcapC, (double *)otherPM->XcapC, pm.FIs * MNST);
-    copyValues((double *)pm.XcapZ, (double *)otherPM->XcapZ, pm.FIs * MNST);
-    copyValues((double *)pm.XcapD, (double *)otherPM->XcapD, pm.FIs * MNST);
-    copyValues((double *)pm.XdlA, (double *)otherPM->XdlA, pm.FIs * MNST);
-    copyValues((double *)pm.XdlB, (double *)otherPM->XdlB, pm.FIs * MNST);
-    copyValues((double *)pm.XdlC, (double *)otherPM->XdlC, pm.FIs * MNST);
-    copyValues((double *)pm.XdlD, (double *)otherPM->XdlD, pm.FIs * MNST);
-    copyValues((double *)pm.XpsiA, (double *)otherPM->XpsiA, pm.FIs * MNST);
-    copyValues((double *)pm.XpsiB, (double *)otherPM->XpsiB, pm.FIs * MNST);
-    copyValues((double *)pm.XpsiC, (double *)otherPM->XpsiC, pm.FIs * MNST);
-    copyValues((double *)pm.XpsiD, (double *)otherPM->XpsiD, pm.FIs * MNST);
-    copyValues((double *)pm.XpsiZ, (double *)otherPM->XpsiZ, pm.FIs * MNST);
-    copyValues((double *)pm.XlamA, (double *)otherPM->XlamA, pm.FIs * MNST);
+               pm.FIa * MNST * NMSDT);
+    copyValues((double *)pm.XcapA, (double *)otherPM->XcapA, pm.FIa * MNST);
+    copyValues((double *)pm.XcapB, (double *)otherPM->XcapB, pm.FIa * MNST);
+    copyValues((double *)pm.XcapC, (double *)otherPM->XcapC, pm.FIa * MNST);
+    copyValues((double *)pm.XcapZ, (double *)otherPM->XcapZ, pm.FIa * MNST);
+    copyValues((double *)pm.XcapD, (double *)otherPM->XcapD, pm.FIa * MNST);
+    copyValues((double *)pm.XdlA, (double *)otherPM->XdlA, pm.FIa * MNST);
+    copyValues((double *)pm.XdlB, (double *)otherPM->XdlB, pm.FIa * MNST);
+    copyValues((double *)pm.XdlC, (double *)otherPM->XdlC, pm.FIa * MNST);
+    copyValues((double *)pm.XdlD, (double *)otherPM->XdlD, pm.FIa * MNST);
+    copyValues((double *)pm.XpsiA, (double *)otherPM->XpsiA, pm.FIa * MNST);
+    copyValues((double *)pm.XpsiB, (double *)otherPM->XpsiB, pm.FIa * MNST);
+    copyValues((double *)pm.XpsiC, (double *)otherPM->XpsiC, pm.FIa * MNST);
+    copyValues((double *)pm.XpsiD, (double *)otherPM->XpsiD, pm.FIa * MNST);
+    copyValues((double *)pm.XpsiZ, (double *)otherPM->XpsiZ, pm.FIa * MNST);
+    copyValues((double *)pm.XlamA, (double *)otherPM->XlamA, pm.FIa * MNST);
     copyValues((double *)pm.XfIEC, (double *)otherPM->XfIEC,
-               pm.FIs * MNST * NCIEC);
-    copyValues((double *)pm.XetaA, (double *)otherPM->XetaA, pm.FIs * MNST);
-    copyValues((double *)pm.XetaB, (double *)otherPM->XetaB, pm.FIs * MNST);
-    copyValues((double *)pm.XetaC, (double *)otherPM->XetaC, pm.FIs * MNST);
-    copyValues((double *)pm.XetaD, (double *)otherPM->XetaD, pm.FIs * MNST);
-    copyValues((double *)pm.XFTS, (double *)otherPM->XFTS, pm.FIs * MNST);
+               pm.FIa * MNST * NCIEC);
+    copyValues((double *)pm.XetaA, (double *)otherPM->XetaA, pm.FIa * MNST);
+    copyValues((double *)pm.XetaB, (double *)otherPM->XetaB, pm.FIa * MNST);
+    copyValues((double *)pm.XetaC, (double *)otherPM->XetaC, pm.FIa * MNST);
+    copyValues((double *)pm.XetaD, (double *)otherPM->XetaD, pm.FIa * MNST);
+    copyValues((double *)pm.XFTS, (double *)otherPM->XFTS, pm.FIa * MNST);
 
     copyValues((long int *)pm.SATC, (long int *)otherPM->SATC, pm.Lads * 4);
     copyValues(pm.SATT, otherPM->SATT, pm.Lads);
@@ -198,7 +198,7 @@ void TMultiBase::copyMULTI(const TMultiBase &otherMulti) {
     copyValues((double *)pm.lnSAC, (double *)otherPM->lnSAC, pm.Lads * 4);
     copyValues((char *)pm.SM3, (char *)otherPM->SM3, MAXDCNAME * pm.Lads);
     copyValues(pm.DCC3, otherPM->DCC3, pm.Lads);
-    copyValues((double *)pm.D, (double *)otherPM->D, MNST * MNST);
+    copyValues((double *)pm.D, (double *)otherPM->D, NSURFSITES * MNST);
   }
 
   if (pm.PG > 0) {
@@ -605,7 +605,7 @@ void TMultiBase::multi_realloc(char PAalp, char PSigm) {
   }
 
   if (pm.FIat > 0 /*&& pm.Lads > 0*/ &&
-      pm.FIs > 0) { // ADSORBTION AND ION IXCHANDG
+      pm.FIa > 0) { // ADSORBTION AND ION IXCHANDG
     // SCM Modernization: Allocation and initialization of unified sorption
     // arrays
     pm.SATC = new long int[pm.Lads][4];
@@ -622,31 +622,31 @@ void TMultiBase::multi_realloc(char PAalp, char PSigm) {
         pm.mCDc[ii][jj] = 0.0;
     }
 
-    pm.SCMC = new char[pm.FIs][MNST][NSCMC];
-    pm.Nfsp = new double[pm.FIs][NSURFSITES][NFSIT];
-    pm.MASDT = new double[pm.FIs][MNST][NMSDT];
-    pm.XcapA = new double[pm.FIs][MNST];
-    pm.XcapB = new double[pm.FIs][MNST];
-    pm.XcapC = new double[pm.FIs][MNST];
-    pm.XcapZ = new double[pm.FIs][MNST];
-    pm.XcapD = new double[pm.FIs][MNST];
-    pm.XdlA = new double[pm.FIs][MNST];
-    pm.XdlB = new double[pm.FIs][MNST];
-    pm.XdlC = new double[pm.FIs][MNST];
-    pm.XdlD = new double[pm.FIs][MNST];
-    pm.XpsiA = new double[pm.FIs][MNST];
-    pm.XpsiB = new double[pm.FIs][MNST];
-    pm.XpsiC = new double[pm.FIs][MNST];
-    pm.XpsiD = new double[pm.FIs][MNST];
-    pm.XpsiZ = new double[pm.FIs][MNST];
-    pm.XlamA = new double[pm.FIs][MNST];
-    pm.XfIEC = new double[pm.FIs][MNST][NCIEC];
-    pm.XetaA = new double[pm.FIs][MNST];
-    pm.XetaB = new double[pm.FIs][MNST];
-    pm.XetaC = new double[pm.FIs][MNST];
-    pm.XetaD = new double[pm.FIs][MNST];
-    pm.XFTS = new double[pm.FIs][MNST];
-    for (ii = 0; ii < pm.FIs; ii++) {
+    pm.SCMC = new char[pm.FIa][MNST][NSCMC];
+    pm.Nfsp = new double[pm.FIa][NSURFSITES][NFSIT];
+    pm.MASDT = new double[pm.FIa][MNST][NMSDT];
+    pm.XcapA = new double[pm.FIa][MNST];
+    pm.XcapB = new double[pm.FIa][MNST];
+    pm.XcapC = new double[pm.FIa][MNST];
+    pm.XcapZ = new double[pm.FIa][MNST];
+    pm.XcapD = new double[pm.FIa][MNST];
+    pm.XdlA = new double[pm.FIa][MNST];
+    pm.XdlB = new double[pm.FIa][MNST];
+    pm.XdlC = new double[pm.FIa][MNST];
+    pm.XdlD = new double[pm.FIa][MNST];
+    pm.XpsiA = new double[pm.FIa][MNST];
+    pm.XpsiB = new double[pm.FIa][MNST];
+    pm.XpsiC = new double[pm.FIa][MNST];
+    pm.XpsiD = new double[pm.FIa][MNST];
+    pm.XpsiZ = new double[pm.FIa][MNST];
+    pm.XlamA = new double[pm.FIa][MNST];
+    pm.XfIEC = new double[pm.FIa][MNST][NCIEC];
+    pm.XetaA = new double[pm.FIa][MNST];
+    pm.XetaB = new double[pm.FIa][MNST];
+    pm.XetaC = new double[pm.FIa][MNST];
+    pm.XetaD = new double[pm.FIa][MNST];
+    pm.XFTS = new double[pm.FIa][MNST];
+    for (ii = 0; ii < pm.FIa; ii++) {
       for (jj = 0; jj < MNST; jj++) {
         for (int kk = 0; kk < NSCMC; kk++)
           pm.SCMC[ii][jj][kk] = 0;

@@ -263,8 +263,8 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
       Lads,   ///< Total number of DCs in sorption phases
       LO,     ///< LO -   index of water-solvent in DC list
       FI,     ///< Number of phases
-      FIs,    ///< Number of phases-solutions,
-      FIat,   ///< Number of surface types in sorption phases
+      FIs,    ///< Number of phases-solutions
+      FIa,    ///< Number of sorption phases (with EIL and SACT)
       E,      ///< PE - flag of electroneutrality constraint { 0 1 }
       K2,     // not needed?
       *L1;    ///< l_a vector - number of DCs included into each phase [nPH];

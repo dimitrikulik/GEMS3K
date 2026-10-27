@@ -27,6 +27,7 @@
 //-------------------------------------------------------------------
 //
 
+#include "activities.h"
 #include "ms_multi.h"
 #include "node.h"
 #include "v_service.h"
@@ -284,23 +285,26 @@ void TActivity::TotalPhasesAmounts(double X[], double XF[], double XFA[]) {
 ///  If error, returns +7777777 J/mole.
 //  Last modif. 05 Jan 2000 by DK to include BSM EDL model.
 double TActivity::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
-  // long int jc=-1;
-  double F0 = 0.0; //, Fold, Mk=0.0;
+  long int ja = 0, ist, jc = -1, ka = 0;
+  double F0 = 0.0, Fold, Mk = 0.0;
+  double FactSur, FactSurT;
+  double psiA, psiB, psiC, CDA, CDB, CDC, Ez, Coulomb = 0.0;
   // double FactSur, FactSurT;
 
-  // Fold = act.F0[j];    // No old sorption models in this implementation!
-  //    if( act.FIat > 0 && j < act.Ls && j >= act.Ls - act.Lads )
-  //    {
-  //        ja = j - ( act.Ls - act.Lads );
-  //        jc = act.SATC[ja][XL_EM];
-  // Workaround 08.02.2011 by DK to prevent crash on inconsistent sorption DC
-  //        if( jc >= act.L1[k] )
-  //            jc = -1;
-  //    }
+  Fold = act.F0[j]; // No old sorption models in this implementation!
+  if (act.FIa > 0 && j < act.Ls && j >= act.Ls - act.Lads) {
+    ka = k - (act.FIs - act.FIa);
+    ja = j - (act.Ls - act.Lads);
+    jc = act.SATC[ja][XL_EM];
+    // Workaround 08.02.2011 by DK to prevent crash on inconsistent sorption DC
+    if (jc >= act.L1[k])
+      jc = -1;
+  }
   if (k < act.FIs && act.XFA[k] > 1e-12) {
-    /*if( jc < 0 ) // phase (carrier) molar mass g/mkmol
-       Mk = act.FWGT[k]/act.XFA[k]*1e-6;
-    else Mk = act.MM[jc]*(act.X[jc]/act.XFA[k])*1e-6;*/
+    if (jc < 0) // phase (carrier) molar mass g/mkmol
+      Mk = act.FWGT[k] / act.XFA[k] * 1e-6;
+    else
+      Mk = act.MM[jc] * (act.X[jc] / act.XFA[k]) * 1e-6;
     // DC carrier molar mass g/mkmol
   }
   switch (act.DCC[j]) { // analyse species class code
@@ -310,6 +314,8 @@ double TActivity::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   case DC_AQ_SPECIES:
   case DC_AQ_SURCOMP:
   case DC_SCM_SPECIES:
+  case DC_IESC_A:
+  case DC_IEWC_B:
   case DC_GAS_COMP:
   case DC_GAS_H2O:
   case DC_GAS_CO2:
@@ -324,106 +330,154 @@ double TActivity::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   case DC_SOL_MAJDEP:
     F0 = act.lnGmM[j];
     break;
-  /*
-          // adsorption
-      case DC_SUR_GROUP:
-      case DC_SUR_COMPLEX:
-      case DC_SUR_IPAIR:
-      case DC_SUR_SPECIES:
-      case DC_IESC_A:
-      case DC_IEWC_B:
-          if( !act.Lads || !act.FIat )   // Foolproof - to prevent crash
-  DK 22.12.2009 break; F0 = act.lnGmM[j]; / * + act.lnGam[j]; * /
+    // adsorption
+  case DC_SUR_GROUP:
+  case DC_SUR_COMPLEX:
+  case DC_SUR_IPAIR:
+  case DC_SUR_SPECIES:
+    if (!act.Lads) // Foolproof - to prevent crash  DK 22.12.2009
+      break;
+    F0 = act.lnGmM[j]; // + act.lnGam[j];
+    // FInd out to which site type and surface type this surface species belongs
+    ist = act.SATC[ja][SURSP_ALLOC_SURFTYPE];
+    // SCM Modernization: charges from mCDc[ja][0..1]
+    CDA = act.mCDc ? act.mCDc[ja][CHARGE_ON_A] : 0.0;
+    // CD0 = CDA; // species charge that goes into 0 plane
+    CDB = act.mCDc ? act.mCDc[ja][CHARGE_ON_B] : 0.0;
+    // CDb = CDB; // species charge that goes into B plane
+    CDC = act.mCDc ? act.mCDc[ja][CHARGE_ON_C] : 0.0;
+    // CDc = CDC; // species charge that goes into C plane
+    // reading out the computed surface plane potentials
+    psiA = act.XpsiA[ka][ist];
+    psiB = act.XpsiB[ka][ist];
+    psiC = act.XpsiC[ka][ist];
+    // Getting surface species formula charge
+    Ez = double(act.EZ[j]);
+    if (act.mCDc) {
+      // Calculating contributions to Coulomb term of (electro)chemical
+      // potential
+      Coulomb += psiA * CDA * act.FRT;
+      Coulomb += psiB * CDB * act.FRT;
+      Coulomb += psiC * CDC * act.FRT;
+    } else
+      Coulomb += psiA * Ez * act.FRT; // Charge distro array not provided
+    act.CTerms[j] = Coulomb; // Collecting COulomb terms for surface species
+    F0 += Coulomb;
+    if (Mk > 1e-9) // Mk is carrier molar mass in g/mkmol
+    { // Correction for standard density, surface area and surface type fraction
+      FactSur = Mk * (act.Aalp[k]) * act.DNS * 1.66054;
+      // FactSur is adsorbed mole amount at st. surf. density per mole of solid
+      // carrier
+      // SCM Modernization: MASDT[ka][ist][MSDT_FSUTSA] is reactive area
+      // fraction
+      FactSurT = FactSur * (act.MASDT[ka][ist][MSDT_FSUTSA]);
+      if (act.SCMC[ka][ist][0] == SC_MXC || act.SCMC[ka][ist][0] == SC_NNE ||
+          act.SCMC[ka][ist][0] == SC_IEV)
+        // F0 -= log( Mk * (pm.Nfsp[k][ist]) *
+        // (pm.Aalp[k]) * pa->p.DNS*1.66054 );
+        F0 -= log(FactSurT);
+      else
+        F0 -= log(FactSurT);
+      // F0 -= log( Mk * (pm.Nfsp[k][ist]) *
+      // (pm.Aalp[k]) * pa->p.DNS*1.66054 );
+      F0 -= FactSur / (1. + FactSur);
+      // F0 -= (pm.Aalp[k])*Mk*pa->p.DNS*1.66054 /
+      // ( 1.0 + (pm.Aalp[k])*Mk*pa->p.DNS*1.66054 );
+    }
+    /*
           // get ist - index of surface type and isp - index of surface plane
-  / *!!!!!* /  ist = act.SATC[ja][XL_ST];  // / MSPN;
-  / *!!!!!* /  isp = act.SATC[ja][XL_SP]; // % MSPN;
-          // SCM Modernization: charges from mCDc[ja][0..1]
-          CD0 = act.mCDc ? act.mCDc[ja][0] : 0.0;  // species charge that goes
-  into 0 plane CDb = act.mCDc ? act.mCDc[ja][1] : 0.0;  // species charge that
-  goes into B plane ObS = act.MASDJ[ja][PI_DEN];  // obsolete - the sign for
-  outer-sphere charge if( ObS >= 0.0 ) ObS = 1.0; else ObS = -1.0; psiA =
-  act.XpsiA[k][ist]; psiB = act.XpsiB[k][ist]; Ez = double(act.EZ[j]); if( !isp
-  )  // This is the 0 (A) plane species
-          {
-              if( fabs( CD0 ) > 1e-20 )  // Doubtful...
-                  Ez = CD0;
-              F0 += psiA * Ez * act.FRT;
-          }
-          else  // This is B plane
-          {
-              // SCM Modernization: SCM[k][ist][0] is EIL model code
-              if( act.SCM[k][ist][0] == SC_MTL || act.SCM[k][ist][0] == SC_MXC )
-              { // Modified TL: Robertson, 1997; also XTLM Kulik 2002
-                    if( fabs( CDb ) > 1e-20 )  // Doubtful...
-                        Ez = CDb;
-                    F0 += psiB * Ez * act.FRT;
-              }
-              if( act.SCM[k][ist][0] == SC_TLM )
-              {
-  // New CD version of TLM  added 25.10.2004
-                 if( fabs( CD0 ) > 1e-20 && fabs( CDb ) > 1e-20 )
-                    F0 += ( psiA*CD0 + psiB*CDb )* act.FRT;
-               // see also Table 4 in Zachara & Westall, 1999
-               // Old version:  TLM Hayes & Leckie, 1987 uses the sign indicator
-  at density else { if( ObS < 0 )
-                    {
-                        Ez -= 1.0;
-                        F0 += ( psiA + Ez * psiB )* act.FRT;
-                    }
-                    else
-                    {
-                        Ez += 1.0;
-                        F0 += ( Ez * psiB - psiA )* act.FRT;
-                    }
-                 }
-              }
-              else if( act.SCM[k][ist][0] == SC_BSM || act.SCM[k][ist][0] ==
-  SC_CCM ) { // Basic Stern model, Christl & Kretzschmar, 1999
-              // New CD version of TLM  added 25.10.2004
-                 if( fabs( CD0 ) > 1e-20 && fabs( CDb ) > 1e-20 )
-                    F0 += ( psiA*CD0 + psiB*CDb )* act.FRT;
-                  else {
-                    if( ObS < 0 )
-                    {
-                        Ez -= 1.0;
-                        F0 += ( psiA + Ez * psiB )* act.FRT;
-                    }
-                    else
-                    {
-                        Ez += 1.0;
-                        F0 += ( Ez * psiB - psiA )* act.FRT;
-                    }
-                 }
-              }
-          }
-          if( Mk > 1e-9 )  // Mk is carrier molar mass in g/mkmol
-          {   // Correction for standard density, surface area and surface type
-  fraction FactSur = Mk * (act.Aalp[k]) * pa->p.DNS*1.66054;
-                      // FactSur is adsorbed mole amount at st. surf. density
-  per mole of solid carrier
-                  // SCM Modernization: MASDT[k][ist][MSDT_FSUTSA] is reactive
-  area fraction FactSurT = FactSur * (act.MASDT[k][ist][MSDT_FSUTSA]); if(
-  act.SCM[k][ist][0] == SC_MXC || act.SCM[k][ist][0] == SC_NNE ||
-                      act.SCM[k][ist][0] == SC_IEV )
-                                                  // F0 -= log( Mk *
-  (act.Nfsp[k][ist]) *
-                                                  // (act.Aalp[k]) *
-  pa->p.DNS*1.66054 ); F0 -= log( FactSurT ); else  F0 -= log( FactSurT );
-                                  // F0 -= log( Mk * (act.Nfsp[k][ist]) *
-                                  // (act.Aalp[k]) * pa->p.DNS*1.66054 );
-              F0 -= FactSur / ( 1. + FactSur );
-                                  // F0 -= (act.Aalp[k])*Mk*pa->p.DNS*1.66054 /
-                                  // ( 1.0 + (act.Aalp[k])*Mk*pa->p.DNS*1.66054
-  );
-          }
-          break;
-      case DC_PEL_CARRIER:
-      case DC_SUR_MINAL:  // constant charge of carrier - not completed
-      case DC_SUR_CARRIER: // Mk is carrier molar mass in g/mkmol
-          if( !act.Lads || !act.FIat )   // Foolproof - to prevent crash
-  DK 22.12.2009 break; FactSur = Mk * (act.Aalp[k]) * pa->p.DNS*1.66054; F0 -=
-  FactSur / ( 1. + FactSur ); F0 += FactSur; break;
-  */
+    / *!!!!!* /  ist = act.SATC[ja][XL_ST];  // / MSPN;
+    / *!!!!!* /  isp = act.SATC[ja][XL_SP]; // % MSPN;
+            // SCM Modernization: charges from mCDc[ja][0..1]
+            CD0 = act.mCDc ? act.mCDc[ja][0] : 0.0;  // species charge that goes
+    into 0 plane CDb = act.mCDc ? act.mCDc[ja][1] : 0.0;  // species charge that
+    goes into B plane ObS = act.MASDJ[ja][PI_DEN];  // obsolete - the sign for
+    outer-sphere charge if( ObS >= 0.0 ) ObS = 1.0; else ObS = -1.0; psiA =
+    act.XpsiA[k][ist]; psiB = act.XpsiB[k][ist]; Ez = double(act.EZ[j]); if(
+    !isp )  // This is the 0 (A) plane species
+            {
+                if( fabs( CD0 ) > 1e-20 )  // Doubtful...
+                    Ez = CD0;
+                F0 += psiA * Ez * act.FRT;
+            }
+            else  // This is B plane
+            {
+                // SCM Modernization: SCM[k][ist][0] is EIL model code
+                if( act.SCM[k][ist][0] == SC_MTL || act.SCM[k][ist][0] == SC_MXC
+    ) { // Modified TL: Robertson, 1997; also XTLM Kulik 2002 if( fabs( CDb ) >
+    1e-20 )  // Doubtful... Ez = CDb; F0 += psiB * Ez * act.FRT;
+                }
+                if( act.SCM[k][ist][0] == SC_TLM )
+                {
+    // New CD version of TLM  added 25.10.2004
+                   if( fabs( CD0 ) > 1e-20 && fabs( CDb ) > 1e-20 )
+                      F0 += ( psiA*CD0 + psiB*CDb )* act.FRT;
+                 // see also Table 4 in Zachara & Westall, 1999
+                 // Old version:  TLM Hayes & Leckie, 1987 uses the sign
+    indicator at density else { if( ObS < 0 )
+                      {
+                          Ez -= 1.0;
+                          F0 += ( psiA + Ez * psiB )* act.FRT;
+                      }
+                      else
+                      {
+                          Ez += 1.0;
+                          F0 += ( Ez * psiB - psiA )* act.FRT;
+                      }
+                   }
+                }
+                else if( act.SCM[k][ist][0] == SC_BSM || act.SCM[k][ist][0] ==
+    SC_CCM ) { // Basic Stern model, Christl & Kretzschmar, 1999
+                // New CD version of TLM  added 25.10.2004
+                   if( fabs( CD0 ) > 1e-20 && fabs( CDb ) > 1e-20 )
+                      F0 += ( psiA*CD0 + psiB*CDb )* act.FRT;
+                    else {
+                      if( ObS < 0 )
+                      {
+                          Ez -= 1.0;
+                          F0 += ( psiA + Ez * psiB )* act.FRT;
+                      }
+                      else
+                      {
+                          Ez += 1.0;
+                          F0 += ( Ez * psiB - psiA )* act.FRT;
+                      }
+                   }
+                }
+            }
+            if( Mk > 1e-9 )  // Mk is carrier molar mass in g/mkmol
+            {   // Correction for standard density, surface area and surface
+    type fraction FactSur = Mk * (act.Aalp[k]) * pa->p.DNS*1.66054;
+                        // FactSur is adsorbed mole amount at st. surf. density
+    per mole of solid carrier
+                    // SCM Modernization: MASDT[k][ist][MSDT_FSUTSA] is reactive
+    area fraction FactSurT = FactSur * (act.MASDT[k][ist][MSDT_FSUTSA]); if(
+    act.SCM[k][ist][0] == SC_MXC || act.SCM[k][ist][0] == SC_NNE ||
+                        act.SCM[k][ist][0] == SC_IEV )
+                                                    // F0 -= log( Mk *
+    (act.Nfsp[k][ist]) *
+                                                    // (act.Aalp[k]) *
+    pa->p.DNS*1.66054 ); F0 -= log( FactSurT ); else  F0 -= log( FactSurT );
+                                    // F0 -= log( Mk * (act.Nfsp[k][ist]) *
+                                    // (act.Aalp[k]) * pa->p.DNS*1.66054 );
+                F0 -= FactSur / ( 1. + FactSur );
+                                    // F0 -= (act.Aalp[k])*Mk*pa->p.DNS*1.66054
+    /
+                                    // ( 1.0 +
+    (act.Aalp[k])*Mk*pa->p.DNS*1.66054
+    );
+            }
+    */
+    break;
+  case DC_PEL_CARRIER:
+  case DC_SUR_MINAL:           // constant charge of carrier - not completed
+  case DC_SUR_CARRIER:         // Mk is carrier molar mass in g/mkmol
+    if (!act.Lads || !act.FIa) // Foolproof - to prevent crash DK 22.12.2009
+      break;
+    FactSur = Mk * (act.Aalp[k]) * act.DNS * 1.66054;
+    F0 -= FactSur / (1. + FactSur);
+    F0 += FactSur;
+    break;
   default:
     break;
   }
@@ -904,11 +958,11 @@ void TActivity::StabilityIndexes(void) {
         ln_ax_dual -=
             lnFmol; // maybe more correction is needed for surface species
         break;
+      case DC_IESC_A:
+      case DC_IEWC_B:
       case DC_SUR_COMPLEX:
       case DC_SUR_IPAIR:
       case DC_SUR_SPECIES:
-      case DC_IESC_A:
-      case DC_IEWC_B:
         ln_ax_dual -= lnFmol;
         //                gamma_primal = exp( act.F0[j] );
         break;

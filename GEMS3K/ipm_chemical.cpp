@@ -27,6 +27,7 @@
 //-------------------------------------------------------------------
 //
 
+#include "m_const_base.h"
 #include "ms_multi.h"
 #include "v_detail.h"
 #include "v_service.h"
@@ -37,7 +38,7 @@
 ///  xj0 values are placed as upper kinetic constraints
 //
 void TMultiBase::XmaxSAT_IPM2() {
-  long int i, j, ja, k, jb, je = 0, ist = 0, Cj, iSite[6];
+  long int i, j, ja, k, jb, je = 0, ist = 0, Cj, iSite[6], ka = 0;
   double XS0, xj0, XVk, XSk, XSkC, xj, Mm, rIEPS, xjn;
 
   if (!pm.DUL) // not possible to install upper kinetic constraints!
@@ -48,6 +49,7 @@ void TMultiBase::XmaxSAT_IPM2() {
     je += pm.L1[k];
     if (pm.PHC[k] != PH_SORPTION)
       continue;
+    ka = k - (pm.FIs - pm.FIa);
 
     if (pm.XFA[k] < pm.DSM) // No sorbent retained by the IPM
       continue;
@@ -102,7 +104,7 @@ void TMultiBase::XmaxSAT_IPM2() {
             continue; // This end-member is zeroed off by IPM
           Mm = pm.MM[Cj] * XVk / pm.XFA[k]; // mol.mass
         }
-        XSk = pm.XFTS[k][ist]; // Tot.moles of sorbates on surf.type
+        XSk = pm.XFTS[ka][ist]; // Tot.moles of sorbates on surf.type
         xj = pm.X[j];          // Current moles of this surf.species
         //            a=1.0;  Frumkin factor - reserved for extension to FFG
         //            isotherm
@@ -115,7 +117,7 @@ void TMultiBase::XmaxSAT_IPM2() {
             xjn = pm.X[iSite[ist]]; // neutral site does not compete!
           // SCM Modernization: MASDJ density and MASDT patch area fraction
           XS0 = fabs(pm.MASDJ[ja][PI_DEN]);
-          XS0 = XS0 * XVk * Mm / 1e6 * pm.MASDT[k][ist][MSDT_FSUTSA];
+          XS0 = XS0 * XVk * Mm / 1e6 * pm.MASDT[ka][ist][MSDT_FSUTSA];
           // expected total in moles
           XSkC = XSk - xjn - xj; // occupied by the competing species
           if (XSkC < 0.0)
@@ -142,14 +144,14 @@ void TMultiBase::XmaxSAT_IPM2() {
         case SACT_BET_NCOMP:
           // case SAT_NCOMP: // Non-competitive surface species
           xj0 = fabs(pm.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6 *
-                pm.MASDT[k][ist][MSDT_FSUTSA]; // in moles
+                pm.MASDT[ka][ist][MSDT_FSUTSA]; // in moles
           pm.DUL[j] = xj0 - rIEPS;
           break;
         case SAT_SOLV: // Neutral surface site (e.g. >O0.5H@ group)
           rIEPS = base_param()->IEPS;
           XS0 = fabs(pm.MASDJ[ja][PI_DEN]);
           XS0 =
-              XS0 * XVk * Mm / 1e6 * pm.MASDT[k][ist][MSDT_FSUTSA]; // in moles
+              XS0 * XVk * Mm / 1e6 * pm.MASDT[ka][ist][MSDT_FSUTSA]; // in moles
 
           pm.DUL[j] = XS0 - rIEPS;
           if (pm.DUL[j] <= rIEPS)
@@ -402,14 +404,15 @@ void TMultiBase::TotalPhasesAmounts(double X[], double XF[], double XFA[]) {
 ///  If error, returns +7777777 J/mole.
 //  Last modif. 05 Jan 2000 by DK to include BSM EDL model.
 double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
-  long int ja = 0, ist, isp, jc = -1;
+  long int ja = 0, ist, isp, jc = -1, ka = 0;
   double F0 = 0.0, Fold, dF0, Mk = 0.0, Ez;
   double psiA, psiB, psiC, CDA, CDB, CDC, CD0, CDb, CDc, ObS, Coulomb = 0.0;
   double FactSur, FactSurT;
   const BASE_PARAM *pa_p = base_param();
 
   Fold = pm.F0[j];
-  if (pm.FIat > 0 && j < pm.Ls && j >= pm.Ls - pm.Lads) {
+  if (pm.FIa > 0 && j < pm.Ls && j >= pm.Ls - pm.Lads) {
+    ka = k - (pm.FIs - pm.FIa);
     ja = j - (pm.Ls - pm.Lads);
     jc = pm.SATC[ja][XL_EM];
     // Workaround 08.02.2011 by DK to prevent crash on inconsistent sorption DC
@@ -432,6 +435,8 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   case DC_AQ_SPECIES:
   case DC_AQ_SURCOMP:
   case DC_SCM_SPECIES:
+  case DC_IESC_A:
+  case DC_IEWC_B:
   case DC_GAS_COMP:
   case DC_GAS_H2O:
   case DC_GAS_CO2:
@@ -450,8 +455,6 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   case DC_SUR_GROUP:
   case DC_SUR_COMPLEX:
   case DC_SUR_IPAIR:
-  case DC_IESC_A:
-  case DC_IEWC_B:
   case DC_SUR_SPECIES:
     if (!pm.Lads) // Foolproof - to prevent crash
       break;
@@ -466,9 +469,9 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
     CDC = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_C] : 0.0;
     CDc = CDC; // species charge that goes into C plane
     // reading out the computed surface plane potentials
-    psiA = pm.XpsiA[k][ist];
-    psiB = pm.XpsiB[k][ist];
-    psiC = pm.XpsiC[k][ist];
+    psiA = pm.XpsiA[ka][ist];
+    psiB = pm.XpsiB[ka][ist];
+    psiC = pm.XpsiC[ka][ist];
     // Getting surface species formula charge
     Ez = double(pm.EZ[j]);
     if (pm.mCDc) {
@@ -536,9 +539,9 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
       // FactSur is adsorbed mole amount at st. surf. density per mole of solid
       // carrier
       // SCM Modernization: MASDT[k][ist][MSDT_FSUTSA] is reactive area fraction
-      FactSurT = FactSur * (pm.MASDT[k][ist][MSDT_FSUTSA]);
-      if (pm.SCMC[k][ist][0] == SC_MXC || pm.SCMC[k][ist][0] == SC_NNE ||
-          pm.SCMC[k][ist][0] == SC_IEV)
+      FactSurT = FactSur * (pm.MASDT[ka][ist][MSDT_FSUTSA]);
+      if (pm.SCMC[ka][ist][0] == SC_MXC || pm.SCMC[ka][ist][0] == SC_NNE ||
+          pm.SCMC[ka][ist][0] == SC_IEV)
         // F0 -= log( Mk * (pm.Nfsp[k][ist]) *
         // (pm.Aalp[k]) * pa->p.DNS*1.66054 );
         F0 -= log(FactSurT);
@@ -1326,8 +1329,9 @@ long int TMultiBase::PhaseSelectionSpeciationCleanup(long int &kfr,
     } //  j
     //      }
     if (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL ||
-        KinConstrPh == true)
-      goto NextPhase; // Temporary workaround
+        pm.PHC[k] == PH_ADSSBEIL || pm.PHC[k] == PH_ADSORPT ||
+        pm.PHC[k] == PH_IONEX || KinConstrPh == true)
+      goto NextPhase; // Sorption and ion exchange phases cannot be eliminated
 
     PhaseAmount = pm.XF[k];
     logSI = pm.Falp[k];
@@ -1437,7 +1441,9 @@ long int TMultiBase::PhaseSelectionSpeciationCleanup(long int &kfr,
       logSI = pm.Falp[k];               // phase stability criterion
       if (!KinConstrPh &&
           (logSI >= pa_p->DF || logSI <= -pa_p->DFM) // DK 13.04.2012
-          && !((pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL) &&
+          && !((pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL ||
+                pm.PHC[k] == PH_ADSSBEIL || pm.PHC[k] == PH_ADSORPT ||
+                pm.PHC[k] == PH_IONEX) &&
                PhaseAmount < pm.DSM))
         goto NextPhaseC; // Already done in previous part
       //       PhaseAmount = pm.XF[k];                         // bugfix
@@ -1676,11 +1682,11 @@ void TMultiBase::StabilityIndexes(void) {
         ln_ax_dual -=
             lnFmol; // maybe more correction is needed for surface species
         break;
-      case DC_SUR_COMPLEX:
-      case DC_SUR_IPAIR:
-      case DC_SUR_SPECIES:
       case DC_IESC_A:
       case DC_IEWC_B:
+      case DC_SUR_SPECIES:
+      case DC_SUR_COMPLEX:
+      case DC_SUR_IPAIR:
         ln_ax_dual -= lnFmol;
         //                gamma_primal = exp( pm.F0[j] );
         break;

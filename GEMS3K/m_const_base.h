@@ -31,8 +31,7 @@
 
 const char S_OFF = '-', S_ON = '+', S_REM = '*', A_NUL = '?';
 
-const long int MNST = 6, // maximum number of surface types (patches)
-                         //    MST = MNST, // compatibility alias
+const long int MNST = 4, // fixed number of surface types (patches)
     DMCDC = 4, // new number of columns in mCDc (DC EIL plane charges) table
     DNFCN = 4, // number of columns in MASDJ table
     MNCAS = 4, // number of columns in SATC table
@@ -41,8 +40,8 @@ const long int MNST = 6, // maximum number of surface types (patches)
     NSCMC = 2, // New: number of columns in SCMC table
     NFSIT = 4, // New: number of columns in FsiT table
     NCIEC = 2, // Number of columns in XfIEC input table
-    NSURFSITES =
-        8; // New: maximum number of surface sites to consider in sorption phase
+    NSURFSITES = 8; // New: maximum number of surface sites
+                    // to consider in sorption phase
 
 const unsigned long int MAXICNAME = 6, MAXSYMB = 4, TDBVERSION = 64;
 
@@ -278,26 +277,26 @@ typedef enum { // Classifications of DC
 // This code defines standard state and reference scale of concentrations
 // for components of this phase. It is used by many subroutines
 // during calculations of equilibrium states
-enum PH_CLASSES {    // Possible values
-  PH_AQUEL = 'a',    // aqueous electrolyte
-  PH_GASMIX = 'g',   // mixture of gases
-  PH_FLUID = 'f',    // fluid phase
-  PH_PLASMA = 'p',   // plasma
-  PH_LIQUID = 'l',   // non-electrolyte liquid (melt)
-  PH_SIMELT = 'm',   // silicate (magmatic) melt or non-aqueous electrolyte
-  PH_SORPTION = 'x', // Sorption phase (sorbent+sorbates) without site balances
-  PH_POLYEL =
-      'y', // colloidal poly- (oligo)electrolyte e.g. Donnan volume phase
-  PH_IONEX =
-      'i', // ion exchange on permanent charge with site balances e.g. B&B Clay
-  PH_ADSORPT = 'q',  // surface complexation with surface site balances e.g. B&B
-                     // ClaySor, formerly 'z'
-  PH_ADSSBEIL = 'z', // new: surface complexation with site balances & EIL
-                     // models e.g. ClaySorEl
+enum PH_CLASSES {  // Possible values
+  PH_AQUEL = 'a',  // aqueous electrolyte
+  PH_GASMIX = 'g', // mixture of gases
+  PH_FLUID = 'f',  // fluid phase
+  PH_PLASMA = 'p', // plasma
   PH_SINCOND =
       's', // condenced solid phase, also multicomponent (solid solution)
-  PH_SINDIS = 'd', // dispersed solid phase, also multicomponent
-  PH_HCARBL = 'h'  // mixture of condensed hydrocarbons
+  PH_SINDIS = 'd',   // dispersed solid phase, also multicomponent
+  PH_HCARBL = 'h',   // mixture of condensed hydrocarbons
+  PH_LIQUID = 'l',   // non-electrolyte liquid (melt)
+  PH_SIMELT = 'm',   // silicate (magmatic) melt or non-aqueous electrolyte
+  PH_IONEX = 'i',    // ion exchange on permanent charge with site balances e.g.
+                     // B&B Clay, no SACT and no EIL terms
+  PH_ADSORPT = 'q',  // surface complexation with surface site balances e.g. B&B
+                     // ClaySor, formerly 'z', no SACT and no EIL terms
+  PH_SORPTION = 'x', // Sorption phase (sorbent+sorbates) without site balances
+                     // and with SACT and EIL terms
+  PH_POLYEL = 'y',   // colloidal poly- (oligo)electrolyte, membrane etc. TBD
+  PH_ADSSBEIL = 'z'  // new: surface complexation with site balances & EIL
+                     // models e.g. ClaySorEl, no SACT terms
 };
 
 enum sorption_control {

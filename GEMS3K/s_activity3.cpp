@@ -208,7 +208,7 @@ double TActivity::PhaseSpecificGamma(long int j, long int jb, long int je,
 /// \return status code (0 if o.k., non-zero values if there were problems
 ///     with surface complexation models)
 long int TActivity::CalculateActivityCoefficients(long int LinkMode) {
-  long int k, j, jb, je = 0, jpb, jdb, ipb, jpe = 0, jde = 0, ipe = 0;
+  long int k, ka, j, jb, je = 0, jpb, jdb, ipb, jpe = 0, jde = 0, ipe = 0;
   // long int  jmb, jme=0, jsb, jse=0;
   // long int jphl=0, jlphc=0, jdqfc=0,  jrcpc=0;
   char *sMod;
@@ -339,20 +339,19 @@ long int TActivity::CalculateActivityCoefficients(long int LinkMode) {
     if (act.E && act.LO) // checking electrostatics
     {
       IS_EtaCalc(); //  calculating charges and charge densities
-      if (act.FIat > 0)
+      if (act.FIa > 0)
         for (k = 0; k < act.FIs; k++) {
-          if (act.PHC[k] == PH_POLYEL || act.PHC[k] == PH_SORPTION
-              //     || act.PHC[k] == PH_ADSORPT || act.PHC[k] == PH_IONEX
-              //      to  activate later
-          ) {
+          if (act.PHC[k] == PH_POLYEL || act.PHC[k] == PH_SORPTION ||
+              act.PHC[k] == PH_ADSSBEIL) {
             long int ist;
-            for (ist = 0; ist < act.FIat; ist++) // loop over surface types
+            ka = k - (act.FIs - act.FIa);
+            for (ist = 0; ist < MNST; ist++) // loop over surface types
             {
-              act.XpsiA[k][ist] = 0.0; // cleaning Psi before GouyChapman()
-              act.XpsiB[k][ist] = 0.0;
-              act.XpsiC[k][ist] = 0.0;
-              act.XpsiD[k][ist] = 0.0;
-              act.XpsiZ[k][ist] = 0.0;
+              act.XpsiA[ka][ist] = 0.0; // cleaning Psi before GouyChapman()
+              act.XpsiB[ka][ist] = 0.0;
+              act.XpsiC[ka][ist] = 0.0;
+              act.XpsiD[ka][ist] = 0.0;
+              act.XpsiZ[ka][ist] = 0.0;
             } // ist
           }
         } // k

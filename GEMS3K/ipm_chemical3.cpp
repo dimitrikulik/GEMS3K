@@ -27,6 +27,7 @@
 //-------------------------------------------------------------------
 //
 
+#include "m_const_base.h"
 #include "ms_multi.h"
 #include "v_detail.h"
 #include "v_service.h"
@@ -162,7 +163,8 @@ double TMultiBase::PhaseSpecificGamma(long int j, long int jb, long int je,
     case PH_SINDIS:
     case PH_LIQUID:
     case PH_IONEX: // 'i' phase - ion exchange by site balance has no carrier DC
-    case PH_ADSORPT: // 'z' phase - adsorption on site balances, no carrier DC
+    case PH_ADSORPT:  // 'q' phase - adsorption on site balances, no carrier DC
+    case PH_ADSSBEIL: // 'z' phase - ads. site balances, no real carrier, EIL
       break;
     case PH_POLYEL:
     case PH_SORPTION: // only sorbent end-members!
@@ -218,6 +220,8 @@ double TMultiBase::PhaseSpecificGamma(long int j, long int jb, long int je,
     case DC_SOL_MINDEP:
     case DC_SOL_MAJDEP:
     case DC_SCM_SPECIES:
+    case DC_IESC_A:
+    case DC_IEWC_B:
       break;
       // non-electrolyte condensed mixtures
     case DC_SCP_CONDEN:
@@ -232,8 +236,8 @@ double TMultiBase::PhaseSpecificGamma(long int j, long int jb, long int je,
     case DC_SUR_GROUP:
     case DC_SUR_COMPLEX:
     case DC_SUR_IPAIR:
-    case DC_IESC_A:
-    case DC_IEWC_B:
+      // case DC_IESC_A:
+      // case DC_IEWC_B:
       lnGamS += NonLogTerm;
       break;
     default:
@@ -275,6 +279,8 @@ double TMultiBase::PhaseSpecificGamma(long int j, long int jb, long int je,
     case DC_SOL_MINDEP:
     case DC_SOL_MAJDEP:
     case DC_SCM_SPECIES:
+    case DC_IESC_A:
+    case DC_IEWC_B:
       break;
     case DC_SCP_CONDEN:
     case DC_SUR_MINAL:
@@ -288,8 +294,8 @@ double TMultiBase::PhaseSpecificGamma(long int j, long int jb, long int je,
     case DC_SUR_GROUP:
     case DC_SUR_COMPLEX:
     case DC_SUR_IPAIR:
-    case DC_IESC_A:
-    case DC_IEWC_B:
+      // case DC_IESC_A:
+      // case DC_IEWC_B:
       lnGam -= NonLogTerm;
       break;
     default:
@@ -313,7 +319,7 @@ double TMultiBase::PhaseSpecificGamma(long int j, long int jb, long int je,
 /// \return status code (0 if o.k., non-zero values if there were problems
 ///     with surface complexation models)
 long int TMultiBase::CalculateActivityCoefficients(long int LinkMode) {
-  long int k, j, jb, je = 0, jpb, jdb, ipb, jpe = 0, jde = 0, ipe = 0;
+  long int k, ka, j, jb, je = 0, jpb, jdb, ipb, jpe = 0, jde = 0, ipe = 0;
   // long int  jmb, jme=0, jsb, jse=0;
   // long int jphl=0, jlphc=0, jdqfc=0,  jrcpc=0;
   char *sMod;
@@ -379,16 +385,15 @@ long int TMultiBase::CalculateActivityCoefficients(long int LinkMode) {
       case PH_GASMIX:
       case PH_PLASMA:
       case PH_FLUID:
-      case PH_ADSORPT: // To deactivate this here when EIL is switched on
-      case PH_IONEX:   // To deactivate when EIL is switched on  // case
+      case PH_ADSORPT: // Site balance based
+      case PH_IONEX:   // Site balance based
                        // PH_SORPTION:
         SolModCreate(jb, jmb, jsb, jpb, jdb, k, ipb, sMod[SPHAS_TYP],
                      sMod[MIX_TYP], /* jphl, jlphc,*/ jdqfc /*,  jrcpc*/);
         // new solution models (TW, DK 2007)
         SolModParPT(k, sMod[SPHAS_TYP]);
         break;
-        //     case PH_ADSORPT:  // site balance based
-        //     case PH_IONEX:    // site balance based
+        //     case PH_ADSSBEIL:  // site balance based
         //     case PH_SORPTION:
         //     case PH_POLYEL:  // New functionality of TSorpMod class
         //       SorpModCreate(jb, jmb, jsb, jpb, jdb, k, ipb, sMod[SPHAS_TYP],
@@ -458,20 +463,19 @@ long int TMultiBase::CalculateActivityCoefficients(long int LinkMode) {
     if (pm.E && pm.LO) // checking electrostatics
     {
       IS_EtaCalc(); //  calculating charges and charge densities
-      if (pm.FIat > 0)
+      if (pm.FIa > 0)
         for (k = 0; k < pm.FIs; k++) {
-          if (pm.PHC[k] == PH_POLYEL || pm.PHC[k] == PH_SORPTION
-              //     || pm.PHC[k] == PH_ADSORPT || pm.PHC[k] == PH_IONEX
-              //      to  activate later
-          ) {
+          if (pm.PHC[k] == PH_POLYEL || pm.PHC[k] == PH_SORPTION ||
+              pm.PHC[k] == PH_ADSSBEIL) {
             long int ist;
-            for (ist = 0; ist < pm.FIat; ist++) // loop over surface types
+            ka = k - (pm.FIs - pm.FIa);
+            for (ist = 0; ist < MNST; ist++) // loop over surface types
             {
-              pm.XpsiA[k][ist] = 0.0; // cleaning Psi before GouyChapman()
-              pm.XpsiB[k][ist] = 0.0;
-              pm.XpsiC[k][ist] = 0.0;
-              pm.XpsiD[k][ist] = 0.0;
-              pm.XpsiZ[k][ist] = 0.0;
+              pm.XpsiA[ka][ist] = 0.0; // cleaning Psi before GouyChapman()
+              pm.XpsiB[ka][ist] = 0.0;
+              pm.XpsiC[ka][ist] = 0.0;
+              pm.XpsiD[ka][ist] = 0.0;
+              pm.XpsiZ[ka][ist] = 0.0;
             } // ist
           }
         } // k
@@ -491,6 +495,7 @@ long int TMultiBase::CalculateActivityCoefficients(long int LinkMode) {
     je += pm.L1[k];
     if (pm.L1[k] == 1)
       goto END_LOOP;
+    ka = k - (pm.FIs - pm.FIa);
     sMod = pm.sMod[k];
     // if( sMod[SGM_MODE] == SM_IDEAL )  Comm.out 29.11.2010 by DK to introduce
     // multi-site ideal models goto END_LOOP;
