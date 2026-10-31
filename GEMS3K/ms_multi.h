@@ -647,7 +647,7 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
       *PHC;  ///< Classifier of phases { a g f p m l x d h } [FI]
   char (*SCMC)[MNST][NSCMC]; ///< SCM Modernization: Classifier of EIL models
                              ///< and SACT codes applied to surface types
-                             ///< [FIs][MNST=6][NSCMC=2]
+                             ///< [FIa][MNST=6][NSCMC=2]
 #define SCM SCMC
   char *SATT, ///< Classifier of applied SACT equations (isotherm corrections)
               ///< [Lads]
