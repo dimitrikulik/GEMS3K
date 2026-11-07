@@ -288,24 +288,28 @@ double TActivity::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   long int ja = 0, ist, jc = -1, ka = 0;
   double F0 = 0.0, Fold, Mk = 0.0;
   double FactSur, FactSurT;
-  double psiA, psiB, psiC, CDA, CDB, CDC, Ez, Coulomb = 0.0;
+  double psiA, psiB, psiC, CDA, CDB, CDC, Ez, CoulombA = 0.0, CoulombB = 0.0,
+                                              CoulombC = 0.0;
   // double FactSur, FactSurT;
 
   Fold = act.F0[j]; // No old sorption models in this implementation!
   if (act.FIa > 0 && j < act.Ls && j >= act.Ls - act.Lads) {
     ka = k - (act.FIs - act.FIa);
     ja = j - (act.Ls - act.Lads);
-    jc = act.SATC[ja][XL_EM];
+    if (act.SATX[ja][XL_EM] >= 0)
+      jc = -1;
     // Workaround 08.02.2011 by DK to prevent crash on inconsistent sorption DC
     if (jc >= act.L1[k])
       jc = -1;
   }
-  if (k < act.FIs && act.XFA[k] > 1e-12) {
-    if (jc < 0) // phase (carrier) molar mass g/mkmol
-      Mk = act.FWGT[k] / act.XFA[k] * 1e-6;
-    else
-      Mk = act.MM[jc] * (act.X[jc] / act.XFA[k]) * 1e-6;
-    // DC carrier molar mass g/mkmol
+  if (act.PHC[k] == PH_SORPTION || act.PHC[k] == PH_POLYEL) {
+    if (k < act.FIs && act.XFA[k] > 1e-12) {
+      if (jc < 0) // phase (carrier) molar mass g/mkmol
+        Mk = act.FWGTS[k] / act.XFA[k] * 1e-6;
+      else
+        Mk = act.MM[jc] * (act.X[jc] / act.XFA[k]) * 1e-6;
+      // DC carrier molar mass g/mkmol
+    }
   }
   switch (act.DCC[j]) { // analyse species class code
   case DC_SCP_CONDEN:
@@ -338,15 +342,8 @@ double TActivity::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
     if (!act.Lads) // Foolproof - to prevent crash  DK 22.12.2009
       break;
     F0 = act.lnGmM[j]; // + act.lnGam[j];
-    // FInd out to which site type and surface type this surface species belongs
-    ist = act.SATC[ja][SURSP_ALLOC_SURFTYPE];
-    // SCM Modernization: charges from mCDc[ja][0..1]
-    CDA = act.mCDc ? act.mCDc[ja][CHARGE_ON_A] : 0.0;
-    // CD0 = CDA; // species charge that goes into 0 plane
-    CDB = act.mCDc ? act.mCDc[ja][CHARGE_ON_B] : 0.0;
-    // CDb = CDB; // species charge that goes into B plane
-    CDC = act.mCDc ? act.mCDc[ja][CHARGE_ON_C] : 0.0;
-    // CDc = CDC; // species charge that goes into C plane
+                       // Surface type to which this surface species belongs
+    ist = act.SATX[ja][SURSP_ALLOC_SURFTYPE];
     // reading out the computed surface plane potentials
     psiA = act.XpsiA[ka][ist];
     psiB = act.XpsiB[ka][ist];
@@ -354,35 +351,40 @@ double TActivity::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
     // Getting surface species formula charge
     Ez = double(act.EZ[j]);
     if (act.mCDc) {
-      // Calculating contributions to Coulomb term of (electro)chemical
-      // potential
-      Coulomb += psiA * CDA * act.FRT;
-      Coulomb += psiB * CDB * act.FRT;
-      Coulomb += psiC * CDC * act.FRT;
-    } else
-      Coulomb += psiA * Ez * act.FRT; // Charge distro array not provided
-    act.CTerms[j] = Coulomb; // Collecting COulomb terms for surface species
-    F0 += Coulomb;
-    if (Mk > 1e-9) // Mk is carrier molar mass in g/mkmol
-    { // Correction for standard density, surface area and surface type fraction
-      FactSur = Mk * (act.Aalp[k]) * act.DNS * 1.66054;
-      // FactSur is adsorbed mole amount at st. surf. density per mole of solid
-      // carrier
-      // SCM Modernization: MASDT[ka][ist][MSDT_FSUTSA] is reactive area
-      // fraction
-      FactSurT = FactSur * (act.MASDT[ka][ist][MSDT_FSUTSA]);
-      if (act.SCMC[ka][ist][0] == SC_MXC || act.SCMC[ka][ist][0] == SC_NNE ||
-          act.SCMC[ka][ist][0] == SC_IEV)
-        // F0 -= log( Mk * (pm.Nfsp[k][ist]) *
-        // (pm.Aalp[k]) * pa->p.DNS*1.66054 );
-        F0 -= log(FactSurT);
-      else
-        F0 -= log(FactSurT);
-      // F0 -= log( Mk * (pm.Nfsp[k][ist]) *
-      // (pm.Aalp[k]) * pa->p.DNS*1.66054 );
-      F0 -= FactSur / (1. + FactSur);
-      // F0 -= (pm.Aalp[k])*Mk*pa->p.DNS*1.66054 /
-      // ( 1.0 + (pm.Aalp[k])*Mk*pa->p.DNS*1.66054 );
+      // SCM Modernization: charges from mCDc[ja][0..1]
+      CDA = act.mCDc[ja][CHARGE_ON_A]; // sp.charge on A (0) plane
+      CDB = act.mCDc[ja][CHARGE_ON_B]; // sp.charge on B (beta) plane
+      CDC = act.mCDc[ja][CHARGE_ON_C]; // sp.charge on C (gamma) plane
+      // Contributions to Coulomb term of chemical potential
+      CoulombA += psiA * CDA * act.FRT;
+      CoulombB += psiB * CDB * act.FRT;
+      CoulombC += psiC * CDC * act.FRT;
+      act.CTerms[j] = CoulombA + CoulombB +
+                      CoulombC; // Collecting Coulomb terms for surface species
+    } else {
+      CoulombA += psiA * Ez * act.FRT; // Charge distro array not provided
+      act.CTerms[j] = CoulombA; // Collecting Coulomb terms for surface species
+    }
+    F0 += act.CTerms[j];
+
+    if (act.PHC[k] == PH_SORPTION ||
+        act.PHC[k] == PH_POLYEL) { // only sorption phases w/o site balances
+      if (/*Mk > 1e-9 &&*/ jc < 0) // Mk is carrier molar mass in g/mkmol
+      { // Correction for standard density, surface area and surface type
+        // fraction  - so far whole sorbent only (jc == -1)
+        FactSur = act.FWGTS[k] / act.XFA[k] * act.Aalp[k] * act.DNS * 1.66054 /
+                  1e6; //  moles/moles
+        // FactSur = Mk * (pm.Aalp[k]) * pa_p->DNS * 1.66054;
+        // FactSur is adsorbed amount at st. surf. density per mole of sorbent
+        // SCM Modernization: MASDT[k][ist][MSDT_FSUTSA] is reactive area
+        // fraction of surface type ist
+        // FactSurT = FactSur * (pm.MASDT[ka][ist][MSDT_FSUTSA]);
+        // F0 -= log(Mk*(pm.Nfsp[k][ist])*(pm.Aalp[k])*pa->p.DNS*1.66054);
+        // F0 -= log(FactSurT);
+        F0 -= FactSur / (1. + FactSur); // Eq (5.8)
+        // F0 -= (pm.Aalp[k])*Mk*pa->p.DNS*1.66054 /
+        // ( 1.0 + (pm.Aalp[k])*Mk*pa->p.DNS*1.66054 );
+      }
     }
     /*
           // get ist - index of surface type and isp - index of surface plane
@@ -472,11 +474,17 @@ double TActivity::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   case DC_PEL_CARRIER:
   case DC_SUR_MINAL:           // constant charge of carrier - not completed
   case DC_SUR_CARRIER:         // Mk is carrier molar mass in g/mkmol
+    F0 = act.lnGmM[j];         // May be obsolete!!! 4.11.2026
     if (!act.Lads || !act.FIa) // Foolproof - to prevent crash DK 22.12.2009
       break;
-    FactSur = Mk * (act.Aalp[k]) * act.DNS * 1.66054;
-    F0 -= FactSur / (1. + FactSur);
-    F0 += FactSur;
+    if (act.PHC[k] == PH_SORPTION ||
+        act.PHC[k] == PH_POLYEL) { // only sorption phases w/o site balances
+      // FactSur = Mk * (pm.Aalp[k]) * pa_p->DNS * 1.66054;
+      FactSur =
+          act.FWGTS[k] / act.XFA[k] * act.Aalp[k] * act.DNS * 1.66054 / 1e6;
+      F0 -= FactSur / (1. + FactSur);
+      F0 += FactSur; // Eq (5.9)
+    }
     break;
   default:
     break;

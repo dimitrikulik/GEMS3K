@@ -285,7 +285,7 @@ void TNode::InitCopyActivities(DATACH *csd, MULTI *mp, DATABR *cnd) {
                   // isotherm coeffs per DC; max.denticity of DC [nPS][4]
   ap->XSMD = mp->XSMD; //< new: denticity of surface species per surface site
                        //(site allocation) (-> L1[k]*LsISmo[k][3]] )
-  ap->SATC = mp->SATC; //< Setup of surface sites and species (will be applied
+  ap->SATX = mp->SATX; //< Setup of surface sites and species (will be applied
                        // separately within each sorption phase) [Lads]
                        // link indexes to surface type [XL_ST]; sorbent em
                        // [XL_EM]; surf.site [XL-SI] and EDL plane [XL_SP]

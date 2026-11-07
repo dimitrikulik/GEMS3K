@@ -38,8 +38,11 @@
 ///  xj0 values are placed as upper kinetic constraints
 //
 void TMultiBase::XmaxSAT_IPM2() {
-  long int i, j, ja, k, jb, je = 0, ist = 0, Cj, iSite[6], ka = 0;
-  double XS0, xj0, XVk, XSk, XSkC, xj, Mm, rIEPS, xjn;
+  long int i, j, ja, k, jb, je = 0, ist = 0, iss, si = 0, Cj, iSite[NSURFSITES],
+                            ka = 0, isi[NSURFSITES], nsi = 0, dentt = 1,
+                            dentsn = 1;
+  double XS0, xj0, XVk, XSk[NSURFSITES], sj[NSURFSITES], XSkC, xj, Mm, rIEPS,
+      xjn, GamJ, f_area_st, GamC;
 
   if (!pm.DUL) // not possible to install upper kinetic constraints!
     return;
@@ -47,7 +50,7 @@ void TMultiBase::XmaxSAT_IPM2() {
   for (k = 0; k < pm.FIs; k++) { // loop over phases
     jb = je;
     je += pm.L1[k];
-    if (pm.PHC[k] != PH_SORPTION)
+    if (!(pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL))
       continue;
     ka = k - (pm.FIs - pm.FIa);
 
@@ -57,27 +60,28 @@ void TMultiBase::XmaxSAT_IPM2() {
         std::min(pm.lowPosNum, pm.DcMinM)) // may need qd_real in subtraction!
       continue;                            // No surface species
 
-    for (i = 0; i < 6; i++)
-      iSite[i] = -1;
-
-    // Extraction of site indices
+    for (iss = 0; iss < NSURFSITES; iss++) {
+      iSite[iss] = -1;
+      isi[iss] = -1;
+    }
+    // Extraction of surface type indices
     for (j = jb; j < je; j++) {
       ja = j - (pm.Ls - pm.Lads);
       if (pm.SATT[ja] != SAT_SOLV) {
         if (pm.DCC[j] == DC_PEL_CARRIER || pm.DCC[j] == DC_SUR_MINAL ||
             pm.DCC[j] == DC_SUR_CARRIER)
           continue;
-        /*!!!!!!*/ ist =
-            pm.SATC[ja][XL_ST]; // / MSPN; MSPN = 2 - number of EDL planes
+        ist = pm.SATX[ja][XL_ST];
         continue;
       }
-      /*!!!!!!*/ ist = pm.SATC[ja][XL_ST]; //  / MSPN;
-      iSite[ist] = j;                      // To be checked !!!
+      ist = pm.SATX[ja][XL_ST];
+      iSite[ist] = j; // To be checked !!!
     }
 
     for (j = jb; j < je; j++) { // Loop over DCs
       if (pm.X[j] <= std::min(pm.lowPosNum, pm.DcMinM))
         continue; // This surface DC has been killed by the IPM
+      Mm = 0.0;
       rIEPS = base_param()->IEPS;
       ja = j - (pm.Ls - pm.Lads);
 
@@ -85,74 +89,107 @@ void TMultiBase::XmaxSAT_IPM2() {
       {
       default: // pm.lnGam[j] = 0.0;
         continue;
-      case DC_SUR_GROUP:
-      case DC_IEWC_B:
+      // case DC_SUR_GROUP:
+      // case DC_IEWC_B:
       case DC_SUR_COMPLEX:
       case DC_SUR_IPAIR:
-      case DC_IESC_A:
+      // case DC_IESC_A:
       case DC_SUR_SPECIES:
         // Calculate ist - index of surface type
-        /*!!!!!!*/ ist = pm.SATC[ja][XL_ST]; // / MSPN;
+        ist = pm.SATX[ja][XL_ST];
+        if (ist < 0 || ist >= MNST)
+          ist = 0;
+        nsi = pm.SATX[ja][XL_SI]; // number of different site types involved
+        if (nsi < 0 || nsi >= NSURFSITES)
+          nsi = 0; // potentially error
         // Cj - index of carrier DC
-        Cj = pm.SATC[ja][XL_EM];
-        if (Cj < 0) { // Assigned to the whole sorbent
+        Cj = pm.SATX[ja][XL_EM];
+        if (Cj < 0) { // Assigned to the whole sorbent - the only option for now
           XVk = pm.XFA[k];
-          Mm = pm.FWGT[k] / XVk;
-        } else { // Assigned to one of the sorbent end-members
+          Mm = pm.FWGT[k] / XVk; // molar mass of the sorbent in g/mol
+        } else { // Assigned to one of the sorbent end-members, not used so far
           XVk = pm.X[Cj];
           if (XVk < pm.DSM / 10.0)
             continue; // This end-member is zeroed off by IPM
           Mm = pm.MM[Cj] * XVk / pm.XFA[k]; // mol.mass
         }
-        XSk = pm.XFTS[ka][ist]; // Tot.moles of sorbates on surf.type
-        xj = pm.X[j];          // Current moles of this surf.species
+        xj = pm.X[j]; // Current moles of this surf.species
+        for (int is = 0; is < NSURFSITES; is++) {
+          XSk[is] = pm.XFTS[is][ist];
+          sj[is] =
+              xj * pm.XSMD[ja][is]; // moles of sites under this surface species
+        }
+        f_area_st =
+            pm.MASDT[ka][ist][MSDT_FSUTSA]; // SSA fraction for surf type
+        // Tot.moles of sorbates on site types on surf.type
+        dentt = denticity_total(ja); // total denticity of this surf species
+        dentsn = denticity_num_site_types(ja); // Number of site types to bind
         //            a=1.0;  Frumkin factor - reserved for extension to FFG
         //            isotherm
-        switch (pm.SATT[ja]) {
+        switch (pm.SATT[ja]) { // SACT isotherm type
         case SACT_LAN_COMP:
+        case SACT_FFG_COMP:
+        case SACT_LMDX_COMP:
+          if (dentt != 1 || dentsn != 1) {
+            ipm_logger->debug(
+                "SACT_LAN_COMP Warning: dentt={} and dentsn={} must "
+                "both be 1. IT={} ka= {} ist= {}",
+                dentt, dentsn, pm.IT, ka, ist);
+            // break; // potentially error?
+          }
           // case SAT_COMP: // Competitive surface species on a surface site
+          GamJ = xj * 1e6 / (XVk * Mm * f_area_st * pm.Aalp[k]) / 1.66054;
+          GamC = pm.MASDJ[ja][PI_DEN]; // GammaC in 1/nm2
           if (iSite[ist] < 0)
             xjn = 0.0;
           else
             xjn = pm.X[iSite[ist]]; // neutral site does not compete!
-          // SCM Modernization: MASDJ density and MASDT patch area fraction
-          XS0 = fabs(pm.MASDJ[ja][PI_DEN]);
-          XS0 = XS0 * XVk * Mm / 1e6 * pm.MASDT[ka][ist][MSDT_FSUTSA];
-          // expected total in moles
-          XSkC = XSk - xjn - xj; // occupied by the competing species
+                                    // Find surf site index
+          si = (nsi >= 0 && nsi < NSURFSITES) ? nsi : 0;
+          for (int iss = 0; iss < NSURFSITES; iss++) {
+            if (pm.XSMD[ja][iss] <= 0) // bonds to this site type
+              continue;
+            si = iss; // index of site type used
+            break;
+          }
+          // SCM Modernization: Expected moles of sites
+          XS0 = GamC / 1e6 * XVk * Mm * f_area_st * pm.Aalp[k] * 1.66054;
+          // expected total of competing surf species in moles
+          XSkC = XSk[si] - xj - xjn; // occupied by the competing species
           if (XSkC < 0.0)
             XSkC = rIEPS;
           xj0 = XS0 - XSkC; // expected moles of this sorbate
-          if (xj0 > pm.lnSAC[ja][3])
-            xj0 = pm.lnSAC[ja][3];
-          if (xj0 < rIEPS)
+          if (xj0 < rIEPS) {
             xj0 = rIEPS; // ensuring that it will not zero off
-          pm.DUL[j] = xj0;
+            // pm.DLL[j] = xj0;
+          }
+          if (xj0 > XSkC) {
+            xj0 = XSkC - rIEPS;
+            pm.DUL[j] = xj0;
+          }
           break;
-        // case SACT_LAN_COMP:
         case SACT_LAN_NCOMP:
         case SACT_QCA_NCOMP:
         case SACT_QCA1_NCOMP:
         case SACT_QCA2_NCOMP:
         case SACT_QCA3_NCOMP:
         case SACT_QCA4_NCOMP:
-        case SACT_FFG_COMP:
         case SACT_FFG_NCOMP:
         case SACT_PIV_NCOMP:
         case SACT_VIR_NCOMP:
         case SACT_FREU_NCOMP:
         case SACT_BET_NCOMP:
           // case SAT_NCOMP: // Non-competitive surface species
-          xj0 = fabs(pm.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6 *
-                pm.MASDT[ka][ist][MSDT_FSUTSA]; // in moles
+          GamJ = xj * 1e6 / (XVk * Mm * f_area_st * pm.Aalp[k]) / 1.66054;
+          GamC = pm.MASDJ[ja][PI_DEN]; // GammaC in 1/nm2
+          // SCM Modernization: Expected max moles of surf species
+          xj0 = GamC / 1e6 * XVk * Mm * f_area_st * pm.Aalp[k] * 1.66054;
           pm.DUL[j] = xj0 - rIEPS;
           break;
         case SAT_SOLV: // Neutral surface site (e.g. >O0.5H@ group)
-          rIEPS = base_param()->IEPS;
-          XS0 = fabs(pm.MASDJ[ja][PI_DEN]);
-          XS0 =
-              XS0 * XVk * Mm / 1e6 * pm.MASDT[ka][ist][MSDT_FSUTSA]; // in moles
-
+          GamJ = xj * 1e6 / (XVk * Mm * f_area_st * pm.Aalp[k]) / 1.66054;
+          GamC = pm.MASDJ[ja][PI_DEN]; // GammaC in 1/nm2
+          XS0 = GamC / 1e6 * XVk * Mm * f_area_st * pm.Aalp[k] * 1.66054;
           pm.DUL[j] = XS0 - rIEPS;
           if (pm.DUL[j] <= rIEPS)
             pm.DUL[j] = rIEPS;
@@ -404,27 +441,32 @@ void TMultiBase::TotalPhasesAmounts(double X[], double XF[], double XFA[]) {
 ///  If error, returns +7777777 J/mole.
 //  Last modif. 05 Jan 2000 by DK to include BSM EDL model.
 double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
-  long int ja = 0, ist, isp, jc = -1, ka = 0;
+  long int ja = 0, ist, jc = -1, ka = 0;
   double F0 = 0.0, Fold, dF0, Mk = 0.0, Ez;
-  double psiA, psiB, psiC, CDA, CDB, CDC, CD0, CDb, CDc, ObS, Coulomb = 0.0;
-  double FactSur, FactSurT;
+  double psiA, psiB, psiC, CDA = 0.0, CDB = 0.0, CDC = 0.0, CoulombA = 0.0,
+                           CoulombB = 0.0, CoulombC = 0.0;
+  double FactSur = 0.0;
   const BASE_PARAM *pa_p = base_param();
 
   Fold = pm.F0[j];
   if (pm.FIa > 0 && j < pm.Ls && j >= pm.Ls - pm.Lads) {
     ka = k - (pm.FIs - pm.FIa);
     ja = j - (pm.Ls - pm.Lads);
-    jc = pm.SATC[ja][XL_EM];
+    if (pm.SATX[ja][XL_EM] >= 0)
+      jc = -1;
+    // alloc to sorbent ems so far not used jc = pm.SATX[ja][XL_EM]+;
     // Workaround 08.02.2011 by DK to prevent crash on inconsistent sorption DC
     if (jc >= pm.L1[k])
       jc = -1;
   }
-  if (k < pm.FIs && pm.XFA[k] > 1e-12) {
-    if (jc < 0) // phase (carrier) molar mass g/mkmol
-      Mk = pm.FWGT[k] / pm.XFA[k] * 1e-6;
-    else
-      Mk = pm.MM[jc] * (pm.X[jc] / pm.XFA[k]) * 1e-6;
-    // DC carrier molar mass g/mkmol
+  if (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL) {
+    if (k < pm.FIs && pm.XFA[k] > 1e-12) {
+      if (jc < 0) // whole phase (carrier) molar mass g/mkmol  --- do g/mol?
+        Mk = pm.FWGTS[k] / pm.XFA[k] * 1e-6; // was pm.FWGT[k]
+      else
+        Mk = pm.MM[jc] * (pm.X[jc] / pm.XFA[k]) * 1e-6;
+      // DC carrier molar mass g/mkmol
+    }
   }
   if (j < pm.Ls) // Cleaning Coulomb term
     pm.CTerms[j] = 0.0;
@@ -459,15 +501,8 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
     if (!pm.Lads) // Foolproof - to prevent crash
       break;
     F0 = pm.lnGmM[j]; /* + pm.lnGam[j]; */
-    // FInd out to which site type and surface type this surface species belongs
-    ist = pm.SATC[ja][SURSP_ALLOC_SURFTYPE];
-    // SCM Modernization: charges from mCDc[ja][0..1]
-    CDA = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_A] : 0.0;
-    CD0 = CDA; // species charge that goes into 0 plane
-    CDB = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_B] : 0.0;
-    CDb = CDB; // species charge that goes into B plane
-    CDC = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_C] : 0.0;
-    CDc = CDC; // species charge that goes into C plane
+    // Surface type to which this surface species belongs
+    ist = pm.SATX[ja][SURSP_ALLOC_SURFTYPE];
     // reading out the computed surface plane potentials
     psiA = pm.XpsiA[ka][ist];
     psiB = pm.XpsiB[ka][ist];
@@ -475,93 +510,59 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
     // Getting surface species formula charge
     Ez = double(pm.EZ[j]);
     if (pm.mCDc) {
-      // Calculating contributions to Coulomb term of (electro)chemical
-      // potential
-      Coulomb += psiA * CDA * pm.FRT;
-      Coulomb += psiB * CDB * pm.FRT;
-      Coulomb += psiC * CDC * pm.FRT;
-    } else
-      Coulomb += psiA * Ez * pm.FRT; // Charge distro array not provided
-    pm.CTerms[j] = Coulomb; // Collecting COulomb terms for surface species
-    F0 += Coulomb;
-    /*
-        if (!isp) // This is the 0 (A) plane species
-        {
-          if (fabs(CD0) > 1e-20) // Doubtful...
-            Ez = CD0;
-          F0 += psiA * Ez * pm.FRT;
-        } else // This is B plane
-        {
-          // SCM Modernization: SCMC[k][ist][0] is EIL model code
-          if (pm.SCMC[k][ist][0] == SC_MTL || pm.SCMC[k][ist][0] == SC_MXC) {
-            // Modified TL: Robertson, 1997; also XTLM Kulik 2002
-            if (fabs(CDb) > 1e-20) // Doubtful...
-              Ez = CDb;
-            F0 += psiB * Ez * pm.FRT;
-          }
-          if (pm.SCMC[k][ist][0] == SC_TLM || pm.SCMC[k][ist][0] == SC_3LM) {
-            // New 3LM - CD version of TLM - added 25.10.2004
-            if (fabs(CD0) > 1e-20 && fabs(CDb) > 1e-20)
-              F0 += (psiA * CD0 + psiB * CDb) * pm.FRT;
-            // see also Table 4 in Zachara & Westall, 1999
-            // Old version:  TLM Hayes & Leckie, 1987 uses the sign indicator at
-            // density
-            else {
-              if (ObS < 0) {
-                Ez -= 1.0;
-                F0 += (psiA + Ez * psiB) * pm.FRT;
-              } else {
-                Ez += 1.0;
-                F0 += (Ez * psiB - psiA) * pm.FRT;
-              }
-            }
-          } else if (pm.SCMC[k][ist][0] == SC_BSM || pm.SCMC[k][ist][0] ==
-       SC_CCM || pm.SCMC[k][ist][0] == SC_ISCCM) { // Basic Stern model, Christl
-                                                       // & Kretzschmar, 1999
-            // New CD version of TLM  added 25.10.2004
-            if (fabs(CD0) > 1e-20 && fabs(CDb) > 1e-20)
-              F0 += (psiA * CD0 + psiB * CDb) * pm.FRT;
-            else {
-              if (ObS < 0) {
-                Ez -= 1.0;
-                F0 += (psiA + Ez * psiB) * pm.FRT;
-              } else {
-                Ez += 1.0;
-                F0 += (Ez * psiB - psiA) * pm.FRT;
-              }
-            }
-          }
-        }
-     */
-    if (Mk > 1e-9) // Mk is carrier molar mass in g/mkmol
-    { // Correction for standard density, surface area and surface type fraction
-      FactSur = Mk * (pm.Aalp[k]) * pa_p->DNS * 1.66054;
-      // FactSur is adsorbed mole amount at st. surf. density per mole of solid
-      // carrier
-      // SCM Modernization: MASDT[k][ist][MSDT_FSUTSA] is reactive area fraction
-      FactSurT = FactSur * (pm.MASDT[ka][ist][MSDT_FSUTSA]);
-      if (pm.SCMC[ka][ist][0] == SC_MXC || pm.SCMC[ka][ist][0] == SC_NNE ||
-          pm.SCMC[ka][ist][0] == SC_IEV)
-        // F0 -= log( Mk * (pm.Nfsp[k][ist]) *
-        // (pm.Aalp[k]) * pa->p.DNS*1.66054 );
-        F0 -= log(FactSurT);
-      else
-        F0 -= log(FactSurT);
-      // F0 -= log( Mk * (pm.Nfsp[k][ist]) *
-      // (pm.Aalp[k]) * pa->p.DNS*1.66054 );
-      F0 -= FactSur / (1. + FactSur);
-      // F0 -= (pm.Aalp[k])*Mk*pa->p.DNS*1.66054 /
-      // ( 1.0 + (pm.Aalp[k])*Mk*pa->p.DNS*1.66054 );
+      // SCM Modernization: charges from mCDc[ja][0..1]
+      CDA = pm.mCDc[ja][CHARGE_ON_A]; // sp.charge on A (0) plane
+      CDB = pm.mCDc[ja][CHARGE_ON_B]; // sp.charge on B (beta) plane
+      CDC = pm.mCDc[ja][CHARGE_ON_C]; // sp.charge on C (gamma) plane
+      // Contributions to Coulomb term of chemical potential
+      CoulombA += psiA * CDA * pm.FRT;
+      CoulombB += psiB * CDB * pm.FRT;
+      CoulombC += psiC * CDC * pm.FRT;
+      pm.CTerms[j] = CoulombA + CoulombB +
+                     CoulombC; // Collecting Coulomb terms for surface species
+    } else {
+      CoulombA += psiA * Ez * pm.FRT; // Charge distro array not provided
+      pm.CTerms[j] = CoulombA; // Collecting Coulomb terms for surface species
+    }
+    F0 += pm.CTerms[j];
+    pm.lnSAC[ja][3] = pm.CTerms[j];
+
+    if (pm.PHC[k] == PH_SORPTION ||
+        pm.PHC[k] == PH_POLYEL) {  // only sorption phases w/o site balances
+      if (/*Mk > 1e-9 &&*/ jc < 0) // Mk is carrier molar mass in g/mkmol
+      { // Correction for standard density, surface area and surface type
+        // fraction  - so far whole sorbent only (jc == -1)
+        FactSur = pm.FWGTS[k] / pm.XFA[k] * pm.Aalp[k] * pa_p->DNS * 1.66054 /
+                  1e6; //  moles/moles
+        // FactSur = Mk * (pm.Aalp[k]) * pa_p->DNS * 1.66054;
+        // FactSur is adsorbed amount at st. surf. density per mole of sorbent
+        // SCM Modernization: MASDT[k][ist][MSDT_FSUTSA] is reactive area
+        // fraction of surface type ist
+        // FactSurT = FactSur * (pm.MASDT[ka][ist][MSDT_FSUTSA]);
+        // F0 -= log(Mk*(pm.Nfsp[k][ist])*(pm.Aalp[k])*pa->p.DNS*1.66054);
+        // F0 -= log(FactSurT);
+        F0 -= FactSur / (1. + FactSur); // Eq (5.8)
+        // F0 -= (pm.Aalp[k])*Mk*pa->p.DNS*1.66054 /
+        // ( 1.0 + (pm.Aalp[k])*Mk*pa->p.DNS*1.66054 );
+      }
     }
     break;
   case DC_PEL_CARRIER:
-  case DC_SUR_MINAL:          // constant charge of carrier - not completed
-  case DC_SUR_CARRIER:        // Mk is carrier molar mass in g/mkmol
-    if (!pm.Lads || !pm.FIat) // Foolproof - to prevent crash DK 22.12.2009
+  case DC_SUR_MINAL:   // constant charge of carrier - not completed
+  case DC_SUR_CARRIER: // pm.FWGTS[k] / pm.XFA[k] is carrier mol mass g/mol
+    F0 = pm.lnGmM[j];  // May be obsolete!!! 4.11.2026
+    if (!pm.Lads || !pm.FIa) // Foolproof - to prevent crash DK 22.12.2009
       break;
-    FactSur = Mk * (pm.Aalp[k]) * pa_p->DNS * 1.66054;
-    F0 -= FactSur / (1. + FactSur);
-    F0 += FactSur;
+    if (pm.PHC[k] == PH_SORPTION ||
+        pm.PHC[k] == PH_POLYEL) { // only sorption phases w/o site balances
+      // FactSur = Mk * (pm.Aalp[k]) * pa_p->DNS * 1.66054;
+      FactSur =
+          pm.FWGTS[k] / pm.XFA[k] * pm.Aalp[k] * pa_p->DNS * 1.66054 / 1e6;
+      F0 -= FactSur / (1. + FactSur);
+      F0 += FactSur; // Eq (5.9)
+    }
+    break;
+  default:
     break;
   }
   F0 += pm.lnGam[j];

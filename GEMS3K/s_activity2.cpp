@@ -453,11 +453,11 @@ void TActivity::CalculateConcentrations(double X[], double XF[], double XFA[]) {
           MMC += act.MM[jj] * X[jj] / XFA[k];
           // Only sorbent mass
           act.FWGT[k] += X[jj] * act.MM[jj];
-        } else { // Doubtful, do we really need it? Total amount of species on
+        } /*else { // Doubtful, do we really need it? Total amount of species on
                  // surf site type or on surface type (patch)?
-          /*!!!!!*/ ist = act.SATC[jja][XL_ST]; // Check carfefully!
+           ist = act.SATX[jja][XL_ST]; // Check carfefully!
           act.XFTS[ka][ist] += X[jj];
-        }
+        }*/
       }
       act.FWGTS[k] =
           act.FWGT[k]; // Use for surfaces and charges only act.FWGTS[k]
@@ -588,14 +588,14 @@ void TActivity::IS_EtaCalc() {
         etaA = 0.0; // Units of etaA, etaB, ... in moles (eq)
         if (fabs(act.XfIEC[ka][ist][FSIT_S_CAPACITY]) > act.DHBM) {
           etaA += act.XfIEC[ka][ist][FSIT_S_CAPACITY] // eq/kg
-                  * act.FWGT[k] / 1e3; // must be converted to eq (moles)
+                  * act.FWGTS[k] / 1e3; // must be converted to eq (moles)
         } else {
           // capacity in eq/kg not given, trying to get the amount of perm
           // charge from density in 1/nm2, mass and SSA
           if (fabs(act.XfIEC[ka][ist][FSIT_S_DENSITY]) > act.DHBM)
-            etaA += act.XfIEC[ka][ist][FSIT_S_DENSITY] * act.FWGT[k] *
+            etaA += act.XfIEC[ka][ist][FSIT_S_DENSITY] * act.FWGTS[k] *
                     act.Aalp[k] * 1e-18 *
-                    act.MASDT[ka][ist][MSDT_FSUTSA]; // convert nm2 to m2
+                    act.MASDT[ka][ist][MSDT_FSUTSA]; // fraction of s.type
         }
         act.XetaA[ka][ist] = etaA; // Moles of permanent charge
       }
@@ -643,7 +643,9 @@ void TActivity::IS_EtaCalc() {
             fabs(CDC) < act.DHBM)
           CDA = Ez; // Only as 0-plane charge
         // FInd out to which surface type this surface species belongs
-        ist = act.SATC[ja][SURSP_ALLOC_SURFTYPE];
+        ist = act.SATX[ja][SURSP_ALLOC_SURFTYPE];
+        if (ist < 0 || ist >= MNST)
+          ist = 0;
         act.XetaA[ka][ist] += act.X[j] * CDA;
         act.XetaB[ka][ist] += act.X[j] * CDB;
         act.XetaC[ka][ist] += act.X[j] * CDC;
@@ -694,7 +696,7 @@ long int TActivity::GouyChapman(long int, long int, long int k) {
 
   ka = k - (act.FIs - act.FIa);
   if (ka < 0 || ka >= act.FIa)
-    return status;            // not a sorption phase
+    return status; // not a sorption phase
 
   // Determining the sorbent mass in grams
   if (act.PHC[k] == PH_POLYEL || act.PHC[k] == PH_SORPTION ||
@@ -710,8 +712,8 @@ long int TActivity::GouyChapman(long int, long int, long int k) {
 
     // SCM Modernization: SCMC[ka][ist][0] and MASDT [ka][ist][MSDT_FSUTSA]
     if (act.SCMC[ka][ist][0] == SC_NOT_USED ||
-        act.MASDT[ka][ist][MSDT_FSUTSA] < 1e-9)
-      continue; // potentially error
+        act.MASDT[ka][ist][MSDT_FSUTSA] < act.DHBM)
+      continue; // this surface type is not defined
     convFactor = F_CONSTANT / (act.FWGTS[k] * act.Aalp[k] *
                                act.MASDT[ka][ist][MSDT_FSUTSA]); // C/mol/(m2)
     // Calculation of charge densities (now limited to total charges > max.
@@ -810,7 +812,7 @@ long int TActivity::GouyChapman(long int, long int, long int k) {
                         debye_m);
       break;
     default:
-      break;
+      continue;
     }
     // Unpack results from EILModelResult emr fields to MULTI data for this
     // phase and surface type
@@ -826,8 +828,8 @@ long int TActivity::GouyChapman(long int, long int, long int k) {
         emr.sld02; // Thickness of outer Stern layer (1 to 2 plane) nm
     act.XdlC[ka][ist] =
         emr.sld0d; // Eff. thickness of Stern layer (0 to 3-plane or d-plane)
-    act.XdlD[ka][ist] = emr.dlth; // Eff. thickness of diffuse layer (nm)
-                                  // or 2*Debye_length ?
+    act.XdlD[ka][ist] =
+        (emr.dlth > 0.0) ? emr.dlth : (debye_m * 1e9); // Eff. thickness of diffuse layer (nm)
   } // ist   end of loop over surface types
 
   return status;
@@ -1201,102 +1203,126 @@ EILModelResult TActivity::compute_tce(char ModCode, double I, double z_eff,
 long int TActivity::SurfaceActivityCoeff(long int jb, long int je, long int,
                                          long int, long int k) {
   long int status = 0;
-  long int i, ii, j, ja, ist = 0, iss, dentt, dentsn, Cj, ka,
-                         iSite[MNST]; // SCM Modernization: MNST
-  double XS0, xj0, XVk, XSk, XSkC, xj, Mm, rIEPS, ISAT, XSs, SATst, xjn, q1, q2,
-      GamC, alpF, qBet, bBet, cN, eF, lnGamjo, lnDiff, lnFactor;
+  long int i, ii, j, ja, ist, iss, dentt, dentsn, Cj, ka, nss;
+  long int iSurf[MNST], iSite[NSURFSITES], si = 0, jsurfsolv;
+  // Surf solvent surface type and site type
+  double XS0, xj0, XVk, XSk[NSURFSITES], XSkC, xj, Mm, rIEPS, ISAT, thetaJ,
+      q1theta, q2theta, thetaJC, XSs[NSURFSITES], SATst, xjn, q1, q2, GamC,
+      GamJ, GamJC, alpF, qBet, bBet, cN, eF, lnGamjo, lnDiff, lnFactor,
+      GamS[NSURFSITES], qS[NSURFSITES], sjsurfsolv, thetaC, sj[NSURFSITES];
   // const BASE_PARAM *pa_p = base_param();
 
-  if (act.PHC[k] == PH_SORPTION || act.PHC[k] == PH_POLYEL) {
-    if (act.XF[k] <= act.DSM) // No sorption phase retained by the IPM
-      return status;
-    if (act.XFA[k] <= act.ScMinM) // no amount of sorbent remains
-      return status;
-  } else {
-    // SACTS do not apply for sorption phases with site balances [yet]
-    if (act.PHC[k] == PH_ADSSBEIL || act.PHC[k] == PH_ADSORPT)
-      return status;
-  }
-  // This needs a deeper reconsideration!
-  // Initialization of work arrays: D[NSURFSITES][MNST]
+  // SACTS only apply for sorption phases without site balances [so far]
+  if (act.XF[k] <= act.DSM) // No sorption phase retained by the IPM
+    return status;
+  if (act.XFA[k] <= act.DSM) // no amount of sorbent remains
+    return status;
+
+  XVk = act.XFA[k];
+  Mm = act.FWGTS[k] / XVk; // molar mass of the sorbent as a whole
+  // Initialization of work array: D[NSURFSITES][MNST]
   for (i = 0; i < MNST; i++) // SCM Modernization: loop over MNST surf patches
   {
-    iSite[i] = -1;
-    for (ii = 0; ii < NSURFSITES; ii++) // SCM Modernization: site types
-      act.D[ii][i] = 0.0; // cleaning the matrix for sites totals in surface
+    iSurf[i] = -1;
+    for (ii = 0; ii < NSURFSITES; ii++) { // SCM Modernization: site types
+      act.D[ii][i] = 0.0;    // matrix for sites totals in surface types
+      act.XFTS[ii][i] = 0.0; // matrix for surf species totals in surface types
+      iSite[ii] = -1;        // index for site type
+      sj[ii] = 0.0;          // moles of sites occupied on this site type
+    }
   }
   ka = k - (act.FIs - act.FIa); // index for sorption arrays only
   // Extraction of site indices for the neutral >OH group
   for (j = jb; j < je; j++) {
-    ja = j - (act.Ls - act.Lads);
-    if (act.SATT[ja] == SAT_SOLV) {
-      ist = act.SATC[ja][XL_ST]; // / MSPN;
-      iSite[ist] = j;
+    ja = j - (act.Ls - act.Lads);   // surf species index among sorption phases
+    if (act.SATT[ja] == SAT_SOLV) { // surface "water" OH group
+      ist = act.SATX[ja][XL_ST];    // surface type
+      if (ist < 0 || ist >= MNST)
+        ist = 0;
+      iSurf[ist] = ja;
+      for (iss = 0; iss < NSURFSITES; iss++)
+        if (act.XSMD[ja][iss] > 0) // num bonds to site type
+          iSite[iss] = ja;
     }
-    // Counting current sites totals (these species do not compete)
     if (act.DCC[j] == DC_SUR_CARRIER || act.DCC[j] == DC_SUR_MINAL ||
         act.DCC[j] == DC_PEL_CARRIER || act.SATT[ja] == SAT_SOLV)
       continue;
+    // Counting current surfaces and sites totals
     // Get ist (index of surface type)
-    ist = act.SATC[ja][XL_ST];  // / MSPN;
-    if (ist < 0 || ist >= MNST) // SCM Modernization: MNST
-      ist = 0;                  // default: zero surface type
-    // Get iss (index of site on surface type)
-    iss = act.SATC[ja][XL_SI];
-    if (iss < 0 || iss >= MNST) // SCM Modernization: MNST
-      iss = 0; // default: zero site is the weekest and the most abundant one?
-    act.D[iss][ist] += act.X[j]; // adding to total amount on a site
+    ist = act.SATX[ja][XL_ST];  // / MSPN;
+    if (ist < 0 || ist >= MNST) // SCM Modernization: surf type index
+      ist = 0;                  // zero surface type, actually error condition
+    for (iss = 0; iss < NSURFSITES; iss++) {
+      if ((long)act.Nfsp[ka][iss][FSIT_S_SURTYPE] != ist)
+        continue;
+      else {
+        // SCM Modernization: D[NSURFSITES][MNST]   XFTS[NSURFSITES][MNST]
+        act.D[iss][ist] +=
+            act.X[j] * act.XSMD[ja][iss]; // adding to site totals
+        act.XFTS[iss][ist] += act.X[j];   // adding to species moles totals
+      }
+    }
   }
-
   for (j = jb; j < je; j++) { // Main loop for DCs - surface complexes
     lnGamjo = act.lnGmo[j];   // bugfix 16.03.2008 DK
     if (act.X[j] < std::min(act.DcMinM, act.lowPosNum))
-      continue; // This surface DC has been killed by IPM
+      continue; // This surface DC has been killed by GEM IPM
                 //        OSAT = act.lnGmo[j]; // added 6.07.01 by KDA
-    ja = j - (act.Ls - act.Lads); // Assuming that sorption phase(s) are the
-                                  // last ones in the list of phases-solutions
-    rIEPS = act.IEPS;   // pa_p->IEPS;      // default 1e-3 (for old SAT - 1e-9)
-                        //         dent = 1;  // default - monodentate
+    ja =
+        j - (act.Ls - act.Lads); // Assuming that sorption phase(s) are the last
+    // one(s) in the list of phases-solutions
+    rIEPS = act.IEPS;   // default 1e-3 (for old SAT - 1e-9)
+                        //        dent = 1;  // default - monodentate
     switch (act.DCC[j]) // code of species class
     {
     default: // act.lnGam[j] = 0.0;  not a surface species
       continue;
-    // case DC_IEWC_B:
-    // case DC_IESC_A:
-    case DC_SUR_GROUP:
-    case DC_SUR_COMPLEX:
-    case DC_SUR_IPAIR:
-    case DC_SUR_SPECIES:
-      // Get ist (index of surface type)
-      ist = act.SATC[ja][XL_ST]; // / MSPN;
-      // get iss - index of site on surf.type
-      iss = act.SATC[ja][XL_SI];
-      if (iss < 0 || iss >= MNST) // SCM Modernization: MNST
-        iss = 0; // zero site is the weekest and the most abundant one
-      // Cj - index of carrier DC
-      Cj = act.SATC[ja][XL_EM];
-      if (Cj < 0) { // Assigned to the whole sorbent
-        XVk = act.XFA[k];
-        Mm = act.FWGT[k] / XVk;
-      } else { // Assigned to one of the sorbent end-members
+    // case DC_IEWC_B:  site balance ion exchange
+    // case DC_IESC_A:  site balance ion exchange
+    case DC_SUR_GROUP:            // surface group
+    case DC_SUR_COMPLEX:          // surface complex
+    case DC_SUR_IPAIR:            // surface ion pair
+    case DC_SUR_SPECIES:          // surface species
+      ist = act.SATX[ja][XL_ST];  // Get ist (index of surface type)
+      if (ist < 0 || ist >= MNST) // SCM Modernization: MNST
+        ist = 0;                  // zero surface type, actually error condition
+      // Get nss (number of different site types bound to this SC)
+      nss = act.SATX[ja][XL_SI];
+      /// link indexes to surface type [XL_ST]; sorbent em [XL_EM]; number of
+      /// different site types [XL_SI] and index of farthest EIL plane [XL_SP]
+      // Cj - index of carrier endmember (-1 - whole sorbent)
+      Cj = act.SATX[ja][XL_EM];
+      if (Cj < 0) {              // Assigned to the whole sorbent
+        XVk = act.XFA[k];        // Amount of sorbent
+        Mm = act.FWGTS[k] / XVk; // molar mass of the sorbent as a whole
+      } else { // Assigned to one of the sorbent end-members: TBD, does not work
         XVk = act.X[Cj];
         if (XVk < act.ScMinM) // act.DSM*0.1 )
           continue;           // This end-member is zeroed off by IPM
-        Mm = act.MM[Cj] * XVk / act.XFA[k]; // mol.mass
+        Mm = act.MM[Cj] * XVk / act.XFA[k]; // mol.mass (fracional?)
       }
-      XSk = act.XFTS[ka][ist]; // Total moles of sorbates on ist surface type
-      XSs = act.D[iss][ist];   // Total moles of SC on iss site type
-      xj = act.X[j];           // Current moles of this surface species
-
-      // Extracting SACT isotherm parameters
+      xj = act.X[j]; // Current moles of this surface species
+      for (iss = 0; iss < NSURFSITES; iss++) {
+        sj[iss] +=
+            xj * act.XSMD[ja][iss]; // moles of sites under this surface species
+        XSk[iss] =
+            act.XFTS[iss]
+                    [ist]; // Total moles of sorbates on site & surface type
+        XSs[iss] =
+            act.D[iss]
+                 [ist]; // Total moles of occupied sites on site & surf type
+        GamS[iss] = act.Nfsp[ka][iss][FSIT_S_DENSITY];
+        qS[iss] = act.Nfsp[ka][iss][FSIT_S_CAPACITY];
+      }
+      // Extracting of SACT isotherm parameters
       if (act.MASDJ) {
-        cN = act.MASDJ[ja][PI_P2];   // Frumkin/Pivovarov water coord. number
         dentt = denticity_total(ja); // total denticity of this surf species
         dentsn = denticity_num_site_types(ja); // Number of site types to bind
         GamC = act.MASDJ[ja][PI_DEN]; // Complete coverage density (individual,
                                       // or as set for the whole surf type)
         alpF = act.MASDJ[ja][PI_P1]; // Frumkin lateral interaction energy alpha
-        qBet = act.MASDJ[ja][PI_P2]; // q parameter (QCA/BET) or cN in Pivovarov
+        qBet = cN =
+            act.MASDJ[ja][PI_P2];    // q parameter (QCA/BET) or cN in Pivovarov
         bBet = act.MASDJ[ja][PI_P3]; // Parameter b in BET or S in Pivovarov
       } else {
         cN = 0.0;
@@ -1305,197 +1331,335 @@ long int TActivity::SurfaceActivityCoeff(long int jb, long int je, long int,
         bBet = 0.0;
         dentt = 1; // bet = 1.0;
         dentsn = 1;
+        GamC = act.DNS; // default surface capacity 20 mkmol/m2 (12.044 1/nm2)
       }
-      switch (act.SATT[ja]) // selection of the SACT model
+      double f_area_st =
+          act.MASDT[ka][ist][MSDT_FSUTSA]; // area fraction of this surface type
+      if (f_area_st < 1e-6)
+        break; // potentially severe error - null area fraction of surface type
+      // double GamJ = xj / XVk / Mm / f_area_st * 1e6 / act.Aalp[k] / 1.66054;
+      //  this species surface density, 1/nm2
+      GamJ = xj * 1e6 / (XVk * Mm * f_area_st * act.Aalp[k]) / 1.66054;
+      // act.SCMC[ka][ist][SCMC_EILM_CODE];
+      char ST_SACT_CODE =
+          act.SCMC[ka][ist]
+                  [SCMC_SACT_CODE]; // Overall SACT model code for surface type
+      char SS_SACT_CODE =
+          act.SATT[ja]; // Individual SACT model code for surface species
+
+      switch (SS_SACT_CODE) // individual SACT model code for surface species
       {
       case SACT_LAN_NCOMP: // Non-competitive individual monodentate Langmuir
-                           // TBD
-        break;
-      case SACT_LAN_COMP: // Competitive monodentate Langmuir on a surface type
-                          // and site type
-        XSkC = XSs / XVk / Mm * 1e6 / act.MASDT[ka][ist][MSDT_FSUTSA] /
-               act.Aalp[k] / 1.66054; // per nm2
-        XS0 = (fabs(act.MASDJ[ja][PI_DEN]) / act.Aalp[k] / 1.66054);
-        // max. density per nm2
-        if (act.PC <= 2)
-          rIEPS = act.IEPS * XS0; // relative IEPS
-        if (XSkC < 0.0)
-          XSkC = 0.0;
-        if (XSkC >= XS0) // Setting limits
-          XSkC = XS0 - 2.0 * rIEPS;
-        q1 = XS0 - XSkC;
-        if ((act.PC == 3 && !act.W1) || act.PC != 3) {
-          q2 = rIEPS * XS0;
-          if (q1 > q2)
-            q2 = q1;
-        } else {
-          q2 = q1;
-          if (q2 <= 1e-22)
-            q2 = 1e-22;
+        if (dentt != 1 || dentsn != 1) {
+          gems_logger->debug(
+              "SACT_LAN_NCOMP Warning: dentt={} and dentsn={} must "
+              "both be 1. k= {} ist= {}",
+              dentt, dentsn, ka, ist);
+          // break; // potentially severe error
         }
-        ISAT = log(XS0) - log(q2);
+        thetaJ = GamJ / GamC; // surf species site coverage fraction
+        thetaC = 1.0;
+        q2theta = update_q2_theta(thetaJ);
+        ISAT = log(thetaC) - log(q2theta); // SACT Langmuir individual
+        // truncation for linear part of isotherm is not needed in this form
         act.lnGam[j] = ISAT;
         act.lnSACT[j] = ISAT;
+        act.lnGammF[j] = 0;
         act.lnSAC[ja][0] = ISAT;
+        act.lnSAC[ja][1] = ISAT;
+        act.lnSAC[ja][2] = 0;
         break;
-      case SACT_QCA_NCOMP: // dent++;   bidentate is default for QCA
-        xj0 = (fabs(act.MASDJ[ja][PI_DEN]) / act.Aalp[k] / 1.66054);
-        // Max site density per nm2
-        xj = XSs / XVk / Mm / act.MASDT[ka][ist][MSDT_FSUTSA] * 1e6 // xj
-             / act.Aalp[k] / 1.66054; // Density per nm2 on site type iss
-        if (act.PC <= 2)
-          rIEPS = act.IEPS * xj0; // relative IEPS
-        if (xj >= xj0 / static_cast<double>(dentt))
-          xj = xj0 / static_cast<double>(dentt) - rIEPS; // upper limit
-        //                ISAT = 0.0;
-        q2 = xj0 - xj * dentt; // Computing differences in QCA gamma
-        q1 = xj0 - xj;
-        if (q1 < 1e-22)
-          q1 = 1e-22;
-        if (q2 < 1e-22)
-          q2 = 1e-22;
-        ISAT = log(xj0) + log(q1) * (dentt - 1) - log(q2) * dentt;
+
+      case SACT_LAN_COMP: // Competitive monodentate Langmuir on a single
+                          // site type
+        if (dentt != 1 || dentsn != 1) {
+          gems_logger->debug(
+              "SACT_LAN_COMP Warning: dentt={} and dentsn={} must "
+              "both be 1. k= {} ist= {}",
+              dentt, dentsn, ka, ist);
+          // break; // potentially error?
+          // Should also ST_SACT_CODE be checked here? (for whole surftype?)
+        }
+        jsurfsolv = iSurf[ist]; // index of surface solvent species
+        if (jsurfsolv >= 0)
+          sjsurfsolv = act.X[jsurfsolv];
+        else
+          sjsurfsolv = 0.0; // this controls non-competition of surf solvent
+        // Find out which site type is used
+        si = (act.SATX[ja][XL_SI] >= 0 && act.SATX[ja][XL_SI] < NSURFSITES)
+                 ? act.SATX[ja][XL_SI]
+                 : 0;
+        for (int iss = 0; iss < NSURFSITES; iss++) {
+          if (act.XSMD[ja][iss] <= 0) // bonds to this site type
+            continue;
+          si = iss;
+          break;
+        }
+        GamJC = (XSk[si] - sjsurfsolv) * 1e6 /
+                (XVk * Mm * f_area_st * act.Aalp[k]) / 1.66054;
+        // Sum density of all competing surface species instead of GamJ
+        // correct by subtracting =SOH surface solvent?
+        thetaC = 1.0;
+        GamC = GamS[si]; // site type full coverage density parameter Nfsp
+        // May be needed to make this optional
+        thetaJC = GamJC / GamC; // sum of surf species coverage fraction
+        q2theta = update_q2_theta(thetaJC);
+        // truncated difference of species sum coverage fraction and
+        // complete coverage fraction
+        ISAT = log(thetaC) - log(q2theta);
+        // SACT Langmuir competitive ratio (in ln scale)
         act.lnGam[j] = ISAT;
         act.lnSACT[j] = ISAT;
+        act.lnGammF[j] = 0;
         act.lnSAC[ja][0] = ISAT;
+        act.lnSAC[ja][1] = ISAT;
+        act.lnSAC[ja][2] = 0;
         break;
-        // (Non)competitive QCA-L for 1 to 4 dentate species
-      case SACT_QCA1_NCOMP: // dentt = 4;     // code '4'
-      case SACT_QCA2_NCOMP: // dentt = 3;     // code '3'
-      case SACT_QCA3_NCOMP: // dentt = 2;     // code '2'
-      case SACT_QCA4_NCOMP: // dentt = 1;     // code '1'
+
+      case SACT_LMDX_COMP: // 'M' simple mixed-denticity Langmuir isotherm
+                           // (mobile rotating species, as in site-balance
+                           // SC models)
+        if (dentsn != 1) {
+          gems_logger->debug("SACT_LMDX_COMP Warning: dentsn={} must be 1. "
+                             "k= {} ist= {}",
+                             dentsn, ka, ist);
+          // break; // potentially error?  so far for one site type only, but
+          // different surf species denticity Should also ST_SACT_CODE be
+          // checked here? (for whole surftype?)
+        }
+        jsurfsolv = iSurf[ist]; // index of surface solvent species
+        if (jsurfsolv >= 0)
+          sjsurfsolv = act.X[jsurfsolv];
+        else
+          sjsurfsolv = 0.0; // this controls non-competition of surf solvent
+        // Find out which site type is used
+        si = (act.SATX[ja][XL_SI] >= 0 && act.SATX[ja][XL_SI] < NSURFSITES)
+                 ? act.SATX[ja][XL_SI]
+                 : 0;
+        for (int iss = 0; iss < NSURFSITES; iss++) {
+          if (act.XSMD[ja][iss] <= 0) // bonds to this site type
+            continue;
+          si = iss;
+          break;
+        }
+        GamJC = (XSs[si] - sjsurfsolv) * 1e6 /
+                (XVk * Mm * f_area_st * act.Aalp[k]) / 1.66054;
+        // Sum covered sites of all competing surface species of various
+        // denticity instead of GamJ. XSs[si] accounts for sites consumption by
+        // mobile and rotating surface species of different denticity
+        thetaC = 1.0;
+        GamC = GamS[si];        // full site type occupation density parameter
+        thetaJC = GamJC / GamC; // sum of surf sites coverage fraction
+        q2theta = update_q2_theta(thetaJC);
+        // truncated difference of sites sum coverage fraction and
+        // complete site type coverage fraction
+        ISAT = log(thetaC) - log(q2theta);
+        // SACT Langmuir competitive ratio (in ln scale)
+        act.lnGam[j] = ISAT;
+        act.lnSACT[j] = ISAT;
+        act.lnGammF[j] = 0;
+        act.lnSAC[ja][0] = ISAT;
+        act.lnSAC[ja][1] = ISAT;
+        act.lnSAC[ja][2] = 0;
         break;
+
+      // Non-competitive QCA-L for 1 to 4 dentate species
+      case SACT_QCA4_NCOMP: // dentt = 4;     // code '4'
+      case SACT_QCA3_NCOMP: // dentt = 3;     // code '3'
+      case SACT_QCA2_NCOMP: // dentt = 2;     // code '2'
+      case SACT_QCA1_NCOMP: // dentt = 1;     // code '1'
+      case SACT_QCA_NCOMP:  // QCA isotherm for immobilized surf species
+        if (dentsn != 1) {
+          gems_logger->debug("SACT_QCA_NCOMP Error: dentsn={} must "
+                             "be 1. k= {} ist= {}",
+                             dentsn, ka, ist);
+          // break; // potentially error? // so far only one site type used
+        }
+        // Find out which site type is used
+        si = (act.SATX[ja][XL_SI] >= 0 && act.SATX[ja][XL_SI] < NSURFSITES)
+                 ? act.SATX[ja][XL_SI]
+                 : 0;
+        for (int iss = 0; iss < NSURFSITES; iss++) {
+          if (act.XSMD[ja][iss] <= 0) // bonds to this site type
+            continue;
+          si = iss;
+          break;
+        }
+        GamJ = xj * 1e6 / (XVk * Mm * f_area_st * act.Aalp[k]) / 1.66054;
+        thetaC = 1.0;
+        // GamC = GamS[si]; // site type density parameter
+        thetaJ = GamJ / GamC; // surf species site coverage fraction
+        q2theta = update_q2_theta(thetaJ, thetaC, dentt);
+        q1theta = update_q2_theta(thetaJ, thetaC, 1);
+        // truncated difference of species sum site coverage fraction and
+        // complete coverage fraction
+        ISAT = (dentt - 1.0) * log(q1theta) - dentt * log(q2theta);
+        // This is QCA SACT for immobile surface species for dentt 1 to 4
+        // At dentt = 1 it is Langmuir non - competitive SACT
+        act.lnGam[j] = ISAT;
+        act.lnSACT[j] = ISAT;
+        act.lnGammF[j] = 0;
+        act.lnSAC[ja][0] = ISAT;
+        act.lnSAC[ja][1] = ISAT;
+        act.lnSAC[ja][2] = 0;
+        break;
+
       case SACT_FFG_COMP: // Competitive Frumkin (FFG) isotherm
-        dentt = 1;        // monodentate for now
-        xj0 = (fabs(act.MASDJ[ja][PI_DEN]) / act.Aalp[k] / 1.66054);
-        // Max site density per nm2
-        xj = XSs / XVk / Mm / act.MASDT[ka][ist][MSDT_FSUTSA] * 1e6 //  xj
-             / act.Aalp[k] / 1.66054; // Current species density per nm2
-        if (act.PC <= 2)
-          rIEPS = act.IEPS * xj0; // relative IEPS
-        if (xj >= xj0 / dentt)
-          xj = xj0 / dentt - rIEPS; // upper limit
-        q2 = xj0 - xj * dentt;      // Computing differences in QCA gamma
-        q1 = xj0 - xj;
-        if (q1 < 1e-22)
-          q1 = 1e-22;
-        if (q2 < 1e-22)
-          q2 = 1e-22;
-        ISAT = log(xj0) + log(q1) * (dentt - 1) - log(q2) * dentt;
+        if (dentt != 1 || dentsn != 1) {
+          gems_logger->debug(
+              "SACT_FFG_COMP Warning: dentt={} and dentsn={} must "
+              "both be 1. k= {} ist= {}",
+              dentt, dentsn, ka, ist);
+          // break; // potentially error?
+          // Should also ST_SACT_CODE be checked here? (for whole surftype?)
+        }
+        jsurfsolv = iSurf[ist]; // index of surface solvent species
+        if (jsurfsolv >= 0)
+          sjsurfsolv = act.X[jsurfsolv];
+        else
+          sjsurfsolv = 0.0; // this controls non-competition of surf solvent
+        // Find out which site type is used
+        si = (act.SATX[ja][XL_SI] >= 0 && act.SATX[ja][XL_SI] < NSURFSITES)
+                 ? act.SATX[ja][XL_SI]
+                 : 0;
+        for (int iss = 0; iss < NSURFSITES; iss++) {
+          if (act.XSMD[ja][iss] <= 0) // bonds to this site type
+            continue;
+          si = iss;
+          break;
+        }
+        GamJ = xj * 1e6 / (XVk * Mm * f_area_st * act.Aalp[k]) / 1.66054;
+        GamJC = (XSk[si] - sjsurfsolv) * 1e6 /
+                (XVk * Mm * f_area_st * act.Aalp[k]) / 1.66054;
+        // Sum density of all competing surface species instead of GamJ
+        // correct by subtracting =SOH surface solvent?
+        thetaC = 1.0;
+        GamC = GamS[si]; // site type full coverage density parameter Nfsp
+        // May be needed to make this optional (use that from MASDJ)
+        thetaJ = GamJ / GamC;   // surf species site coverage fraction
+        thetaJC = GamJC / GamC; // sum of surf species coverage fraction
+        q2theta = update_q2_theta(thetaJC);
+        ISAT = log(thetaC) - log(q2theta);
         // Calculation of the Frumkin exponential term
         if (fabs(alpF) < 1e-9 || fabs(cN) < 1e-9)
           eF = 0.0;
         else { // changed from cN to -cN on 16.09.2005 by KD
-          eF = -cN * alpF * xj * dentt / xj0; // Fi = Fi'/(kT) Bockris p.938
+          eF = -cN * alpF * xj * thetaJ; // Fi = Fi'/(kT) Bockris p.938
         }
         act.lnGam[j] = ISAT + eF;
         act.lnSACT[j] = ISAT;
         act.lnGammF[j] = eF;
         act.lnSAC[ja][0] = ISAT;
-        act.lnSAC[ja][1] = eF;
+        act.lnSAC[ja][1] = ISAT;
+        act.lnSAC[ja][2] = eF;
         break;
-      case SACT_FFG_NCOMP: // Non-Competitive Frumkin isotherm
-                           // for permanent charge surfaces
-        XSkC = xj / XVk / Mm / act.MASDT[ka][ist][MSDT_FSUTSA] * 1e6 /
-               act.Aalp[k] / 1.66054; // per nm2
-        XS0 = (act.MASDJ[ja][PI_DEN] / act.Aalp[k] / 1.66054);
-        // max.dens.per nm2
-        if (act.PC <= 2)
-          rIEPS = act.IEPS * XS0; // relative IEPS
-        if (XSkC < 0.0)
-          XSkC = 0.0;
-        if (XSkC >= XS0) // Limits
-          XSkC = XS0 - 2.0 * rIEPS;
-        q1 = XS0 - XSkC;
-        if ((act.PC == 3 && !act.W1) || act.PC != 3) {
-          q2 = rIEPS * XS0;
-          if (q1 > q2)
-            q2 = q1;
-        } else {
-          q2 = q1;
-          if (q2 <= 1e-22)
-            q2 = 1e-22;
+
+      case SACT_FFG_NCOMP: // Non-Competitive FFG (Frumkin) isotherm
+        if (dentt != 1 || dentsn != 1) {
+          gems_logger->debug(
+              "SACT_FFG_NCOMP Warning: dentt={} and dentsn={} must "
+              "both be 1. k= {} ist= {}",
+              dentt, dentsn, ka, ist);
+          // break; // potentially severe error
         }
-        ISAT = log(XS0) - log(q2);
-        // Calculation of the Frumkin exponential term (competitive)
+        thetaJ = GamJ / GamC; // surf species site coverage fraction
+        thetaC = 1.0;
+        q2theta = update_q2_theta(thetaJ);
+        ISAT = log(thetaC) - log(q2theta); // SACT Langmuir individual
+        // SACT Langmuir competitive ratio (in ln scale)
+        // Calculation of FFG exponential term (competitive)
         if (fabs(alpF) < 1e-9 || fabs(cN) < 1e-9)
           eF = 0.0;
         else { // changed from cN to -cN on 16.09.2005 by KD
-          eF = -cN * alpF * XSkC / XS0; // Fi = Fi'/(kT) Bockris p.938
+          eF = -cN * alpF * thetaJ; // Fi = Fi'/(kT) Bockris p.938
         }
         act.lnGam[j] = ISAT + eF;
         act.lnSACT[j] = ISAT;
         act.lnGammF[j] = eF;
         act.lnSAC[ja][0] = ISAT;
-        act.lnSAC[ja][1] = eF;
+        act.lnSAC[ja][1] = ISAT;
+        act.lnSAC[ja][2] = eF;
         break;
+
       case SACT_PIV_NCOMP: // (Non)competitive Pivovarov isotherm
-        dentt = 1;         // monodentate for now
-        xj0 = (fabs(act.MASDJ[ja][PI_DEN]) / act.Aalp[k] / 1.66054);
-        // Max site density per nm2
-        xj = XSs / XVk / Mm / act.MASDT[ka][ist][MSDT_FSUTSA] * 1e6 /
-             act.Aalp[k] / 1.66054; // Current density per nm2
-        if (act.PC <= 2)
-          rIEPS = act.IEPS * xj0; // relative IEPS
-        if (xj >= xj0 / dentt)
-          xj = xj0 / dentt - rIEPS; // upper limit
-        q2 = xj0 - xj * dentt;      // Computing differences in gamma
-        q1 = xj0 - xj;
-        if (q1 < 1e-22)
-          q1 = 1e-22;
-        if (q2 < 1e-22)
-          q2 = 1e-22;
-        ISAT = log(xj0) + log(q1) * (dentt - 1) - log(q2) * dentt;
+        if (dentt != 1 || dentsn != 1) {
+          gems_logger->debug(
+              "SACT_PIV_NCOMP Warning: dentt={} and dentsn={} must "
+              "both be 1. k= {} ist= {}",
+              dentt, dentsn, ka, ist);
+          // break; // potentially severe error
+        }
+        thetaJ = GamJ / GamC; // surf species site coverage fraction
+        thetaC = 1.0;
+        q2theta = update_q2_theta(thetaJ);
+        ISAT = log(thetaC) - log(q2theta); // SACT Langmuir individual
+        // SACT Langmuir competitive ratio (in ln scale)
+        // ISAT = log(xj0) + log(q1) * (dentt - 1) - log(q2) * dentt;
         // Calculation of the Frumkin exponential term
         if (fabs(alpF) < 1e-9 || fabs(cN) < 1e-9)
           eF = 0.0;
         else {
-          double pivovar;
-          eF = cN * alpF * xj / xj0; // Fi = Fi'/(kT) Bockris p.938
           // Calculation of the Pivovarov 98 exponential correction term
-          pivovar = xj0 / (xj0 + xj * (cN - 1));
-          eF *= pivovar;
+          //          double pivovar = xj0 / (xj0 + xj * (cN - 1));
+          double pivovar = GamC / (GamC + GamJ * (cN - 1));
+          eF = cN * alpF * thetaJ * pivovar;
         }
         act.lnGam[j] = ISAT + eF;
         act.lnSACT[j] = ISAT;
         act.lnGammF[j] = eF;
         act.lnSAC[ja][0] = ISAT;
-        act.lnSAC[ja][1] = eF;
+        act.lnSAC[ja][1] = ISAT;
+        act.lnSAC[ja][2] = eF;
         break;
+
       case SACT_VIR_NCOMP: // Non-Competitive virial isotherm
-        dentt = 1;         // monodentate for now
-        xj0 = (fabs(act.MASDJ[ja][PI_DEN]) / act.Aalp[k] / 1.66054);
-        // Max site density per nm2
-        xj = XSs / XVk / Mm / act.MASDT[ka][ist][MSDT_FSUTSA] * 1e6 /
-             act.Aalp[k] / 1.66054; // Current density per nm2
-        if (act.PC <= 2)
-          rIEPS = act.IEPS * xj0; // relative IEPS
-        if (xj >= xj0 / dentt)
-          xj = xj0 / dentt - rIEPS; // upper limit
+        if (dentt != 1 || dentsn != 1) {
+          gems_logger->debug(
+              "SACT_VIR_NCOMP Warning: dentt={} and dentsn={} must "
+              "both be 1. k= {} ist= {}",
+              dentt, dentsn, ka, ist);
+          // break; // potentially severe error
+        }
+        thetaJ = GamJ / GamC; // surf species site coverage fraction
         ISAT = 0.0;
         if (fabs(alpF) < 1e-9 || fabs(cN) < 1e-9)
           eF = 0.0;
         else { // changed from cN to -cN on 16.09.2005 by KD
-          eF = -cN * alpF * xj / xj0; // Fi = Fi'/(kT) Bockris p.938
+          eF = -cN * alpF * thetaJ; // Fi = Fi'/(kT) Bockris p.938
         }
         act.lnGam[j] = ISAT + eF;
         act.lnSACT[j] = ISAT;
         act.lnGammF[j] = eF;
         act.lnSAC[ja][0] = ISAT;
-        act.lnSAC[ja][1] = eF;
+        act.lnSAC[ja][1] = ISAT;
+        act.lnSAC[ja][2] = eF;
         break;
+
       case SACT_FREU_NCOMP: // Non-competitive Freundlich isotherm TBD
+        act.lnGam[j] = 0.0;
+        act.lnSACT[j] = 0.0;
+        act.lnGammF[j] = 0.0;
+        act.lnSAC[ja][0] = 0.0;
+        act.lnSAC[ja][1] = 0.0;
+        act.lnSAC[ja][2] = 0.0;
+        // sj[si]       // moles of sites under this surface species
+        // XSk[si]  // Total moles of sorbates on site types
+        // XSs[si]  // Total moles of occupied sites on site types
+        // GamS[si] // FSIT_S_DENSITY site density parameters GammaC
         break;
-      case SACT_BET_NCOMP: // Non-competitive BET for surface precipitation
+
+      case SACT_BET_NCOMP: // Non-competitive BET for surface precipitation TBD
         ISAT = 0.0;
         eF = 0.0;
         // To be completed
         //
         //
-        act.lnGam[j] = ISAT + eF;
-        act.lnSACT[j] = ISAT;
-        act.lnGammF[j] = eF;
-        act.lnSAC[ja][0] = ISAT;
+        act.lnGam[j] = 0.0;
+        act.lnSACT[j] = 0.0;
+        act.lnGammF[j] = 0.0;
+        act.lnSAC[ja][0] = 0.0;
+        act.lnSAC[ja][1] = 0.0;
+        act.lnSAC[ja][2] = 0.0;
         break;
         // TBD: cases for surface type isotherms with species bound to different
         // site
@@ -1504,112 +1668,151 @@ long int TActivity::SurfaceActivityCoeff(long int jb, long int je, long int,
         act.lnGam[j] = 0.0;
         act.lnSACT[j] = 0.0;
         act.lnGammF[j] = 0.0;
-        act.lnSAC[ja][0] = 0;
+        act.lnSAC[ja][0] = 0.0;
+        act.lnSAC[ja][1] = 0.0;
+        act.lnSAC[ja][2] = 0.0;
+        break;
+      case SAT_SOLV: // Neutral surface site (e.g. >O0.5H@ group)
+                     // applies to the whole surface type!  TBD
+        /*      XSs = 0.0;   // calc total moles on all sites on surface type
+              for (i = 0; i < MNST; i++)
+                XSs += act.D[i][ist];
+              XSkC = XSs / XVk / Mm * 1e6 // total non-solvent surf.species
+                     / act.MASDT[ka][ist][MSDT_FSUTSA] / act.Aalp[k] /
+                     1.66054; // per nm2
+              XS0 = fabs(act.MASDJ[ja][PI_DEN]);
+              SATst = pa_p->DNS * 1.66054 * act.Aalp[k] / XS0;
+              XS0 = XS0 / act.Aalp[k] / 1.66054;
+              if (pa_p->PC <= 2)
+                rIEPS = pa_p->IEPS * XS0; // relative IEPS
+              if (XSkC < 0.0)
+                XSkC = 0.0;
+              if (XSkC >= XS0) // Limits
+                XSkC = XS0 - 2.0 * rIEPS;
+              q1 = XS0 - XSkC;
+              if ((pa_p->PC == 3 && !act.W1) || pa_p->PC != 3) {
+                q2 = rIEPS * XS0;
+                if (q1 > q2)
+                  q2 = q1;
+              } else {
+                q2 = q1;
+                if (q2 <= 1e-22)
+                  q2 = 1e-22;
+              }
+              ISAT = log(XS0) - log(q2);
+              act.lnGam[j] = ISAT + log(SATst);
+              act.lnSAC[ja][0] = ISAT;
+              act.lnSAC[ja][1] = log(SATst);
+              */
+        act.lnGam[j] = 0.0;
+        act.lnSACT[j] = 0.0;
+        act.lnGammF[j] = 0.0;
+        act.lnSAC[ja][0] = 0.0;
+        act.lnSAC[ja][1] = 0.0;
+        act.lnSAC[ja][2] = 0.0;
         break;
       default: // act.lnGam[j] = 0.0;
         break;
       }
       // Make optional ....
-      switch (act.SATT[ja]) // selection of the old SAT model
-      {
-      //  Obsolete old SAT calculations (retained from previous versions)
-      case SAT_COMP: // Competitive SAT (obsolete) on a surface type
-        if (iSite[ist] < 0)
-          xjn = 0.0;
-        else
-          xjn = act.X[iSite[ist]]; // neutral site does not compete!
-        // SCM Modernization: MASDT patch fraction and density
-        XS0 = fabs(act.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6 *
-              act.MASDT[ka][ist][MSDT_FSUTSA]; // expected total in moles
-        if (act.PC <= 2)
-          rIEPS = act.IEPS * XS0; // relative IEPS
-        XSkC = XSk - xjn - xj;    // occupied by the competing species;
-                                  // this sorbate cannot compete to itself
-        if (XSkC < 0.0)
-          XSkC = 0.0;
-        if (XSkC >= XS0) // Limits
-          XSkC = XS0 - 2.0 * rIEPS;
-        xj0 = XS0 - XSkC; // expected moles of this sorbate
-        if (xj >= xj0)
-          xj = xj0 - rIEPS; // Limits
-        if (xj * 2 <= xj0)
-          ISAT = 0.0; // ideal case
-        else {
-          q1 = xj0 - xj;
-          q2 = rIEPS * XS0;
-          if ((act.PC == 3 && !act.W1) || act.PC != 3) {
-            if (q1 > q2)
-              q2 = q1;
-          } else {
-            q2 = q1;
-            if (q2 <= 1e-33)
-              q2 = 1e-33;
-          }
-          ISAT = log(xj) - log(q2);
-        }
-        act.lnGam[j] = ISAT;
-        act.lnSAC[ja][0] = ISAT;
-        break;
-      case SAT_NCOMP: // Non-competitive truncated Langmuir SAT (obsolete)
-        // rIEPS = pa->p.IEPS * 2;
-        xj0 = fabs(act.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6 *
-              act.MASDT[ka][ist][MSDT_FSUTSA]; // in moles
-        if (act.PC <= 2)
-          rIEPS = act.IEPS * xj0; // relative IEPS
-        if (xj >= xj0)
-          xj = xj0 - rIEPS;  // upper limit
-        if (xj * 2.0 <= xj0) // Linear adsorption - to improve !
-          ISAT = 0.0;
-        else {
-          q1 = xj0 - xj; // limits: rIEPS to 0.5*xj0
-          q2 = xj0 * rIEPS;
-          if (act.PC == 3 && act.W1)
-            ISAT = log(xj) - log(q1);
-          else {
-            if (q1 > q2)
-              ISAT = log(xj) - log(q1);
-            else
-              ISAT = log(xj) - log(q2);
-          }
-        }
-        act.lnGam[j] = ISAT;
-        act.lnSAC[ja][0] = ISAT;
-        break;
-      case SAT_SOLV: // Neutral surface site (e.g. >O0.5H@ group)
-                     // applies to the whole surface type!
-        XSs = 0.0;   // calc total moles on all sites on surface type
-        for (i = 0; i < MNST; i++)
-          XSs += act.D[i][ist];
-        XSkC = XSs / XVk / Mm * 1e6 // total non-solvent surf.species
-               / act.MASDT[ka][ist][MSDT_FSUTSA] / act.Aalp[k] /
-               1.66054; // per nm2
-        XS0 = fabs(act.MASDJ[ja][PI_DEN]);
-        SATst = act.DNS * 1.66054 * act.Aalp[k] / XS0;
-        XS0 = XS0 / act.Aalp[k] / 1.66054;
-        if (act.PC <= 2)
-          rIEPS = act.IEPS * XS0; // relative IEPS
-        if (XSkC < 0.0)
-          XSkC = 0.0;
-        if (XSkC >= XS0) // Limits
-          XSkC = XS0 - 2.0 * rIEPS;
-        q1 = XS0 - XSkC;
-        if ((act.PC == 3 && !act.W1) || act.PC != 3) {
-          q2 = rIEPS * XS0;
-          if (q1 > q2)
-            q2 = q1;
-        } else {
-          q2 = q1;
-          if (q2 <= 1e-22)
-            q2 = 1e-22;
-        }
-        ISAT = log(XS0) - log(q2);
-        act.lnGam[j] = ISAT + log(SATst);
-        act.lnSAC[ja][0] = ISAT;
-        act.lnSAC[ja][1] = log(SATst);
-        break;
-      }
+      /*
+            switch (pm.SATT[ja]) // selection of the old SAT model
+            {
+            //  Obsolete old SAT calculations (retained from previous versions)
+            case SAT_COMP: // Competitive SAT (obsolete) on a surface type
+              if (iSite[ist] < 0)
+                xjn = 0.0;
+              else
+                xjn = pm.X[iSite[ist]]; // neutral site does not compete!
+              // SCM Modernization: MASDT patch fraction and density
+              XS0 = fabs(pm.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6 *
+                    pm.MASDT[ka][ist][MSDT_FSUTSA]; // expected total in moles
+              if (pa_p->PC <= 2)
+                rIEPS = pa_p->IEPS * XS0; // relative IEPS
+              XSkC = XSk - xjn - xj;      // occupied by the competing species;
+                                          // this sorbate cannot compete to
+         itself! if (XSkC < 0.0) XSkC = 0.0; if (XSkC >= XS0) // Limits XSkC =
+         XS0 - 2.0 * rIEPS; xj0 = XS0 - XSkC; // expected moles of this sorbate
+              if (xj >= xj0)
+                xj = xj0 - rIEPS; // Limits
+              if (xj * 2 <= xj0)
+                ISAT = 0.0; // ideal case
+              else {
+                q1 = xj0 - xj;
+                q2 = rIEPS * XS0;
+                if ((pa_p->PC == 3 && !pm.W1) || pa_p->PC != 3) {
+                  if (q1 > q2)
+                    q2 = q1;
+                } else {
+                  q2 = q1;
+                  if (q2 <= 1e-33)
+                    q2 = 1e-33;
+                }
+                ISAT = log(xj) - log(q2);
+              }
+              pm.lnGam[j] = ISAT;
+              pm.lnSAC[ja][0] = ISAT;
+              break;
+            case SAT_NCOMP: // Non-competitive truncated Langmuir SAT (obsolete)
+              // rIEPS = pa->p.IEPS * 2;
+              xj0 = fabs(pm.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6 *
+                    pm.MASDT[ka][ist][MSDT_FSUTSA]; // in moles
+              if (pa_p->PC <= 2)
+                rIEPS = pa_p->IEPS * xj0; // relative IEPS
+              if (xj >= xj0)
+                xj = xj0 - rIEPS;  // upper limit
+              if (xj * 2.0 <= xj0) // Linear adsorption - to improve !
+                ISAT = 0.0;
+              else {
+                q1 = xj0 - xj; // limits: rIEPS to 0.5*xj0
+                q2 = xj0 * rIEPS;
+                if (pa_p->PC == 3 && pm.W1)
+                  ISAT = log(xj) - log(q1);
+                else {
+                  if (q1 > q2)
+                    ISAT = log(xj) - log(q1);
+                  else
+                    ISAT = log(xj) - log(q2);
+                }
+              }
+              pm.lnGam[j] = ISAT;
+              pm.lnSAC[ja][0] = ISAT;
+              break;
+            case SAT_SOLV: // Neutral surface site (e.g. >O0.5H@ group)
+                           // applies to the whole surface type!
+              XSs = 0.0;   // calc total moles on all sites on surface type
+              for (i = 0; i < MNST; i++)
+                XSs += pm.D[i][ist];
+              XSkC = XSs / XVk / Mm * 1e6 // total non-solvent surf.species
+                     / pm.MASDT[ka][ist][MSDT_FSUTSA] / pm.Aalp[k] /
+                     1.66054; // per nm2
+              XS0 = fabs(pm.MASDJ[ja][PI_DEN]);
+              SATst = pa_p->DNS * 1.66054 * pm.Aalp[k] / XS0;
+              XS0 = XS0 / pm.Aalp[k] / 1.66054;
+              if (pa_p->PC <= 2)
+                rIEPS = pa_p->IEPS * XS0; // relative IEPS
+              if (XSkC < 0.0)
+                XSkC = 0.0;
+              if (XSkC >= XS0) // Limits
+                XSkC = XS0 - 2.0 * rIEPS;
+              q1 = XS0 - XSkC;
+              if ((pa_p->PC == 3 && !pm.W1) || pa_p->PC != 3) {
+                q2 = rIEPS * XS0;
+                if (q1 > q2)
+                  q2 = q1;
+              } else {
+                q2 = q1;
+                if (q2 <= 1e-22)
+                  q2 = 1e-22;
+              }
+              ISAT = log(XS0) - log(q2);
+              pm.lnGam[j] = ISAT + log(SATst);
+              pm.lnSAC[ja][0] = ISAT;
+              pm.lnSAC[ja][1] = log(SATst);
+              break;
+            }
+      */
     }
-
     if (lnGamjo > act.DHBM) { // Workaround DK 07.12.2009
       lnFactor = 0.2;
       lnDiff = act.lnGam[j] - lnGamjo;
@@ -1647,5 +1850,57 @@ long int TActivity::denticity_num_site_types(long int j) {
     //    dent_total += act.XSMD[j][i];
   }
   return dent_types;
+}
+
+// Evaluating q2 difference used in SACT isotherms
+// GamJS - surface density the surface species in 1/nm2 (GamJ)
+// GamC - total site density or total surface density in 1/nm2 (GamC)
+double TActivity::update_q2_gamma(double GamJS, double GamC,
+                                  long int denticity) {
+  double rIEPS, q1, q2;
+  if (act.PC <= 2)
+    rIEPS = act.IEPS * GamC; // relative IEPS
+  if (GamJS < 0.0)
+    GamJS = 0.0;
+  if (GamJS >= GamC) // Limits
+    GamJS = GamC - 2.0 * rIEPS;
+  q1 = GamC - GamJS; // Difference in Langmuir-type SACT
+  if ((act.PC == 3 && !act.W1) || act.PC != 3) {
+    q2 = rIEPS * GamC;
+    if (q1 > q2)
+      q2 = q1;
+  } else {
+    q2 = q1;
+    if (q2 <= act.lowPosNum)
+      q2 = act.lowPosNum;
+  }
+  return q2; // truncated difference of species and total coverage in 1/nm2
+}
+
+// Evaluating q2theta difference used in SACT isotherms of Langmuir type
+// thetaS - coverage fraction by surface species or their sum (competition);
+// thetaC - complete total surface coverage parameter (default 1)
+// denticity - denticity of surface species (binding to one site type, default
+// 1)
+double TActivity::update_q2_theta(double thetaS, double thetaC,
+                                  long int denticity) {
+  double tIEPS, q1t, q2t, delta = (double)denticity;
+  if (act.PC <= 2)
+    tIEPS = act.IEPS * thetaC; // relative IEPS for theta 1e-4 or so
+  if (thetaS < 0.0)
+    thetaS = 0.0;
+  if (thetaS * delta >= thetaC) // Limits
+    thetaS = (thetaC - 2.0 * tIEPS) / delta;
+  q1t = thetaC - thetaS * delta; // Difference in Langmuir-type SACT
+  if ((act.PC == 3 && !act.W1) || act.PC != 3) {
+    q2t = tIEPS * thetaC;
+    if (q1t > q2t)
+      q2t = q1t;
+  } else {
+    q2t = q1t;
+    if (q2t <= act.lowPosNum)
+      q2t = act.lowPosNum;
+  }
+  return q2t; // truncated difference of thetaC and thetaJ
 }
 //--------------------- End of s_activity2.cpp ---------------------------

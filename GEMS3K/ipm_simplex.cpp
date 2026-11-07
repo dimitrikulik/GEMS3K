@@ -688,17 +688,18 @@ void TMultiBase::ScaleSystemToInternal(  double ScFact )
       for( i=0; i<pm.N; i++ )
            pm.BF[k*pm.N+i] *= ScFact;
   }
- if( pm.FIat > 0 /*&& pm.Lads > 0*/ && pm.FIa > 0 )
+  if( pm.FIa > 0 )
   {
-  for( k=0; k<pm.FIa; k++ )
-     for( j=0; j<MNST; j++ ) // SCM Modernization: MNST
+      for( k=0; k<pm.FIa; k++ )
+          for( j=0; j<MNST; j++ ) // SCM Modernization: MNST
           {
               pm.XetaA[k][j] *= ScFact;
               pm.XetaB[k][j] *= ScFact;
+              pm.XetaC[k][j] *= ScFact;
               pm.XetaD[k][j] *= ScFact;
               pm.XFTS[k][j] *= ScFact;
           }
-}
+  }
 
  pm.SizeFactor = ScFact;
 }
@@ -768,12 +769,13 @@ void TMultiBase::RescaleSystemFromInternal(  double ScFact )
            pm.BF[k*pm.N+i] /= ScFact;
   }
 
-  if( pm.FIat > 0 /*&& pm.Lads > 0*/ && pm.FIa > 0 )
+  if( pm.FIa > 0 )
    for( k=0; k<pm.FIa; k++ )
           for( j=0; j<MNST; j++ ) // SCM Modernization: MNST
           {
               pm.XetaA[k][j] /= ScFact;
               pm.XetaB[k][j] /= ScFact;
+              pm.XetaC[k][j] /= ScFact;
               pm.XetaD[k][j] /= ScFact;
               pm.XFTS[k][j]  /= ScFact;
           }
@@ -933,7 +935,7 @@ void TMultiBase::GEM_IPM_Init()
                { // loop on solution phases
                   jb = je;
                   je += pm.L1[kk];
-                  if( pm.PHC[kk] == PH_POLYEL || pm.PHC[kk] == PH_SORPTION )
+                  if( pm.PHC[kk] == PH_POLYEL || pm.PHC[kk] == PH_SORPTION || pm.PHC[kk] == PH_ADSSBEIL )
                   {
                        if( pm.PHC[0] == PH_AQUEL && pm.XF[kk] > pm.DSM
                            && (pm.XFA[0] > pm.ScMinM && pm.XF[0] > pm.XwMinM )) // fixed 30.08.2009 DK

@@ -248,7 +248,7 @@ void TMultiBase::set_def(int) {
   pm.mui = nullptr;
   pm.muk = nullptr;
   pm.muj = nullptr;
-  pm.SATC = nullptr;
+  pm.SATX = nullptr;
   pm.DUL = nullptr;
   pm.DLL = nullptr;
   pm.fDQF = nullptr;
@@ -648,9 +648,8 @@ void TMultiBase::to_file(GemDataStream &ff) {
     ff.writeArray((double *)pm.XetaB, pm.FIa * MNST);
     ff.writeArray((double *)pm.XetaC, pm.FIa * MNST);
     ff.writeArray((double *)pm.XetaD, pm.FIa * MNST);
-    ff.writeArray((double *)pm.XFTS, pm.FIa * MNST);
 
-    ff.writeArray((long int *)pm.SATC, pm.Lads * 4);
+    ff.writeArray((long int *)pm.SATX, pm.Lads * 4);
     ff.writeArray(pm.SATT, pm.Lads);
     ff.writeArray((double *)pm.MASDJ, pm.Lads * DNFCN);
     if (pm.mCDc)
@@ -659,6 +658,7 @@ void TMultiBase::to_file(GemDataStream &ff) {
     ff.writeArray((char *)pm.SM3, MAXDCNAME * pm.Lads);
     ff.writeArray(pm.DCC3, pm.Lads);
     ff.writeArray((double *)pm.D, NSURFSITES * MNST);
+    ff.writeArray((double *)pm.XFTS, NSURFSITES * MNST);
   }
 
   if (pm.PG > 0) {
@@ -919,9 +919,8 @@ void TMultiBase::from_file(GemDataStream &ff) {
     ff.readArray((double *)pm.XetaB, pm.FIa * MNST);
     ff.readArray((double *)pm.XetaC, pm.FIa * MNST);
     ff.readArray((double *)pm.XetaD, pm.FIa * MNST);
-    ff.readArray((double *)pm.XFTS, pm.FIa * MNST);
 
-    ff.readArray((long int *)pm.SATC, pm.Lads * 4);
+    ff.readArray((long int *)pm.SATX, pm.Lads * 4);
     ff.readArray(pm.SATT, pm.Lads);
     ff.readArray((double *)pm.MASDJ, pm.Lads * DNFCN);
     if (pm.mCDc)
@@ -930,6 +929,7 @@ void TMultiBase::from_file(GemDataStream &ff) {
     ff.readArray((char *)pm.SM3, MAXDCNAME * pm.Lads);
     ff.readArray(pm.DCC3, pm.Lads);
     ff.readArray((double *)pm.D, NSURFSITES * MNST);
+    ff.readArray((double *)pm.XFTS, NSURFSITES * MNST);
   }
 
   if (pm.PG > 0) {
@@ -1220,14 +1220,14 @@ void TMultiBase::to_text_file(const std::string &path, bool append) {
     prar.writeArray("XetaB", &pm.XetaB[0][0], pm.FIa * MNST);
     prar.writeArray("XetaC", &pm.XetaC[0][0], pm.FIa * MNST);
     prar.writeArray("XetaD", &pm.XetaD[0][0], pm.FIa * MNST);
-    prar.writeArray("XFTS", &pm.XFTS[0][0], pm.FIa * MNST);
 
-    prar.writeArray("SATC", &pm.SATC[0][0], pm.Lads * 4);
+    prar.writeArray("SATC", &pm.SATX[0][0], pm.Lads * 4);
     prar.writeArray("MASDJ", &pm.MASDJ[0][0], pm.Lads * DNFCN);
     if (pm.mCDc)
       prar.writeArray("mCDc", &pm.mCDc[0][0], pm.Lads * DMCDC);
     prar.writeArray("lnSAC", &pm.lnSAC[0][0], pm.Lads * 4);
     prar.writeArray("D", &pm.D[0][0], NSURFSITES * MNST);
+    prar.writeArray("XFTS", &pm.XFTS[0][0], NSURFSITES * MNST);
   }
 
   if (pm.PG > 0) {

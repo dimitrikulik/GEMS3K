@@ -134,21 +134,22 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
       *XSMD)[NSURFSITES]; ///< SCM Modernization: denticity of surface species
                           ///< per surface site [Lads][NSURFSITES=8]
   long int (
-      *SATC)[MNCAS]; ///< Setup of surface sites and species (will be applied
+      *SATX)[MNCAS]; ///< Setup of surface sites and species (will be applied
                      ///< separately within each sorption phase) [Lads]
-#define xSMd XSMD
-#define SATX SATC
+                     /// link indexes to surface type [XL_ST]; sorbent em
+                     /// [XL_EM]; number of different site types [XL_SI] and
+                     /// index of farthest EIL plane [XL_SP]
+                     // #define xSMd XSMD
+  // #define SATX SATC
   double *Aalp; ///< Full vector of specific surface areas of phases (m2/g)
                 ///< [0:FI-1]
   double (*XfIEC)[MNST]
                  [NCIEC]; ///< SCM Modernization: Fixed permanent charge
                           ///< density in 1/nm2 and eq/kg [FIs][MNST=6][NCIEC=2]
-                          /// link indexes to surface type [XL_ST]; sorbent em
-                          /// [XL_EM]; surf.site [XL-SI] and EDL plane [XL_SP]
   double *EImc,           ///< new: Collected EIL model coefficients k -> +=
                           ///< LsESmo[k][0]*LsESmo[k][1]
       (*mCDc)[DMCDC],     ///< SCM Modernization: Array of charges of surface
-                          ///< species [Lads][DMCDC=4]
+                          ///< species assigned to surfce planes[Lads][DMCDC=4]
       (*MASDT)[MNST][NMSDT], ///< SCM Modernization: Area fraction and patch
                              ///< isotherm parameters [FIs][MNST=6][NMSDT=4]
       (*MASDJ)[DNFCN],       ///< Parameters of surface species in surface
@@ -315,7 +316,11 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
                          ///< [FIs][FIat], tbd
   double (*XFTS)[MNST]; ///< Total number of moles of surface DC at surface type
                         ///< [FIs][FIat]
-  // Old sorption models
+                        // Tier 2: Surface site types [NSURFSITES=8]
+  double (*Nfsp)[NSURFSITES]
+                [NFSIT]; ///< SCM Modernization: Site densities, capacities, and
+                         ///< surfacepatch index [FIa][NSURFSITES=8][NFSIT=4]
+                         // Old sorption models
   double (*D)[MNST];  ///< Reserved; new work array for calc. surface act.coeff.
   double (*lnSAC)[4]; ///< former lnSAT ln surface activity coeff and Coulomb's
                       ///< term  [Lads][4]
@@ -397,16 +402,17 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
 #define EIL_MODEL_RESULT_DEFINED
 // Added for SCM modernization Oct 18 2026  DK ClaySorEl project
 struct EILModelResult {
-  char modelcode; // Model code '4', '3', 'T', 'B', 'C', 'D', 'N'
-  std::string name;
-  double sigma0, sigma1, sigma2, sigmad,
-      sigmanet; // Plane charges (C/m²): '0', '1', '2', 'd', 'net'
-  double psi0, psi1, psi2, psid; // Plane Potentials (V): '0', '1', '2', 'd'
-  double zeta;                   // Electrokinetic Zeta potential (V)
-  double cap_d;                  // Capacitance of diffuse layer (F/m2)?
-  double sld01, sld02, sld0d,
-      dlth; // distances from 0 plane to 1, 2, d, slip plane, and
-            // diffuse layer thickness counted from 0 plane
+  char modelcode{0}; // Model code '4', '3', 'T', 'B', 'C', 'D', 'N'
+  std::string name{};
+  double sigma0{0.0}, sigma1{0.0}, sigma2{0.0}, sigmad{0.0},
+      sigmanet{0.0}; // Plane charges (C/m²): '0', '1', '2', 'd', 'net'
+  double psi0{0.0}, psi1{0.0}, psi2{0.0},
+      psid{0.0}; // Plane Potentials (V): '0', '1', '2', 'd'
+  double zeta{0.0};  // Electrokinetic Zeta potential (V)
+  double cap_d{0.0}; // Capacitance of diffuse layer (F/m2)?
+  double sld01{0.0}, sld02{0.0}, sld0d{0.0},
+      dlth{0.0}; // distances from 0 plane to 1, 2, d, slip plane, and
+                 // diffuse layer thickness counted from 0 plane
 };
 #endif
 
@@ -542,6 +548,9 @@ public:
                                 long int jdb, long int k);
   long int denticity_total(long int j);
   long int denticity_num_site_types(long int j);
+  double update_q2_gamma(double GamJS, double GamC, long int denticity = 1);
+  double update_q2_theta(double thetaS, double thetaC = 1.0,
+                         long int denticity = 1);
   //        void pm_GC_ods_link( long int k, long int jb, long int jpb, long int
   //        jdb, long int ipb ); double SmoothingFactor( ); void
   //        SetSmoothingFactor( long int mode ); // new smoothing function (3

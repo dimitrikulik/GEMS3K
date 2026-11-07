@@ -151,14 +151,13 @@ std::vector<io_formats::outField> MULTI_dynamic_fields = { // 83 (SCM
     {"CD", 0, 0, 0,
      "\n# CD: Effective capacitance density of diffuse layer, F/m2 [nPS*6]"},
     {"XfIEC", 0, 0, 0,
-     "\n# XfIEC: Density of permanent surface type charge (mkeq/m2) and IEC "
-     "(meq/g) for each "
-     "surface type on sorption phases [nPS*6*2]"},
+     "\n# XfIEC: Density of permanent surface type charge (1/nm2) and IEC "
+     "(eq/kg) for each surface type on sorption phases [nPS*6*2]"},
     {"SATC", 0, 0, 0,
      "\n# SATC: Setup of surface sites and species (will be applied separately "
      "within each sorption phase) [Lads*4]"
      "\n# [0] surface type; [1] sorbent end member; [2] surface site in surf. "
-     "type; [3] surface EDL plane"},
+     "type; [3] farthest surface EDL plane"},
     {"MASDJ", 0, 0, 0,
      "\n# MASDJ: Parameters of surface species in surface complexation models "
      "[Lads*6]"
@@ -787,7 +786,7 @@ void TMultiBase::to_text_file_gemipm(TIO &out_format, bool addMui,
                     _comment, brief_mode);
     prar.writeArray(f_XfIEC, &pm.XfIEC[0][0][0], pm.FIa * MNST * NCIEC,
                     (long int)(MNST * NCIEC), _comment, brief_mode);
-    prar.writeArray(f_SATC, &pm.SATC[0][0], pm.Lads * 4, 4L, _comment,
+    prar.writeArray(f_SATC, &pm.SATX[0][0], pm.Lads * 4, 4L, _comment,
                     brief_mode);
     prar.writeArray(f_MASDJ, &pm.MASDJ[0][0], pm.Lads * DNFCN, (long int)DNFCN,
                     _comment, brief_mode);
@@ -1299,10 +1298,10 @@ void TMultiBase::from_text_file_gemipm(TIO &in_format, DATACH *dCH) {
                       &pm.XfIEC[0][0][0], pm.FIa * MNST * NCIEC);
       break;
     case f_SATC:
-      if (!pm.SATC)
+      if (!pm.SATX)
         Error("Error", "Array SATC not used in this problem");
       rddar.readArray(rddar.getLastKey().empty() ? "SATC" : rddar.getLastKey(),
-                      &pm.SATC[0][0], pm.Lads * 4);
+                      &pm.SATX[0][0], pm.Lads * 4);
       break;
     case f_MASDJ:
       if (!pm.MASDJ)

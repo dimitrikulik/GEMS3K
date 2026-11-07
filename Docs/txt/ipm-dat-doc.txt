@@ -233,8 +233,8 @@ Description of the IPM_DAT file format and example of the input IPM_DAT file
 ## Controls for surface complexation models
 # Standard surface density (nm-2) for calculating activity of surface species (do not change 
 # unless a different standard value is used in the supplied thermodynamic database). 
-# Default is 12.05 nm-2. 
-<pa_DNS>       12.05
+# Default is 12.044 nm-2 (corresponds to 20.0 mkmol/m^2) 
+<pa_DNS>       12.044
 
 # Convergence parameter of SACT calculation in sorption/surface complexation models (can be 
 set between 0.01 and 0.000001). Default value is 0.001. 

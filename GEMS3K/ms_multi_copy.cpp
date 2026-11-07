@@ -188,9 +188,9 @@ void TMultiBase::copyMULTI(const TMultiBase &otherMulti) {
     copyValues((double *)pm.XetaB, (double *)otherPM->XetaB, pm.FIa * MNST);
     copyValues((double *)pm.XetaC, (double *)otherPM->XetaC, pm.FIa * MNST);
     copyValues((double *)pm.XetaD, (double *)otherPM->XetaD, pm.FIa * MNST);
-    copyValues((double *)pm.XFTS, (double *)otherPM->XFTS, pm.FIa * MNST);
+    // copyValues((double *)pm.XFTS, (double *)otherPM->XFTS, pm.FIa * MNST);
 
-    copyValues((long int *)pm.SATC, (long int *)otherPM->SATC, pm.Lads * 4);
+    copyValues((long int *)pm.SATX, (long int *)otherPM->SATX, pm.Lads * 4);
     copyValues(pm.SATT, otherPM->SATT, pm.Lads);
     copyValues((double *)pm.MASDJ, (double *)otherPM->MASDJ, pm.Lads * DNFCN);
     if (pm.mCDc && otherPM->mCDc)
@@ -608,12 +608,12 @@ void TMultiBase::multi_realloc(char PAalp, char PSigm) {
       pm.FIa > 0) { // ADSORBTION AND ION IXCHANDG
     // SCM Modernization: Allocation and initialization of unified sorption
     // arrays
-    pm.SATC = new long int[pm.Lads][4];
+    pm.SATX = new long int[pm.Lads][4];
     pm.MASDJ = new double[pm.Lads][DNFCN];
     pm.mCDc = new double[pm.Lads][DMCDC];
     pm.lnSAC = new double[pm.Lads][4];
     for (ii = 0; ii < pm.Lads; ii++) {
-      pm.SATC[ii][0] = pm.SATC[ii][1] = pm.SATC[ii][2] = pm.SATC[ii][3] = 0;
+      pm.SATX[ii][0] = pm.SATX[ii][1] = pm.SATX[ii][2] = pm.SATX[ii][3] = 0;
       pm.lnSAC[ii][0] = pm.lnSAC[ii][1] = pm.lnSAC[ii][2] = pm.lnSAC[ii][3] =
           0.0;
       for (jj = 0; jj < DNFCN; jj++)
@@ -645,7 +645,6 @@ void TMultiBase::multi_realloc(char PAalp, char PSigm) {
     pm.XetaB = new double[pm.FIa][MNST];
     pm.XetaC = new double[pm.FIa][MNST];
     pm.XetaD = new double[pm.FIa][MNST];
-    pm.XFTS = new double[pm.FIa][MNST];
     for (ii = 0; ii < pm.FIa; ii++) {
       for (jj = 0; jj < MNST; jj++) {
         for (int kk = 0; kk < NSCMC; kk++)
@@ -688,12 +687,13 @@ void TMultiBase::multi_realloc(char PAalp, char PSigm) {
       pm.SATT[ii] = 0;
       pm.DCC3[ii] = 0;
     }
-
+    pm.XFTS = new double[NSURFSITES][MNST];
     pm.D = new double[NSURFSITES][MNST];
     for (ii = 0; ii < NSURFSITES; ii++)
-      for (jj = 0; jj < MNST; jj++)
+      for (jj = 0; jj < MNST; jj++) {
         pm.D[ii][jj] = 0.0;
-
+        pm.XFTS[ii][jj] = 0.0;
+      }
   } else { // ADSORPTION AND ION EXCHANGE
     pm.SCMC = 0;
     pm.Nfsp = 0;
@@ -1146,8 +1146,8 @@ void TMultiBase::multi_kill() {
     delete[] pm.Xeps;
 
   // SCM Modernization: Cleanup of unified sorption arrays
-  if (pm.SATC)
-    delete[] pm.SATC;
+  if (pm.SATX)
+    delete[] pm.SATX;
   if (pm.SCMC)
     delete[] pm.SCMC;
   if (pm.Nfsp)

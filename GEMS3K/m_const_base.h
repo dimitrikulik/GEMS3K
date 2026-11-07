@@ -246,30 +246,17 @@ typedef enum { // Classifications of DC
   DC_SUR_CARRIER = 'Q', // Principal end-member of solid carrier
   DC_SUR_MINAL = 'P',   // Minor end-member of solid carrier
   DC_PEL_CARRIER = 'R', // Carrier of poly(oligo)electrolyte
-  //  DC_SSC_A0 = '0',      // Strong surface complex on site type 0 (A plane)
-  //  DC_SSC_A1 = '2',      // Strong surface complex on site type 2 (A plane)
-  //  DC_SSC_A2 = '4',      // Strong surface complex on site type 4 (A plane)
-  //  DC_SSC_A3 = '6',      // Strong surface complex on site type 6 (A plane)
-  //  DC_SSC_A4 = '8',      // Strong surface complex on site type 8 (A plane)
-  //  DC_WSC_A0 = '1',      // Weak surface complex on site type 1 (B plane)
-  //  DC_WSC_A1 = '3',      // Weak surface complex on site type 3 (B plane)
-  //  DC_WSC_A2 = '5',      // Weak surface complex on site type 5 (B plane)
-  //  DC_WSC_A3 = '7',      // Weak surface complex on site type 7 (B plane)
-  //  DC_WSC_A4 = '9',      // Weak surface complex on site type 9 (B plane)
-  DC_IESC_A = 'A', // Strong exchange ion const-charge A plane
-  DC_IEWC_B = 'B', // Weak exchange ion const-charge B or C plane
-  // Aliases for multi-site model   Revision 17.10.2026  DK
+  DC_IESC_A = 'A',      // Strong exchange ion const-charge A plane
+  DC_IEWC_B = 'B',      // Weak exchange ion const-charge B or C plane
+  // Aliases for multi-site EIL models  Rev 17.10.2026  DK also ClaySorEl
   DC_SUR_GROUP = '@',   // Surface amphoteric group on A plane -> '0'  was 'X'
   DC_SUR_COMPLEX = 'X', // Strong surface complex on only A plane -> '0' was 'Y'
   DC_SUR_IPAIR = 'Y',   // Weak sur complex on A, B or C plane -> '1' was 'Z'
   DC_SUR_SPECIES = 'Z', // Generic CD-MUSIC surface species (surf.complex)
-
+  // New SCMs with site mole balances (16.11.2017 by DK) old legacy ClaySor
+  DC_SCM_SPECIES = 'U',
   // Single-component phases
-  DC_SCP_CONDEN = 'O', // DC forming a single-component phase
-
-  // New SCMs with site mole balances (added 16.11.2017 by DK)
-  DC_SCM_SPECIES = 'U'
-
+  DC_SCP_CONDEN = 'O' // DC forming a single-component phase
 } DC_CLASSES;
 
 #define SORPTION_DC "0246813579ABXYZPQ"
@@ -313,11 +300,11 @@ enum sorption_control {
   SC_CCM = 'C', // Constant-capacitance model
   SC_TCE = 'E', // Tournassat EIL for clay edge zero plane potential
   // Auxiliary models (experimental), now disabled since 18.10.2026
-  SC_MTL = 'M',
-  SC_MXC = 'E',
-  SC_NNE = 'X',
-  SC_IEV = 'I',
-  SC_ISCCM = 'P',
+  // SC_MTL = 'M',
+  // SC_MXC = 'E',
+  // SC_NNE = 'X',
+  // SC_IEV = 'I',
+  // SC_ISCCM = 'P',
   SC_UNUSED = 'U',   // same as NEM but if set on all surface types, the EIL
                      // structures are not used at all
   SC_NOT_USED = 'N', // Compatibility alias for SC_NEM
@@ -341,6 +328,7 @@ enum sorption_control {
   SACT_INDEF = 'I',
   SACT_LAN_NCOMP = 'L',
   SACT_LAN_COMP = 'C',
+  SACT_LMDX_COMP = 'M', // new
   SACT_QCA_NCOMP = 'Q',
   SACT_QCA1_NCOMP = '1',
   SACT_QCA2_NCOMP = '2',
@@ -363,10 +351,6 @@ enum sorption_control {
   CCA_3,
   CCA_4,
   CCA_5,
-  CCA_6,
-  CCA_7,
-  CCA_8,
-  CCA_9,
   SPL_0 = '0',
   SPL_1,
   SPL_2,
@@ -381,15 +365,15 @@ enum sorption_control {
   CST_0 = '0',
   CST_1,
   CST_2,
-  CST_3,
-  CST_4,
-  CST_5, // surface type index
+  CST_3, // surface type index
   CSI_0 = '0',
   CSI_1,
   CSI_2,
   CSI_3,
   CSI_4,
-  CSI_5, // surface site index
+  CSI_5,
+  CSI_6,
+  CSI_7, // surface site index
 
   // New: Column index in SCMC array (rows for surface types/patches)
   SCMC_EILM_CODE = 0,
@@ -404,17 +388,19 @@ enum sorption_control {
   CAPT_B_CAPD = 1, // Capacitance density of B layer (1-2 or 1-d plane)
   CAPT_C_CAPD = 2, // Capacitance density of C layer (2-d plane, 4LM only)
   CAPT_F_ZETA = 3, // fraction of Debye length locating slip plane for zeta
-  // New: column index in FsiT array (rows for site types)
+  // New: column index in FsiT | Nfsp array (rows for site types)
   FSIT_S_DENSITY = 0,  // Density of sites of this type (1/nm2)
   FSIT_S_CAPACITY = 1, // Site capacity in mol/(kg sorbent) e.g. in ClaySor
+  FSIT_S_SURTYPE = 2,  // Surface type index
+  FSIT_S_RESERVE = 3,  // Reserved input property
 
   // Number of parameters per surface species in the MaSdj array
   // MCAS = 4 = DNFCN ; position index    added by KD 25.10.2004,
   // mod. 11.10.2026
-  COV_DENS = 0, // Max. full-site-coverage density of species 1/nm2
-  ISOTH_PAR_1,  // SACT isotherm parameter 1 (FFG, BET)
-  ISOTH_PAR_2,  // SACT isotherm parameter 2 (BET, Pivovarov)
-  ISOTH_PAR_3,  // SACT isotherm parameter 3 (BET etc.)
+  COV_DENS = 0,    // Max. full-site-coverage density of species 1/nm2
+  ISOTH_PAR_1 = 1, // SACT isotherm parameter 1 (FFG, BET)
+  ISOTH_PAR_2 = 2, // SACT isotherm parameter 2 (BET, Pivovarov)
+  ISOTH_PAR_3 = 3, // SACT isotherm parameter 3 (BET etc.)
 
   // Column indices of surface species allocation table SATC [MCAS]
   SURSP_ALLOC_SURFTYPE = 0,
@@ -430,7 +416,7 @@ enum sorption_control {
 
   // SCM Modernization: Column indices of MaSdj table of adsorption parameters
   // [DNFCN=4]
-  PI_DEN = 0, // Complete coverage density (1/nm2)
+  PI_DEN = 0, // Complete individual coverage density (1/nm2)
   PI_P1 = 1,  // SACT isotherm parameter 1 (Frumkin interaction alpha)
   PI_P2 = 2,  // SACT isotherm parameter 2 (q in QCA/BET/Pivovarov)
   PI_P3 = 3   // SACT isotherm parameter 3 (b in BET or S in Pivovarov)
