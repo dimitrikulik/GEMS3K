@@ -176,8 +176,24 @@ void TMultiBase::CalculateConcentrationsInPhase(double X[], double XF[],
       continue;
     }
     // calculation of the mole fraction
-    pm.Wx[j] = X[j] / XF[k];
-    if (X[j] > std::min(pm.lowPosNum, pm.DcMinM))
+    if (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL) {
+      if (pm.DCC[j] == DC_SUR_CARRIER || pm.DCC[j] == DC_PEL_CARRIER ||
+          pm.DCC[j] == DC_SUR_MINAL) {
+        if (XFA[k] > pm.ScMinM)
+          pm.Wx[j] = X[j] / XFA[k];
+        else
+          pm.Wx[j] = 0.0;
+      } else {
+        double X_surf = XF[k] - XFA[k];
+        if (X_surf > pm.ScMinM)
+          pm.Wx[j] = X[j] / X_surf;
+        else
+          pm.Wx[j] = 0.0;
+      }
+    } else {
+      pm.Wx[j] = X[j] / XF[k];
+    }
+    if (pm.Wx[j] > std::min(pm.lowPosNum, pm.DcMinM))
       pm.VL[j] =
           log(pm.Wx[j]); // this is used nowhere except in some scripts. Remove?
     else
@@ -451,7 +467,7 @@ void TMultiBase::CalculateConcentrations(double X[], double XF[],
         jja = jj - (pm.Ls - pm.Lads);
         if (pm.DCC[jj] == DC_SUR_CARRIER || pm.DCC[jj] == DC_SUR_MINAL ||
             pm.DCC[jj] == DC_PEL_CARRIER) {
-          MMC += pm.MM[jj] * X[jj] / XFA[k];
+          MMC += pm.MM[jj] * X[jj] / pm.YFk;
           // Only sorbent mass
           pm.FWGT[k] += X[jj] * pm.MM[jj];
         } /*else { // Doubtful, do we really need it? Total amount of species on
@@ -477,7 +493,7 @@ void TMultiBase::CalculateConcentrations(double X[], double XF[],
         // we get the virtual sorbent mass from site IC amounts
         pm.FWGTS[k] = virtualSorbentMass(j, i, pm.N);
       }
-      pm.FWGT[k] = pm.FWGTS[k];
+      // pm.FWGT[k] = pm.FWGTS[k];
       pm.logYFk = log(pm.YFk);
       break;
     default:
@@ -659,7 +675,7 @@ void TMultiBase::IS_EtaCalc() {
     } // j
     // Charge balance for d-plane on all surface types
     if (pm.FIa > 0 && (pm.PHC[k] == PH_POLYEL || pm.PHC[k] == PH_SORPTION ||
-                        pm.PHC[k] == PH_ADSSBEIL)) {
+                       pm.PHC[k] == PH_ADSSBEIL)) {
       for (ist = 0; ist < MNST; ist++) {
         pm.XetaD[ka][ist] =
             0.0 - pm.XetaA[ka][ist] - pm.XetaB[ka][ist] - pm.XetaC[ka][ist];
@@ -824,8 +840,11 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
     pm.XdlC[ka][ist] =
         emr.sld0d; // Eff. thickness of Stern layer (0 to 3-plane or d-plane)
     pm.XdlD[ka][ist] =
-        (emr.dlth > 0.0) ? emr.dlth : (debye_m * 1e9); // Eff. thickness of diffuse layer (nm)
-    pm.XdlZ[ka][ist] = x_slip * 1e9; // Effective thickness of 0-slipplane layer, nm
+        (emr.dlth > 0.0)
+            ? emr.dlth
+            : (debye_m * 1e9); // Eff. thickness of diffuse layer (nm)
+    pm.XdlZ[ka][ist] =
+        x_slip * 1e9; // Effective thickness of 0-slipplane layer, nm
   } // ist   end of loop over surface types
   return status;
 }
@@ -1594,7 +1613,7 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
     for (iss = 0; iss < NSURFSITES; iss++) {
       if ((long)pm.Nfsp[ka][iss][FSIT_S_SURTYPE] != ist)
         continue;
-      else {
+      if (pm.XSMD[ja][iss] > 0.0 && pm.Nfsp[ka][iss][FSIT_S_DENSITY] > 0.0) {
         // SCM Modernization: D[NSURFSITES][MNST]   XFTS[NSURFSITES][MNST]
         pm.D[iss][ist] += pm.X[j] * pm.XSMD[ja][iss]; // adding to site totals
         pm.XFTS[iss][ist] += pm.X[j]; // adding to species moles totals
@@ -2054,107 +2073,6 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
       default: // pm.lnGam[j] = 0.0;
         break;
       }
-      // Make optional ....
-      /*
-      switch (pm.SATT[ja]) // selection of the old SAT model
-      {
-      //  Obsolete old SAT calculations (retained from previous versions)
-      case SAT_COMP: // Competitive SAT (obsolete) on a surface type
-        if (iSite[ist] < 0)
-          xjn = 0.0;
-        else
-          xjn = pm.X[iSite[ist]]; // neutral site does not compete!
-        // SCM Modernization: MASDT patch fraction and density
-        XS0 = fabs(pm.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6 *
-              pm.MASDT[ka][ist][MSDT_FSUTSA]; // expected total in moles
-        if (pa_p->PC <= 2)
-          rIEPS = pa_p->IEPS * XS0; // relative IEPS
-        XSkC = XSk - xjn - xj;      // occupied by the competing species;
-                                    // this sorbate cannot compete to itself!
-        if (XSkC < 0.0)
-          XSkC = 0.0;
-        if (XSkC >= XS0) // Limits
-          XSkC = XS0 - 2.0 * rIEPS;
-        xj0 = XS0 - XSkC; // expected moles of this sorbate
-        if (xj >= xj0)
-          xj = xj0 - rIEPS; // Limits
-        if (xj * 2 <= xj0)
-          ISAT = 0.0; // ideal case
-        else {
-          q1 = xj0 - xj;
-          q2 = rIEPS * XS0;
-          if ((pa_p->PC == 3 && !pm.W1) || pa_p->PC != 3) {
-            if (q1 > q2)
-              q2 = q1;
-          } else {
-            q2 = q1;
-            if (q2 <= 1e-33)
-              q2 = 1e-33;
-          }
-          ISAT = log(xj) - log(q2);
-        }
-        pm.lnGam[j] = ISAT;
-        pm.lnSAC[ja][0] = ISAT;
-        break;
-      case SAT_NCOMP: // Non-competitive truncated Langmuir SAT (obsolete)
-        // rIEPS = pa->p.IEPS * 2;
-        xj0 = fabs(pm.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6 *
-              pm.MASDT[ka][ist][MSDT_FSUTSA]; // in moles
-        if (pa_p->PC <= 2)
-          rIEPS = pa_p->IEPS * xj0; // relative IEPS
-        if (xj >= xj0)
-          xj = xj0 - rIEPS;  // upper limit
-        if (xj * 2.0 <= xj0) // Linear adsorption - to improve !
-          ISAT = 0.0;
-        else {
-          q1 = xj0 - xj; // limits: rIEPS to 0.5*xj0
-          q2 = xj0 * rIEPS;
-          if (pa_p->PC == 3 && pm.W1)
-            ISAT = log(xj) - log(q1);
-          else {
-            if (q1 > q2)
-              ISAT = log(xj) - log(q1);
-            else
-              ISAT = log(xj) - log(q2);
-          }
-        }
-        pm.lnGam[j] = ISAT;
-        pm.lnSAC[ja][0] = ISAT;
-        break;
-      case SAT_SOLV: // Neutral surface site (e.g. >O0.5H@ group)
-                     // applies to the whole surface type!
-        XSs = 0.0;   // calc total moles on all sites on surface type
-        for (i = 0; i < MNST; i++)
-          XSs += pm.D[i][ist];
-        XSkC = XSs / XVk / Mm * 1e6 // total non-solvent surf.species
-               / pm.MASDT[ka][ist][MSDT_FSUTSA] / pm.Aalp[k] /
-               1.66054; // per nm2
-        XS0 = fabs(pm.MASDJ[ja][PI_DEN]);
-        SATst = pa_p->DNS * 1.66054 * pm.Aalp[k] / XS0;
-        XS0 = XS0 / pm.Aalp[k] / 1.66054;
-        if (pa_p->PC <= 2)
-          rIEPS = pa_p->IEPS * XS0; // relative IEPS
-        if (XSkC < 0.0)
-          XSkC = 0.0;
-        if (XSkC >= XS0) // Limits
-          XSkC = XS0 - 2.0 * rIEPS;
-        q1 = XS0 - XSkC;
-        if ((pa_p->PC == 3 && !pm.W1) || pa_p->PC != 3) {
-          q2 = rIEPS * XS0;
-          if (q1 > q2)
-            q2 = q1;
-        } else {
-          q2 = q1;
-          if (q2 <= 1e-22)
-            q2 = 1e-22;
-        }
-        ISAT = log(XS0) - log(q2);
-        pm.lnGam[j] = ISAT + log(SATst);
-        pm.lnSAC[ja][0] = ISAT;
-        pm.lnSAC[ja][1] = log(SATst);
-        break;
-      }
-      */
     }
 
     if (lnGamjo > pm.DHBM) { // Workaround DK 07.12.2009
@@ -2201,23 +2119,26 @@ long int TMultiBase::denticity_num_site_types(long int j) {
 // GamC - total site density or total surface density in 1/nm2 (GamC)
 double TMultiBase::update_q2_gamma(double GamJS, double GamC,
                                    long int denticity) {
-  double rIEPS, q1, q2;
+  double delta = (denticity > 0) ? (double)denticity : 1.0;
   const BASE_PARAM *pa_p = base_param();
-  if (pa_p->PC <= 2)
-    rIEPS = pa_p->IEPS * GamC; // relative IEPS
+  double rIEPS = pa_p->IEPS * GamC; // relative IEPS
+  if (rIEPS <= 0.0 || rIEPS > 0.002 * GamC)
+    rIEPS = 1e-3 * GamC;
   if (GamJS < 0.0)
     GamJS = 0.0;
-  if (GamJS >= GamC) // Limits
-    GamJS = GamC - 2.0 * rIEPS;
-  q1 = GamC - GamJS; // Difference in Langmuir-type SACT
-  if ((pa_p->PC == 3 && !pm.W1) || pa_p->PC != 3) {
-    q2 = rIEPS * GamC;
-    if (q1 > q2)
-      q2 = q1;
+  double u = GamJS * delta;
+  double Gam_lim = GamC - rIEPS;
+  double q2;
+  if (u > Gam_lim) {
+    // SACT barrier regularization to enforce physical site capacity in IPM
+    double excess = u - Gam_lim;
+    double eps = rIEPS;
+    double ratio = excess / eps;
+    q2 = eps / (1.0 + ratio + 0.5 * ratio * ratio);
+    if (q2 < 1e-12)
+      q2 = 1e-12;
   } else {
-    q2 = q1;
-    if (q2 <= pm.lowPosNum)
-      q2 = pm.lowPosNum;
+    q2 = GamC - u;
   }
   return q2; // truncated difference of species and total coverage in 1/nm2
 }
@@ -2229,23 +2150,26 @@ double TMultiBase::update_q2_gamma(double GamJS, double GamC,
 // 1)
 double TMultiBase::update_q2_theta(double thetaS, double thetaC,
                                    long int denticity) {
-  double tIEPS, q1t, q2t, delta = (double)denticity;
+  double delta = (denticity > 0) ? (double)denticity : 1.0;
   const BASE_PARAM *pa_p = base_param();
-  if (pa_p->PC <= 2)
-    tIEPS = pa_p->IEPS * thetaC; // relative IEPS for theta 1e-4 or so
+  double tIEPS = pa_p->IEPS * thetaC; // relative IEPS for theta
+  if (tIEPS <= 0.0 || tIEPS > 0.002 * thetaC)
+    tIEPS = 1e-3 * thetaC;
   if (thetaS < 0.0)
     thetaS = 0.0;
-  if (thetaS * delta >= thetaC) // Limits
-    thetaS = (thetaC - 2.0 * tIEPS) / delta;
-  q1t = thetaC - thetaS * delta; // Difference in Langmuir-type SACT
-  if ((pa_p->PC == 3 && !pm.W1) || pa_p->PC != 3) {
-    q2t = tIEPS * thetaC;
-    if (q1t > q2t)
-      q2t = q1t;
+  double u = thetaS * delta;
+  double theta_lim = thetaC - tIEPS;
+  double q2t;
+  if (u > theta_lim) {
+    // SACT 'C' barrier regularization to enforce physical site capacity in IPM
+    double excess = u - theta_lim;
+    double eps = tIEPS;
+    double ratio = excess / eps;
+    q2t = eps / (1.0 + ratio + 0.5 * ratio * ratio);
+    if (q2t < 1e-12)
+      q2t = 1e-12;
   } else {
-    q2t = q1t;
-    if (q2t <= pm.lowPosNum)
-      q2t = pm.lowPosNum;
+    q2t = thetaC - u;
   }
   return q2t; // truncated difference of thetaC and thetaJ
 }

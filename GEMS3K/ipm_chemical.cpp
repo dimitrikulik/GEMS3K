@@ -461,10 +461,10 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   }
   if (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL) {
     if (k < pm.FIs && pm.XFA[k] > 1e-12) {
-      if (jc < 0) // whole phase (carrier) molar mass g/mkmol  --- do g/mol?
+      if (jc < 0) // whole phase (carrier) molar mass, g/mkmol
         Mk = pm.FWGTS[k] / pm.XFA[k] * 1e-6; // was pm.FWGT[k]
       else
-        Mk = pm.MM[jc] * (pm.X[jc] / pm.XFA[k]) * 1e-6;
+        Mk = pm.MM[jc] * pm.X[jc] / pm.XFA[k] * 1e-6;
       // DC carrier molar mass g/mkmol
     }
   }
@@ -532,8 +532,8 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
       if (/*Mk > 1e-9 &&*/ jc < 0) // Mk is carrier molar mass in g/mkmol
       { // Correction for standard density, surface area and surface type
         // fraction  - so far whole sorbent only (jc == -1)
-        FactSur = pm.FWGTS[k] / pm.XFA[k] * pm.Aalp[k] * pa_p->DNS * 1.66054 /
-                  1e6; //  moles/moles
+        FactSur = pm.FWGTS[k] / pm.XFA[k] * pm.Aalp[k] * pa_p->DNS * 1.66054 *
+                  1e-6; //  moles/moles
         // FactSur = Mk * (pm.Aalp[k]) * pa_p->DNS * 1.66054;
         // FactSur is adsorbed amount at st. surf. density per mole of sorbent
         // SCM Modernization: MASDT[k][ist][MSDT_FSUTSA] is reactive area
@@ -557,7 +557,7 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
         pm.PHC[k] == PH_POLYEL) { // only sorption phases w/o site balances
       // FactSur = Mk * (pm.Aalp[k]) * pa_p->DNS * 1.66054;
       FactSur =
-          pm.FWGTS[k] / pm.XFA[k] * pm.Aalp[k] * pa_p->DNS * 1.66054 / 1e6;
+          pm.FWGTS[k] / pm.XFA[k] * pm.Aalp[k] * pa_p->DNS * 1.66054 * 1e-6;
       F0 -= FactSur / (1. + FactSur);
       F0 += FactSur; // Eq (5.9)
     }

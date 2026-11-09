@@ -91,7 +91,7 @@ double TActivity::bfc_mass(void) {
 // Input arrays X, XF, XFA,  input factors: Factor, MMC
 //
 void TActivity::CalculateConcentrationsInPhase(double X[], double XF[],
-                                               double /*XFA*/[], double Factor,
+                                               double XFA[], double Factor,
                                                double MMC, double /*Dsur*/,
                                                long int jb, long int je,
                                                long int k) {
@@ -173,7 +173,23 @@ void TActivity::CalculateConcentrationsInPhase(double X[], double XF[],
       continue;
     }
     // calculation of the mole fraction
-    act.Wx[j] = X[j] / XF[k];
+    if (act.PHC[k] == PH_SORPTION || act.PHC[k] == PH_POLYEL) {
+      if (act.DCC[j] == DC_SUR_CARRIER || act.DCC[j] == DC_PEL_CARRIER ||
+          act.DCC[j] == DC_SUR_MINAL) {
+        if (XFA[k] > act.ScMinM)
+          act.Wx[j] = X[j] / XFA[k];
+        else
+          act.Wx[j] = 0.0;
+      } else {
+        double X_surf = XF[k] - XFA[k];
+        if (X_surf > act.ScMinM)
+          act.Wx[j] = X[j] / X_surf;
+        else
+          act.Wx[j] = 0.0;
+      }
+    } else {
+      act.Wx[j] = X[j] / XF[k];
+    }
     //        if( X[j] > DcMinM )
     //            act.VL[j] = log( act.Wx[j] );     // this is used nowhere
     //            except in some scripts. Remove?
@@ -1255,7 +1271,7 @@ long int TActivity::SurfaceActivityCoeff(long int jb, long int je, long int,
     for (iss = 0; iss < NSURFSITES; iss++) {
       if ((long)act.Nfsp[ka][iss][FSIT_S_SURTYPE] != ist)
         continue;
-      else {
+      if (act.XSMD[ja][iss] > 0.0 && act.Nfsp[ka][iss][FSIT_S_DENSITY] > 0.0) {
         // SCM Modernization: D[NSURFSITES][MNST]   XFTS[NSURFSITES][MNST]
         act.D[iss][ist] +=
             act.X[j] * act.XSMD[ja][iss]; // adding to site totals
@@ -1857,22 +1873,25 @@ long int TActivity::denticity_num_site_types(long int j) {
 // GamC - total site density or total surface density in 1/nm2 (GamC)
 double TActivity::update_q2_gamma(double GamJS, double GamC,
                                   long int denticity) {
-  double rIEPS, q1, q2;
-  if (act.PC <= 2)
-    rIEPS = act.IEPS * GamC; // relative IEPS
+  double delta = (denticity > 0) ? (double)denticity : 1.0;
+  double rIEPS = act.IEPS * GamC; // relative IEPS
+  if (rIEPS <= 0.0 || rIEPS > 0.002 * GamC)
+    rIEPS = 1e-3 * GamC;
   if (GamJS < 0.0)
     GamJS = 0.0;
-  if (GamJS >= GamC) // Limits
-    GamJS = GamC - 2.0 * rIEPS;
-  q1 = GamC - GamJS; // Difference in Langmuir-type SACT
-  if ((act.PC == 3 && !act.W1) || act.PC != 3) {
-    q2 = rIEPS * GamC;
-    if (q1 > q2)
-      q2 = q1;
+  double u = GamJS * delta;
+  double Gam_lim = GamC - rIEPS;
+  double q2;
+  if (u > Gam_lim) {
+    // SACT barrier regularization to enforce physical site capacity in IPM
+    double excess = u - Gam_lim;
+    double eps = rIEPS;
+    double ratio = excess / eps;
+    q2 = eps / (1.0 + ratio + 0.5 * ratio * ratio);
+    if (q2 < 1e-12)
+      q2 = 1e-12;
   } else {
-    q2 = q1;
-    if (q2 <= act.lowPosNum)
-      q2 = act.lowPosNum;
+    q2 = GamC - u;
   }
   return q2; // truncated difference of species and total coverage in 1/nm2
 }
@@ -1884,22 +1903,25 @@ double TActivity::update_q2_gamma(double GamJS, double GamC,
 // 1)
 double TActivity::update_q2_theta(double thetaS, double thetaC,
                                   long int denticity) {
-  double tIEPS, q1t, q2t, delta = (double)denticity;
-  if (act.PC <= 2)
-    tIEPS = act.IEPS * thetaC; // relative IEPS for theta 1e-4 or so
+  double delta = (denticity > 0) ? (double)denticity : 1.0;
+  double tIEPS = act.IEPS * thetaC; // relative IEPS for theta
+  if (tIEPS <= 0.0 || tIEPS > 0.002 * thetaC)
+    tIEPS = 1e-3 * thetaC;
   if (thetaS < 0.0)
     thetaS = 0.0;
-  if (thetaS * delta >= thetaC) // Limits
-    thetaS = (thetaC - 2.0 * tIEPS) / delta;
-  q1t = thetaC - thetaS * delta; // Difference in Langmuir-type SACT
-  if ((act.PC == 3 && !act.W1) || act.PC != 3) {
-    q2t = tIEPS * thetaC;
-    if (q1t > q2t)
-      q2t = q1t;
+  double u = thetaS * delta;
+  double theta_lim = thetaC - tIEPS;
+  double q2t;
+  if (u > theta_lim) {
+    // SACT 'C' barrier regularization to enforce physical site capacity in IPM
+    double excess = u - theta_lim;
+    double eps = tIEPS;
+    double ratio = excess / eps;
+    q2t = eps / (1.0 + ratio + 0.5 * ratio * ratio);
+    if (q2t < 1e-12)
+      q2t = 1e-12;
   } else {
-    q2t = q1t;
-    if (q2t <= act.lowPosNum)
-      q2t = act.lowPosNum;
+    q2t = thetaC - u;
   }
   return q2t; // truncated difference of thetaC and thetaJ
 }

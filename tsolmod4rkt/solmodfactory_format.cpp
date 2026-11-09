@@ -1122,7 +1122,23 @@ void SolModFactory::CalculateConcentrations() {
         continue;
       }
       // calculation of the mole fraction
-      pm.Wx[j] = pm.X[j] / pm.XF[k];
+      if (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL) {
+        if (pm.DCC[j] == DC_SUR_CARRIER || pm.DCC[j] == DC_PEL_CARRIER ||
+            pm.DCC[j] == DC_SUR_MINAL) {
+          if (pm.XFA[k] > pm.ScMinM)
+            pm.Wx[j] = pm.X[j] / pm.XFA[k];
+          else
+            pm.Wx[j] = 0.0;
+        } else {
+          double X_surf = pm.XF[k] - pm.XFA[k];
+          if (X_surf > pm.ScMinM)
+            pm.Wx[j] = pm.X[j] / X_surf;
+          else
+            pm.Wx[j] = 0.0;
+        }
+      } else {
+        pm.Wx[j] = pm.X[j] / pm.XF[k];
+      }
       switch (pm.DCC[j]) // choice of expressions
       {
       case DC_SCP_CONDEN:

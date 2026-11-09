@@ -676,6 +676,8 @@ void TMultiBase::ScaleSystemToInternal(  double ScFact )
   {
       pm.XFA[k] *= ScFact;
       pm.YFA[k] *= ScFact;
+      if( pm.FWGTS )
+          pm.FWGTS[k] *= ScFact;
 
       if( pm.PUL )
         if( pm.PUL[k] < 1e6  )
@@ -756,6 +758,8 @@ void TMultiBase::RescaleSystemFromInternal(  double ScFact )
   {
       pm.XFA[k] /= ScFact;
       pm.YFA[k] /= ScFact;
+      if( pm.FWGTS )
+          pm.FWGTS[k] /= ScFact;
 
       if( pm.PUL )
         if( pm.PUL[k] < 1e6  )
