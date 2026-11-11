@@ -259,7 +259,7 @@ typedef enum { // Classifications of DC
   DC_SCP_CONDEN = 'O' // DC forming a single-component phase
 } DC_CLASSES;
 
-#define SORPTION_DC "0246813579ABXYZPQ"
+#define SORPTION_DC "0246813579ABXYZPQ@"
 
 // This code defines standard state and reference scale of concentrations
 // for components of this phase. It is used by many subroutines
@@ -307,7 +307,7 @@ enum sorption_control {
   // SC_ISCCM = 'P',
   SC_UNUSED = 'U',   // same as NEM but if set on all surface types, the EIL
                      // structures are not used at all
-  SC_NOT_USED = 'N', // Compatibility alias for SC_NEM
+  SC_NOT_USED = 'U', // Compatibility alias for SC_UNUSED
 
   // New - column index in the EIL capacitance and zeta parameter table
   EIL_CAPDA = 0, // C1 (CA) capacitance density parameter (Stern layer models)

@@ -423,6 +423,7 @@ void SolModFactory::InitalizeTSolMod() {
     case PH_PLASMA:
     case PH_FLUID:
     case PH_ADSORPT:
+    case PH_ADSSBEIL:
     case PH_IONEX: {
       // init model data
       sd.Mod_Code = sMod[SPHAS_TYP];
@@ -951,7 +952,8 @@ void SolModFactory::ConvertDCC() {
         break;
       default:
         if (isdigit(pm.DCC[j])) {
-          if (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL) {
+          if (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL ||
+              pm.PHC[k] == PH_ADSSBEIL) {
             DCCW = DC_ASYM_SPECIES;
             break;
           }

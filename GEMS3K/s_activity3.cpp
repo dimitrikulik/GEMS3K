@@ -339,12 +339,14 @@ long int TActivity::CalculateActivityCoefficients(long int LinkMode) {
     if (act.E && act.LO) // checking electrostatics
     {
       IS_EtaCalc(); //  calculating charges and charge densities
-      if (act.FIa > 0)
+      if (act.FIa > 0 && act.XpsiA && act.XpsiB && act.XpsiC && act.XpsiD && act.XpsiZ)
         for (k = 0; k < act.FIs; k++) {
           if (act.PHC[k] == PH_POLYEL || act.PHC[k] == PH_SORPTION ||
               act.PHC[k] == PH_ADSSBEIL) {
             long int ist;
             ka = k - (act.FIs - act.FIa);
+            if (ka < 0 || ka >= act.FIa)
+              continue;
             for (ist = 0; ist < MNST; ist++) // loop over surface types
             {
               act.XpsiA[ka][ist] = 0.0; // cleaning Psi before GouyChapman()
@@ -486,9 +488,13 @@ long int TActivity::CalculateActivityCoefficients(long int LinkMode) {
             statusGC = GouyChapman(jb, je, k);
             // PoissonBoltzmann( q, jb, je, k )
           }
-          // Calculating surface activity coefficient terms - not for
-          // site-balance SCMs!
-          // statusSACT = SurfaceActivityCoeff(jb, je, jpb, jdb, k);
+          // Calculating surface activity coefficient terms & populating XFTS / lnSAC
+          statusSACT = SurfaceActivityCoeff(jb, je, jpb, jdb, k);
+          // For site-balance SCMs, site mole balances already simulate the competitive
+          // Langmuir isotherm terms, so reset lnGam to prevent double-counting in chemical potential
+          for (j = jb; j < je; j++) {
+            act.lnGam[j] = 0.0;
+          }
         }
         break;
       default:

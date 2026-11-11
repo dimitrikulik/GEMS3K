@@ -1050,7 +1050,8 @@ void SolModFactory::CalculateConcentrations() {
     if (pm.XF[k] <= pm.DSM ||
         (pm.PHC[k] == PH_AQUEL &&
          (pm.XFA[k] <= pm.XwMinM || pm.XF[k] <= pm.DSM)) ||
-        (pm.PHC[k] == PH_SORPTION && pm.XFA[k] <= pm.ScMinM)) {
+        ((pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_ADSSBEIL) &&
+         pm.XFA[k] <= pm.ScMinM)) {
       for (jj = jb; jj < je; jj++) {
         pm.Wx[jj] = 0.0;
         if (pm.LO)
@@ -1083,6 +1084,7 @@ void SolModFactory::CalculateConcentrations() {
     case PH_HCARBL:
     case PH_IONEX:
     case PH_ADSORPT:
+    case PH_ADSSBEIL:
     case PH_SINCOND:
     case PH_SINDIS:
     case PH_LIQUID:
@@ -1247,7 +1249,8 @@ double SolModFactory::PhaseSpecificGamma(long int j, long int k) {
         NonLogTermS = 2. - pm.XFA[k] / pm.XF[k] - pm.XF[k] / pm.XFA[k];
       }
       break;
-    case PH_ADSORPT: // 'z' phase - adsorption on site balances
+    case PH_ADSORPT:
+    case PH_ADSSBEIL: // 'z' phase - adsorption on site balances
       break;
     default:
       break; // Phase class code error should be generated here!

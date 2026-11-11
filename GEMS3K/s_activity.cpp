@@ -317,9 +317,6 @@ double TActivity::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   case DC_AQ_ELECTRON:
   case DC_AQ_SPECIES:
   case DC_AQ_SURCOMP:
-  case DC_SCM_SPECIES:
-  case DC_IESC_A:
-  case DC_IEWC_B:
   case DC_GAS_COMP:
   case DC_GAS_H2O:
   case DC_GAS_CO2:
@@ -339,7 +336,10 @@ double TActivity::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   case DC_SUR_COMPLEX:
   case DC_SUR_IPAIR:
   case DC_SUR_SPECIES:
-    if (!act.Lads) // Foolproof - to prevent crash  DK 22.12.2009
+  case DC_SCM_SPECIES:
+  case DC_IESC_A:
+  case DC_IEWC_B:
+    if (!act.Lads || !act.FIa) // Foolproof - to prevent crash  DK 22.12.2009
       break;
     F0 = act.lnGmM[j]; // + act.lnGam[j];
                        // Surface type to which this surface species belongs
@@ -851,7 +851,8 @@ void TActivity::ConvertDCC() {
         break;
       default:
         if (isdigit(act.DCC[j])) {
-          if (act.PHC[k] == PH_SORPTION || act.PHC[k] == PH_POLYEL) {
+          if (act.PHC[k] == PH_SORPTION || act.PHC[k] == PH_POLYEL ||
+              act.PHC[k] == PH_ADSSBEIL) {
             DCCW = DC_ASYM_SPECIES;
             break;
           }

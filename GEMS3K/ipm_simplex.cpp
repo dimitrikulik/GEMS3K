@@ -690,17 +690,25 @@ void TMultiBase::ScaleSystemToInternal(  double ScFact )
       for( i=0; i<pm.N; i++ )
            pm.BF[k*pm.N+i] *= ScFact;
   }
-  if( pm.FIa > 0 )
+  if( pm.FIa > 0 && pm.Lads > 0 )
   {
-      for( k=0; k<pm.FIa; k++ )
-          for( j=0; j<MNST; j++ ) // SCM Modernization: MNST
-          {
-              pm.XetaA[k][j] *= ScFact;
-              pm.XetaB[k][j] *= ScFact;
-              pm.XetaC[k][j] *= ScFact;
-              pm.XetaD[k][j] *= ScFact;
-              pm.XFTS[k][j] *= ScFact;
-          }
+      if ( pm.XetaA )
+      {
+          for( k=0; k<pm.FIa; k++ )
+              for( j=0; j<MNST; j++ ) // SCM Modernization: MNST
+              {
+                  pm.XetaA[k][j] *= ScFact;
+                  if (pm.XetaB) pm.XetaB[k][j] *= ScFact;
+                  if (pm.XetaC) pm.XetaC[k][j] *= ScFact;
+                  if (pm.XetaD) pm.XetaD[k][j] *= ScFact;
+              }
+      }
+      if ( pm.XFTS )
+      {
+          for( long int is=0; is<NSURFSITES; is++ )
+              for( j=0; j<MNST; j++ )
+                  pm.XFTS[is][j] *= ScFact;
+      }
   }
 
  pm.SizeFactor = ScFact;
@@ -773,16 +781,26 @@ void TMultiBase::RescaleSystemFromInternal(  double ScFact )
            pm.BF[k*pm.N+i] /= ScFact;
   }
 
-  if( pm.FIa > 0 )
-   for( k=0; k<pm.FIa; k++ )
-          for( j=0; j<MNST; j++ ) // SCM Modernization: MNST
-          {
-              pm.XetaA[k][j] /= ScFact;
-              pm.XetaB[k][j] /= ScFact;
-              pm.XetaC[k][j] /= ScFact;
-              pm.XetaD[k][j] /= ScFact;
-              pm.XFTS[k][j]  /= ScFact;
-          }
+  if( pm.FIa > 0 && pm.Lads > 0 )
+  {
+      if ( pm.XetaA )
+      {
+          for( k=0; k<pm.FIa; k++ )
+              for( j=0; j<MNST; j++ ) // SCM Modernization: MNST
+              {
+                  pm.XetaA[k][j] /= ScFact;
+                  if (pm.XetaB) pm.XetaB[k][j] /= ScFact;
+                  if (pm.XetaC) pm.XetaC[k][j] /= ScFact;
+                  if (pm.XetaD) pm.XetaD[k][j] /= ScFact;
+              }
+      }
+      if ( pm.XFTS )
+      {
+          for( long int is=0; is<NSURFSITES; is++ )
+              for( j=0; j<MNST; j++ )
+                  pm.XFTS[is][j] /= ScFact;
+      }
+  }
 
   pm.SizeFactor = 1.;   // using in TNode class
 }
@@ -932,7 +950,7 @@ void TMultiBase::GEM_IPM_Init()
        {
             CalculateConcentrations( pm.X, pm.XF, pm.XFA);
             IS_EtaCalc();
-            if( pm.Lads )  // Calling this only when sorption models are present
+            if( pm.Lads && pm.FIa )  // Calling this only when sorption models are present
             {
                int jb, je=0;
                for(int kk=0; kk<pm.FIs; kk++ )

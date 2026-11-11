@@ -44,7 +44,7 @@ void TMultiBase::XmaxSAT_IPM2() {
   double XS0, xj0, XVk, XSk[NSURFSITES], sj[NSURFSITES], XSkC, xj, Mm, rIEPS,
       xjn, GamJ, f_area_st, GamC;
 
-  if (!pm.DUL) // not possible to install upper kinetic constraints!
+  if (!pm.DUL || !pm.FIa || !pm.Lads) // not possible to install upper kinetic constraints!
     return;
 
   for (k = 0; k < pm.FIs; k++) { // loop over phases
@@ -476,9 +476,6 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   case DC_AQ_ELECTRON:
   case DC_AQ_SPECIES:
   case DC_AQ_SURCOMP:
-  case DC_SCM_SPECIES:
-  case DC_IESC_A:
-  case DC_IEWC_B:
   case DC_GAS_COMP:
   case DC_GAS_H2O:
   case DC_GAS_CO2:
@@ -498,7 +495,10 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   case DC_SUR_COMPLEX:
   case DC_SUR_IPAIR:
   case DC_SUR_SPECIES:
-    if (!pm.Lads) // Foolproof - to prevent crash
+  case DC_SCM_SPECIES:
+  case DC_IESC_A:
+  case DC_IEWC_B:
+    if (!pm.Lads || !pm.FIa) // Foolproof - to prevent crash
       break;
     F0 = pm.lnGmM[j]; /* + pm.lnGam[j]; */
     // Surface type to which this surface species belongs
@@ -935,7 +935,8 @@ void TMultiBase::ConvertDCC() {
         break;
       default:
         if (isdigit(pm.DCC[j])) {
-          if (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL) {
+          if (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL ||
+              pm.PHC[k] == PH_ADSSBEIL) {
             DCCW = DC_ASYM_SPECIES;
             break;
           }
@@ -1185,8 +1186,9 @@ long int TMultiBase::SpeciationCleanup(double AmountCorrectionThreshold,
             }
           }
         } else if (!(pm.PHC[k] == PH_SORPTION ||
+                     pm.PHC[k] == PH_POLYEL ||
                      pm.PHC[k] ==
-                         PH_POLYEL)) { // component has been zeroed off - primal
+                         PH_ADSSBEIL)) { // component has been zeroed off - primal
                                        // chemical potential not defined
           if (L1k == 1)
             continue; // L1kZeroDCs++; No way to improve for pure substance
@@ -1498,7 +1500,8 @@ long int TMultiBase::PhaseSelectionSpeciationCleanup(long int &kfr,
               }
             }
           } else if (!(pm.PHC[k] == PH_SORPTION ||
-                       pm.PHC[k] == PH_POLYEL)) { // component has been zeroed
+                       pm.PHC[k] == PH_POLYEL ||
+                       pm.PHC[k] == PH_ADSSBEIL)) { // component has been zeroed
                                                   // off - primal chemical
                                                   // potential not defined
             if (L1k == 1)

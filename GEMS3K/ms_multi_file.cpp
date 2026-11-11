@@ -1209,6 +1209,8 @@ void TMultiBase::to_text_file(const std::string &path, bool append) {
     prar.writeArray("XdlB", &pm.XdlB[0][0], pm.FIa * MNST);
     prar.writeArray("XdlC", &pm.XdlC[0][0], pm.FIa * MNST);
     prar.writeArray("XdlD", &pm.XdlD[0][0], pm.FIa * MNST);
+    if (pm.XdlZ)
+      prar.writeArray("XdlZ", &pm.XdlZ[0][0], pm.FIa * MNST);
     prar.writeArray("XpsiA", &pm.XpsiA[0][0], pm.FIa * MNST);
     prar.writeArray("XpsiB", &pm.XpsiB[0][0], pm.FIa * MNST);
     prar.writeArray("XpsiC", &pm.XpsiC[0][0], pm.FIa * MNST);

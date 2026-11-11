@@ -278,6 +278,18 @@ void TMultiBase::CalculateConcentrationsInPhase(double X[], double XF[],
       pm.Y_la[j] = ln_to_lg * (Muj - pm.G0[j]);
       if (pm.LO) {                 //  bugfix DK 16.04.2012
         pm.Y_m[j] = X[j] * Factor; // molality
+        if (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_ADSSBEIL ||
+            pm.PHC[k] == PH_IONEX || pm.PHC[k] == PH_ADSORPT) {
+          for (i = arrL[j]; i < arrL[j + 1]; i++) {
+            ii = arrAN[i];
+            if (ii >= pm.NR)
+              continue;
+            if (pm.ICC[ii] == IC_ADDIT || pm.ICC[ii] == IC_SSITE) {
+              pm.IC_m[ii] += pm.Y_m[j] * a(j, ii);
+              pm.IC_wm[ii] += X[j] * a(j, ii);
+            }
+          }
+        }
       }
       break;
     case DC_SUR_GROUP:           // adsorption:
@@ -286,6 +298,18 @@ void TMultiBase::CalculateConcentrationsInPhase(double X[], double XF[],
           1e3 * X[j] * pm.MM[j] / (MMC * XFA[k]);
       pm.Y_la[j] = ln_to_lg * (Muj - pm.G0[j]); // + lnFmol ); corr. 06.10.10
       pm.FVOL[k] += pm.Vol[j] * X[j];           // fixed 11.03.2008 KD
+      if (pm.LO && (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_ADSSBEIL ||
+                    pm.PHC[k] == PH_IONEX || pm.PHC[k] == PH_ADSORPT)) {
+        for (i = arrL[j]; i < arrL[j + 1]; i++) {
+          ii = arrAN[i];
+          if (ii >= pm.NR)
+            continue;
+          if (pm.ICC[ii] == IC_ADDIT || pm.ICC[ii] == IC_SSITE) {
+            pm.IC_m[ii] += pm.Y_m[j] * a(j, ii);
+            pm.IC_wm[ii] += X[j] * a(j, ii);
+          }
+        }
+      }
       break;
       // case DC_SUR_GROUP:  // Check if commenting away of this is correct
       // !!!
@@ -302,6 +326,18 @@ void TMultiBase::CalculateConcentrationsInPhase(double X[], double XF[],
           ln_to_lg *
           (Muj - pm.G0[j]); // + lnFmol - pm.GEX[j] + Dsur + DsurT/( 1.0+DsurT )
       pm.FVOL[k] += pm.Vol[j] * X[j]; // fixed 11.03.2008   KD
+      if (pm.LO && (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_ADSSBEIL ||
+                    pm.PHC[k] == PH_IONEX || pm.PHC[k] == PH_ADSORPT)) {
+        for (i = arrL[j]; i < arrL[j + 1]; i++) {
+          ii = arrAN[i];
+          if (ii >= pm.NR)
+            continue;
+          if (pm.ICC[ii] == IC_ADDIT || pm.ICC[ii] == IC_SSITE) {
+            pm.IC_m[ii] += pm.Y_m[j] * a(j, ii);
+            pm.IC_wm[ii] += X[j] * a(j, ii);
+          }
+        }
+      }
       break;
     case DC_PEL_CARRIER:
     case DC_SUR_MINAL:
@@ -349,6 +385,7 @@ void TMultiBase::CalculateConcentrations(double X[], double XF[],
   }
   j = 0;
   pm.VXc = 0.0;
+  std::vector<bool> inAquel(pm.NR, false);
   for (k = 0; k < pm.FI; k++) { // cycle by phases
     i = j + pm.L1[k];
     pm.FWGT[k] = 0.0;
@@ -458,9 +495,10 @@ void TMultiBase::CalculateConcentrations(double X[], double XF[],
     case PH_SORPTION:  // only sorbent end-members!
       pm.YFk = XFA[k]; // not XF[k] as any other phase?
       MMC = 0.0;
-      //      for (ist = 0; ist < pm.FIat; ist++)
-      //        pm.XFTS[ka][ist] = 0.0;
-      //           if( XFA[k] < pm.lowPosNum ) XFA[k] = pm.lowPosNum;
+      if (ka >= 0 && ka < pm.FIa && pm.XFTS) {
+        for (ist = 0; ist < MNST; ist++)
+          pm.XFTS[ka][ist] = 0.0;
+      }
       if (XFA[k] < pm.ScMinM)
         XFA[k] = pm.ScMinM;
       for (jj = j; jj < i; jj++) {
@@ -470,30 +508,40 @@ void TMultiBase::CalculateConcentrations(double X[], double XF[],
           MMC += pm.MM[jj] * X[jj] / pm.YFk;
           // Only sorbent mass
           pm.FWGT[k] += X[jj] * pm.MM[jj];
-        } /*else { // Doubtful, do we really need it? Total amount of species on
-                 // surf site type or on surface type (patch)?
-           ist = pm.SATX[jja][XL_ST]; // Check carfefully!
-          pm.XFTS[ka][ist] += X[jj];
-        }*/
+        } else {
+          ist = (pm.SATX && jja >= 0 && jja < pm.Lads) ? pm.SATX[jja][XL_ST] : 0;
+          if (ist < 0 || ist >= MNST)
+            ist = 0;
+          if (ka >= 0 && ka < pm.FIa && pm.XFTS && X[jj] > pm.DcMinM)
+            pm.XFTS[ka][ist] += X[jj];
+        }
       }
       pm.FWGTS[k] = pm.FWGT[k]; // Use for surfaces and charges only pm.FWGTS[k]
       pm.logYFk = log(pm.YFk);
-      //            Dsur = XFA[k]/XF[k] - 1.0;  // Also for sorption phases
-      //            if( Dsur <= -1.0 ) Dsur = -0.999999;
       break;
     case PH_ADSSBEIL: // New: sorption phase with site balances and without
                       // carrier DC
       if (XF[k] < pm.ScMinM)
-        // this is in error because of site mole balance, so the amount cannot
-        // be zero
         break;
       pm.YFk = XF[k];
+      if (ka >= 0 && ka < pm.FIa && pm.XFTS) {
+        for (ist = 0; ist < MNST; ist++)
+          pm.XFTS[ka][ist] = 0.0;
+      }
+      for (jj = j; jj < i; jj++) {
+        if (X[jj] > pm.DcMinM) {
+          pm.FWGT[k] += X[jj] * pm.MM[jj];
+          jja = jj - (pm.Ls - pm.Lads);
+          ist = (pm.SATX && jja >= 0 && jja < pm.Lads) ? pm.SATX[jja][XL_ST] : 0;
+          if (ist < 0 || ist >= MNST)
+            ist = 0;
+          if (ka >= 0 && ka < pm.FIa && pm.XFTS)
+            pm.XFTS[ka][ist] += X[jj];
+        }
+      }
       if (pm.FWGTS[k] < pm.ScMinM) {
-        // this is probably the first calculation for this chemical system, so
-        // we get the virtual sorbent mass from site IC amounts
         pm.FWGTS[k] = virtualSorbentMass(j, i, pm.N);
       }
-      // pm.FWGT[k] = pm.FWGTS[k];
       pm.logYFk = log(pm.YFk);
       break;
     default:
@@ -504,21 +552,44 @@ void TMultiBase::CalculateConcentrations(double X[], double XF[],
 
   NEXT_PHASE:
     pm.VXc += pm.FVOL[k];
-    if (pm.PHC[k] == PH_AQUEL && XF[k] > pm.DSM && XFA[k] > pm.XwMinM)
+    if (pm.PHC[k] == PH_AQUEL && XF[k] > pm.DSM && XFA[k] > pm.XwMinM) {
       for (ii = 0; ii < pm.NR; ii++) {
         if (pm.LO) {
-          if (pm.IC_m[ii] >= pa_p->DB)
+          if (pm.IC_m[ii] >= pa_p->DB) {
             pm.IC_lm[ii] = ln_to_lg * log(pm.IC_m[ii]);
-          else
+            inAquel[ii] = true;
+          } else {
             pm.IC_lm[ii] = 0;
-          if (pm.FWGT[k] >= pa_p->DB)
+          }
+          if (pm.FWGT[k] >= pa_p->DB) {
             pm.IC_wm[ii] *= pm.Awt[ii] * 1000. / pm.FWGT[k];
-          else
+            if (pm.IC_wm[ii] > 0.0)
+              inAquel[ii] = true;
+          } else {
             pm.IC_wm[ii] = 0;
+          }
         }
       }
+    }
     j = i;
   } // k
+
+  // Modernized/site-balance SCM: compute dissolved-equivalent molalities and mass concentrations
+  // for site IComps (IC_ADDIT = 'a' and IC_SSITE = 's') that were accumulated from sorption phases
+  if (pm.LO && pm.FWGT[0] >= pa_p->DB) {
+    for (ii = 0; ii < pm.NR; ii++) {
+      if (!inAquel[ii] && (pm.ICC[ii] == IC_ADDIT || pm.ICC[ii] == IC_SSITE)) {
+        if (pm.IC_m[ii] >= pa_p->DB)
+          pm.IC_lm[ii] = ln_to_lg * log(pm.IC_m[ii]);
+        else
+          pm.IC_lm[ii] = 0.0;
+        if (pm.IC_wm[ii] >= pa_p->DB)
+          pm.IC_wm[ii] *= pm.Awt[ii] * 1000. / pm.FWGT[0];
+        else
+          pm.IC_wm[ii] = 0.0;
+      }
+    }
+  }
 }
 
 // Calculation of virtual sorbent mass (g) from site IC amounts in the system
@@ -571,11 +642,13 @@ void TMultiBase::IS_EtaCalc() {
     if (pm.FIa > 0 && (pm.PHC[k] == PH_POLYEL || pm.PHC[k] == PH_SORPTION ||
                        pm.PHC[k] == PH_ADSSBEIL)) {
       // ka = k - (pm.FIs-pm.FIa);
-      for (ist = 0; ist < MNST; ist++) { // Replaced pm.FIat with MNST
-        pm.XetaA[ka][ist] = 0.0;         // plane charges in eq (moles)
-        pm.XetaB[ka][ist] = 0.0;
-        pm.XetaC[ka][ist] = 0.0;
-        pm.XetaD[ka][ist] = 0.0; // added 12.09.05  KD
+      if (ka >= 0 && ka < pm.FIa && pm.XetaA && pm.XetaB && pm.XetaC && pm.XetaD) {
+        for (ist = 0; ist < MNST; ist++) { // Replaced pm.FIat with MNST
+          pm.XetaA[ka][ist] = 0.0;         // plane charges in eq (moles)
+          pm.XetaB[ka][ist] = 0.0;
+          pm.XetaC[ka][ist] = 0.0;
+          pm.XetaD[ka][ist] = 0.0; // added 12.09.05  KD
+        }
       }
     }
     if (pm.XF[k] <= pm.DSM ||
@@ -602,21 +675,30 @@ void TMultiBase::IS_EtaCalc() {
     case PH_POLYEL:
     case PH_SORPTION:
     case PH_ADSSBEIL:
-      // ka = k - (pm.FIs-pm.FIa);
-      for (ist = 0; ist < MNST; ist++) {
-        etaA = 0.0; // Units of etaA, etaB, ... in moles (eq)
-        if (fabs(pm.XfIEC[ka][ist][FSIT_S_CAPACITY]) > pm.DHBM) {
-          etaA += pm.XfIEC[ka][ist][FSIT_S_CAPACITY] // eq/kg
-                  * pm.FWGTS[k] / 1e3; // must be converted to eq (moles)
-        } else {
-          // capacity in eq/kg not given, trying to get the moles of perm
-          // charge from density in 1/nm2, mass and SSA
-          if (fabs(pm.XfIEC[ka][ist][FSIT_S_DENSITY]) > pm.DHBM)
-            etaA += pm.XfIEC[ka][ist][FSIT_S_DENSITY] * pm.FWGTS[k] *
-                    pm.Aalp[k] * 1e-18 *
-                    pm.MASDT[ka][ist][MSDT_FSUTSA]; // fraction of this stype
+      if (ka >= 0 && ka < pm.FIa && pm.XfIEC && pm.MASDT && pm.XetaA) {
+        for (ist = 0; ist < MNST; ist++) {
+          char eil_model = pm.SCMC ? pm.SCMC[ka][ist][SCMC_EILM_CODE] : SC_NEM;
+          bool is_electrostatic = (eil_model == SC_4LM || eil_model == SC_3LM ||
+                                   eil_model == SC_TLM || eil_model == SC_BSM ||
+                                   eil_model == SC_DDL || eil_model == SC_CCM ||
+                                   eil_model == SC_TCE);
+          if (!is_electrostatic)
+            continue; // For SC_NEM or unused, permanent charge is kept in XfIEC and not added to XetaA
+
+          etaA = 0.0; // Units of etaA, etaB, ... in moles (eq)
+          if (fabs(pm.XfIEC[ka][ist][FSIT_S_CAPACITY]) > pm.DHBM) {
+            etaA += pm.XfIEC[ka][ist][FSIT_S_CAPACITY] // eq/kg
+                    * pm.FWGTS[k] / 1e3; // must be converted to eq (moles)
+          } else {
+            // capacity in eq/kg not given, trying to get the moles of perm
+            // charge from density in 1/nm2, mass and SSA
+            if (fabs(pm.XfIEC[ka][ist][FSIT_S_DENSITY]) > pm.DHBM)
+              etaA += pm.XfIEC[ka][ist][FSIT_S_DENSITY] * pm.FWGTS[k] *
+                      pm.Aalp[k] * 1e-18 *
+                      pm.MASDT[ka][ist][MSDT_FSUTSA]; // fraction of this stype
+          }
+          pm.XetaA[ka][ist] += etaA; // Add moles of permanent charge to A-plane on electrostatic surface type
         }
-        pm.XetaA[ka][ist] = etaA; // Moles of permanent charge on stype
       }
       break;
     default:
@@ -647,26 +729,31 @@ void TMultiBase::IS_EtaCalc() {
       case DC_SUR_COMPLEX:
       case DC_SUR_IPAIR:
       case DC_SUR_SPECIES:
-        // case DC_IESC_A:
-        // case DC_IEWC_B:
-        //  SCM Modernization: charges from mCDc[ja][0..1]
-        CDA = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_A]
-                      : 0.0; // species charge that goes into 0 plane
-        CDB = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_B]
-                      : 0.0; // species charge that goes into b (1) plane
-        CDC = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_C]
-                      : 0.0; // species charge that goes into c (2) plane
-        //
-        Ez = pm.EZ[j]; // take formula charge if no plane charges are provided
-        if (fabs(CDA) < pm.DHBM && fabs(CDB) < pm.DHBM && fabs(CDC) < pm.DHBM)
-          CDA = Ez; // Only as 0-plane charge
-        // FInd out to which surface type this surface species belongs
-        ist = pm.SATX[ja][SURSP_ALLOC_SURFTYPE];
-        if (ist < 0 || ist >= MNST)
-          ist = 0;
-        pm.XetaA[ka][ist] += pm.X[j] * CDA;
-        pm.XetaB[ka][ist] += pm.X[j] * CDB;
-        pm.XetaC[ka][ist] += pm.X[j] * CDC;
+      case DC_SCM_SPECIES:
+      case DC_IESC_A:
+      case DC_IEWC_B:
+        if (ka >= 0 && ka < pm.FIa && ja >= 0 && ja < pm.Lads && pm.SATX && pm.XetaA && pm.XetaB && pm.XetaC) {
+          //  SCM Modernization: charges from mCDc[ja][0..1]
+          CDA = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_A]
+                        : 0.0; // species charge that goes into 0 plane
+          CDB = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_B]
+                        : 0.0; // species charge that goes into b (1) plane
+          CDC = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_C]
+                        : 0.0; // species charge that goes into c (2) plane
+          //
+          Ez = pm.EZ[j]; // take formula charge if no plane charges are provided
+          if (fabs(CDA) < pm.DHBM && fabs(CDB) < pm.DHBM && fabs(CDC) < pm.DHBM)
+            CDA = Ez; // Only as 0-plane charge
+          // FInd out to which surface type this surface species belongs
+          ist = pm.SATX[ja][SURSP_ALLOC_SURFTYPE];
+          if (ist < 0 || ist >= MNST)
+            ist = 0;
+          pm.XetaA[ka][ist] += pm.X[j] * CDA;
+          pm.XetaB[ka][ist] += pm.X[j] * CDB;
+          pm.XetaC[ka][ist] += pm.X[j] * CDC;
+        } else {
+          XetaS += pm.X[j] * pm.EZ[j];
+        }
         break;
       default: // Any other phase: charge balance over the phase
         XetaS += pm.X[j] * pm.EZ[j];
@@ -676,9 +763,11 @@ void TMultiBase::IS_EtaCalc() {
     // Charge balance for d-plane on all surface types
     if (pm.FIa > 0 && (pm.PHC[k] == PH_POLYEL || pm.PHC[k] == PH_SORPTION ||
                        pm.PHC[k] == PH_ADSSBEIL)) {
-      for (ist = 0; ist < MNST; ist++) {
-        pm.XetaD[ka][ist] =
-            0.0 - pm.XetaA[ka][ist] - pm.XetaB[ka][ist] - pm.XetaC[ka][ist];
+      if (ka >= 0 && ka < pm.FIa && pm.XetaD && pm.XetaA && pm.XetaB && pm.XetaC) {
+        for (ist = 0; ist < MNST; ist++) {
+          pm.XetaD[ka][ist] =
+              0.0 - pm.XetaA[ka][ist] - pm.XetaB[ka][ist] - pm.XetaC[ka][ist];
+        }
       }
     }
   NEXT_PHASE:
@@ -711,8 +800,10 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
     return status;          // no sorbent or sorbed component amounts
 
   ka = k - (pm.FIs - pm.FIa);
-  if (ka < 0 || ka >= pm.FIa)
-    return status; // not a sorption phase
+  if (ka < 0 || ka >= pm.FIa || !pm.SCMC || !pm.MASDT || !pm.XetaA || !pm.XetaB ||
+      !pm.XetaC || !pm.XetaD || !pm.XpsiA || !pm.XpsiB || !pm.XpsiC || !pm.XpsiD ||
+      !pm.XpsiZ || !pm.XcapA || !pm.XcapB || !pm.XcapC || !pm.XcapD || !pm.XcapZ)
+    return status; // not a sorption phase or arrays not allocated
 
   // newly implemented for the sorbent mass, both with or without site balances
   // Now calculating charge densities in C/m2
@@ -1566,30 +1657,32 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
   double XVk, XSk[NSURFSITES], XSkC, xj, Mm, rIEPS, ISAT, thetaJ, q1theta,
       q2theta, thetaJC, XSs[NSURFSITES], GamC, GamJ, GamJC, alpF, qBet, bBet,
       cN, eF, lnGamjo, lnDiff, lnFactor, GamS[NSURFSITES], qS[NSURFSITES],
-      sjsurfsolv, thetaC, sj[NSURFSITES];
+      sjsurfsolv, thetaC, sj[NSURFSITES], XFTS_site[NSURFSITES][MNST];
 
   const BASE_PARAM *pa_p = base_param();
 
   // SACTS only apply for sorption phases without site balances [so far]
   if (pm.XF[k] <= pm.DSM) // No sorption phase retained by the IPM
     return status;
-  if (pm.XFA[k] <= pm.DSM) // no amount of sorbent remains
+  if (pm.PHC[k] != PH_ADSSBEIL && pm.XFA[k] <= pm.DSM) // no amount of sorbent remains
     return status;
 
-  XVk = pm.XFA[k];
-  Mm = pm.FWGTS[k] / XVk; // molar mass of the sorbent as a whole
+  XVk = (pm.PHC[k] == PH_ADSSBEIL) ? pm.XF[k] : pm.XFA[k];
+  Mm = (XVk > pm.DSM) ? (pm.FWGTS[k] / XVk) : 1.0; // molar mass of the sorbent as a whole
+  ka = k - (pm.FIs - pm.FIa); // index for sorption arrays only
   // Initialization of work array: D[NSURFSITES][MNST]
   for (i = 0; i < MNST; i++) // SCM Modernization: loop over MNST surf patches
   {
     iSurf[i] = -1;
     for (ii = 0; ii < NSURFSITES; ii++) { // SCM Modernization: site types
-      pm.D[ii][i] = 0.0;    // matrix for sites totals in surface types
-      pm.XFTS[ii][i] = 0.0; // matrix for surf species totals in surface types
-      iSite[ii] = -1;       // index for site type
-      sj[ii] = 0.0;         // moles of sites occupied on this site type
+      pm.D[ii][i] = 0.0;       // matrix for sites totals in surface types
+      XFTS_site[ii][i] = 0.0;  // matrix for surf species totals on site types
+      iSite[ii] = -1;          // index for site type
+      sj[ii] = 0.0;            // moles of sites occupied on this site type
     }
+    if (ka >= 0 && ka < pm.FIa && pm.XFTS)
+      pm.XFTS[ka][i] = 0.0;    // matrix for surf species totals in surface types
   }
-  ka = k - (pm.FIs - pm.FIa); // index for sorption arrays only
   // Extraction of site indices for the neutral >OH group
   for (j = jb; j < je; j++) {
     ja = j - (pm.Ls - pm.Lads);    // surf species index among sorption phases
@@ -1610,15 +1703,33 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
     ist = pm.SATX[ja][XL_ST];   // / MSPN;
     if (ist < 0 || ist >= MNST) // SCM Modernization: surf type index
       ist = 0;                  // zero surface type, actually error condition
+    bool has_xsmd_binding = false;
+    if (pm.XSMD) {
+      for (iss = 0; iss < NSURFSITES; iss++) {
+        if (pm.XSMD[ja][iss] > 0) {
+          has_xsmd_binding = true;
+          break;
+        }
+      }
+    }
     for (iss = 0; iss < NSURFSITES; iss++) {
       if ((long)pm.Nfsp[ka][iss][FSIT_S_SURTYPE] != ist)
         continue;
-      if (pm.XSMD[ja][iss] > 0.0 && pm.Nfsp[ka][iss][FSIT_S_DENSITY] > 0.0) {
-        // SCM Modernization: D[NSURFSITES][MNST]   XFTS[NSURFSITES][MNST]
-        pm.D[iss][ist] += pm.X[j] * pm.XSMD[ja][iss]; // adding to site totals
-        pm.XFTS[iss][ist] += pm.X[j]; // adding to species moles totals
+      if (has_xsmd_binding) {
+        if (pm.XSMD[ja][iss] > 0 && pm.Nfsp[ka][iss][FSIT_S_DENSITY] > 0.0) {
+          // SCM Modernization: D[NSURFSITES][MNST]
+          pm.D[iss][ist] += pm.X[j] * pm.XSMD[ja][iss]; // adding to site totals
+          XFTS_site[iss][ist] += pm.X[j]; // adding to species moles totals on site
+        }
+      } else {
+        if (iss == pm.SATX[ja][XL_SI] && pm.Nfsp[ka][iss][FSIT_S_DENSITY] > 0.0) {
+          pm.D[iss][ist] += pm.X[j];
+          XFTS_site[iss][ist] += pm.X[j];
+        }
       }
     }
+    if (ka >= 0 && ka < pm.FIa && pm.XFTS)
+      pm.XFTS[ka][ist] += pm.X[j]; // adding to species moles totals on surface type ist
   }
   for (j = jb; j < je; j++) { // Main loop for DCs - surface complexes
     lnGamjo = pm.lnGmo[j];    // bugfix 16.03.2008 DK
@@ -1633,8 +1744,9 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
     {
     default: // pm.lnGam[j] = 0.0;  not a surface species
       continue;
-    // case DC_IEWC_B:  site balance ion exchange
-    // case DC_IESC_A:  site balance ion exchange
+    case DC_IESC_A:
+    case DC_IEWC_B:
+    case DC_SCM_SPECIES:
     case DC_SUR_GROUP:            // surface group
     case DC_SUR_COMPLEX:          // surface complex
     case DC_SUR_IPAIR:            // surface ion pair
@@ -1649,20 +1761,21 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
       // Cj - index of carrier endmember (-1 - whole sorbent)
       Cj = pm.SATX[ja][XL_EM];
       if (Cj < 0) {             // Assigned to the whole sorbent
-        XVk = pm.XFA[k];        // Amount of sorbent
-        Mm = pm.FWGTS[k] / XVk; // molar mass of the sorbent as a whole
+        XVk = (pm.PHC[k] == PH_ADSSBEIL) ? pm.XF[k] : pm.XFA[k];        // Amount of sorbent
+        Mm = (XVk > pm.DSM) ? (pm.FWGTS[k] / XVk) : 1.0; // molar mass of the sorbent as a whole
       } else { // Assigned to one of the sorbent end-members: TBD, does not work
         XVk = pm.X[Cj];
         if (XVk < pm.ScMinM) // pm.DSM*0.1 )
           continue;          // This end-member is zeroed off by IPM
-        Mm = pm.MM[Cj] * XVk / pm.XFA[k]; // mol.mass (fracional?)
+        double xfak = (pm.PHC[k] == PH_ADSSBEIL) ? pm.XF[k] : pm.XFA[k];
+        Mm = (xfak > pm.DSM) ? (pm.MM[Cj] * XVk / xfak) : pm.MM[Cj]; // mol.mass (fracional?)
       }
       xj = pm.X[j]; // Current moles of this surface species
       for (iss = 0; iss < NSURFSITES; iss++) {
         sj[iss] =
             xj * pm.XSMD[ja][iss]; // moles of sites under this surface species
         XSk[iss] =
-            pm.XFTS[iss][ist]; // Total moles of sorbates on site & surface type
+            XFTS_site[iss][ist]; // Total moles of sorbates on site & surface type
         XSs[iss] =
             pm.D[iss][ist]; // Total moles of occupied sites on site & surf type
         GamS[iss] = pm.Nfsp[ka][iss][FSIT_S_DENSITY];
@@ -1703,6 +1816,7 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
 
       switch (SS_SACT_CODE) // individual SACT model code for surface species
       {
+      case SAT_NCOMP:
       case SACT_LAN_NCOMP: // Non-competitive individual monodentate Langmuir
         if (dentt != 1 || dentsn != 1) {
           ipm_logger->debug(
