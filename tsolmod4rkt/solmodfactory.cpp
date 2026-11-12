@@ -933,16 +933,19 @@ void SolModFactory::ConvertDCC() {
         break;
       case DC_IESC_A:
       case DC_IEWC_B:
-        DCCW = DC_ASYM_SPECIES;
+        if (pm.PHC[k] == PH_ADSSBEIL)
+          DCCW = DC_SYMMETRIC;
+        else
+          DCCW = DC_ASYM_SPECIES;
         break;
         // Remapping
       case DC_SUR_GROUP:
       case DC_SUR_COMPLEX:
-        DCCW = DC_ASYM_SPECIES;
-        pm.DCC[j] = DC_SUR_SPECIES;
-        break;
       case DC_SUR_IPAIR:
-        DCCW = DC_ASYM_SPECIES;
+        if (pm.PHC[k] == PH_ADSSBEIL)
+          DCCW = DC_SYMMETRIC;
+        else
+          DCCW = DC_ASYM_SPECIES;
         pm.DCC[j] = DC_SUR_SPECIES;
         break;
       case DC_SUR_MINAL:
@@ -1030,7 +1033,8 @@ double SolModFactory::ConvertGj_toUniformStandardState(double g0, long int j,
   case DC_SUR_IPAIR:
   case DC_IESC_A:
   case DC_IEWC_B:
-    G += pm.ln5551;
+    if (pm.PHC[k] != PH_ADSSBEIL)
+      G += pm.ln5551;
     break;
   default: // error - returning 7777777
     return 7777777.;

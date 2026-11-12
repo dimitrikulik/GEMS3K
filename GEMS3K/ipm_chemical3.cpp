@@ -622,6 +622,13 @@ long int TMultiBase::CalculateActivityCoefficients(long int LinkMode) {
           // Langmuir isotherm terms, so reset lnGam to prevent double-counting in chemical potential
           for (j = jb; j < je; j++) {
             pm.lnGam[j] = 0.0;
+            if (pm.lnSACT)
+              pm.lnSACT[j] = 0.0;
+            int ja = j - (pm.Ls - pm.Lads);
+            if (pm.lnSAC && ja >= 0 && ja < pm.Lads) {
+              pm.lnSAC[ja][0] = 0.0;
+              pm.lnSAC[ja][1] = 0.0;
+            }
           }
         }
         break;

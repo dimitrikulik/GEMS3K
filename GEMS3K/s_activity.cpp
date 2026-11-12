@@ -782,7 +782,8 @@ double TActivity::ConvertGj_toUniformStandardState(double g0, long int j,
   case DC_SUR_SPECIES:
   case DC_IESC_A:
   case DC_IEWC_B:
-    G += act.ln5551;
+    if (act.PHC[k] != PH_ADSSBEIL)
+      G += act.ln5551;
     break;
   default: // error - returning 7777777
     return 7777777.;
@@ -841,7 +842,10 @@ void TActivity::ConvertDCC() {
       case DC_SUR_SPECIES:
       case DC_SUR_IPAIR:
       case DC_SUR_COMPLEX:
-        DCCW = DC_ASYM_SPECIES;
+        if (act.PHC[k] == PH_ADSSBEIL)
+          DCCW = DC_SYMMETRIC;
+        else
+          DCCW = DC_ASYM_SPECIES;
         act.DCC[j] = DC_SUR_SPECIES;
         break;
       case DC_SUR_MINAL:
@@ -972,8 +976,13 @@ void TActivity::StabilityIndexes(void) {
       case DC_SUR_COMPLEX:
       case DC_SUR_IPAIR:
       case DC_SUR_SPECIES:
-        ln_ax_dual -= lnFmol;
-        //                gamma_primal = exp( act.F0[j] );
+        if (act.PHC[k] != PH_ADSSBEIL)
+          ln_ax_dual -= lnFmol;
+        else {
+          ln_ax_dual -= lnFugPur;
+          if (fabs(act.F0[j]) < 80.0)
+            gamma_primal = exp(act.F0[j]);
+        }
         break;
       case DC_PEL_CARRIER:
       case DC_SUR_MINAL:

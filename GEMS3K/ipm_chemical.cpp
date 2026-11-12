@@ -446,6 +446,7 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   double psiA, psiB, psiC, CDA = 0.0, CDB = 0.0, CDC = 0.0, CoulombA = 0.0,
                            CoulombB = 0.0, CoulombC = 0.0;
   double FactSur = 0.0;
+  bool isElectrostatic = false;
   const BASE_PARAM *pa_p = base_param();
 
   Fold = pm.F0[j];
@@ -503,6 +504,11 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
     F0 = pm.lnGmM[j]; /* + pm.lnGam[j]; */
     // Surface type to which this surface species belongs
     ist = pm.SATX[ja][SURSP_ALLOC_SURFTYPE];
+    if (pm.SCMC && ka >= 0 && ka < pm.FIa && ist >= 0 && ist < MNST) {
+      char eilm = pm.SCMC[ka][ist][SCMC_EILM_CODE];
+      if (eilm != SC_NEM && eilm != SC_NOT_USED)
+        isElectrostatic = true;
+    }
     // reading out the computed surface plane potentials
     psiA = pm.XpsiA[ka][ist];
     psiB = pm.XpsiB[ka][ist];
@@ -524,6 +530,14 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
       CoulombA += psiA * Ez * pm.FRT; // Charge distro array not provided
       pm.CTerms[j] = CoulombA; // Collecting Coulomb terms for surface species
     }
+    // Internal bracketing of Coulomb term:
+    // A dimensionless term of +-12 corresponds to ~308 mV at 25 C for monovalent species,
+    // which covers the full physical range while preventing numerical divergence.
+    if (pm.CTerms[j] > 12.0)
+      pm.CTerms[j] = 12.0;
+    else if (pm.CTerms[j] < -12.0)
+      pm.CTerms[j] = -12.0;
+
     F0 += pm.CTerms[j];
     pm.lnSAC[ja][3] = pm.CTerms[j];
 
@@ -570,15 +584,24 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   if (k >= pm.FIs)
     return F0;
   // Smoothing procedure for highly non-ideal systems
-  if (pm.sMod[k][SGM_MODE] !=
-      SM_IDEAL) // check this condition for sublattice SS models!
-                // || pm.sMod[k][SCM_TYPE] != SC_NNE )  // changed, 14.07.2009
-                // (TW)
+  if (pm.sMod[k][SGM_MODE] != SM_IDEAL ||
+      pm.PHC[k] == PH_ADSSBEIL || pm.PHC[k] == PH_SORPTION ||
+      pm.PHC[k] == PH_POLYEL || pm.PHC[k] == PH_ADSORPT)
   {
     double SmoSensT = 1e-5; // to be adjusted
     dF0 = F0 - Fold;
-    if (pm.X[j] > std::min(pm.lowPosNum, pm.DcMinM) && fabs(dF0) >= SmoSensT)
-      F0 = Fold + dF0 * SmoothingFactor(); // Changed 18.06.2008 DK
+    if (pm.X[j] > std::min(pm.lowPosNum, pm.DcMinM) && fabs(dF0) >= SmoSensT) {
+      double sf = SmoothingFactor();
+      if (isElectrostatic && sf >= 0.999) {
+        // Automatic internal under-relaxation for electrostatic SCM when Pa_DGC == 0
+        // Prevents non-linear limit cycles between EDL capacitance and surface speciation
+        sf = 0.1;
+        // Step-size trust region: limit change in chemical potential per iteration to |dF0 * sf| <= 1.0
+        if (fabs(dF0 * sf) > 1.0)
+          sf = 1.0 / fabs(dF0);
+      }
+      F0 = Fold + dF0 * sf; // Changed 18.06.2008 DK
+    }
   }
   // Add smoothing in case of SATC application in sorption models?
   return F0;
@@ -866,7 +889,8 @@ double TMultiBase::ConvertGj_toUniformStandardState(double g0, long int j,
   case DC_IESC_A:
   case DC_IEWC_B:
   case DC_SUR_SPECIES:
-    G += pm.ln5551;
+    if (pm.PHC[k] != PH_ADSSBEIL)
+      G += pm.ln5551;
     break;
   default: // error - returning 7777777
     return 7777777.;
@@ -925,7 +949,10 @@ void TMultiBase::ConvertDCC() {
       case DC_SUR_COMPLEX:
       case DC_SUR_SPECIES:
       case DC_SUR_IPAIR:
-        DCCW = DC_ASYM_SPECIES;
+        if (pm.PHC[k] == PH_ADSSBEIL)
+          DCCW = DC_SYMMETRIC;
+        else
+          DCCW = DC_ASYM_SPECIES;
         //       pm.DCC[j] = DC_SUR_SPECIES;
         break;
       case DC_SUR_MINAL:
@@ -1182,20 +1209,25 @@ long int TMultiBase::SpeciationCleanup(double AmountCorrectionThreshold,
             if (L1k > 1) { // Component of a solution phase
                            // The species is present in a larger or smaller
                            // amount than necessary
-              YjCleaned = Yj / exp(MjuDiff);
+              bool isSorptionPhase = (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL ||
+                                      pm.PHC[k] == PH_ADSSBEIL || pm.PHC[k] == PH_ADSORPT ||
+                                      pm.PHC[k] == PH_IONEX);
+              if (!isSorptionPhase || Yj <= AmountCorrectionThreshold || (pm.YF[k] > 0.0 && Yj / pm.YF[k] <= 0.05)) {
+                YjCleaned = Yj / exp(MjuDiff);
+                if (isSorptionPhase && fabs(YjCleaned - Yj) > AmountCorrectionThreshold) {
+                  if (YjCleaned > Yj)
+                    YjCleaned = Yj + AmountCorrectionThreshold;
+                  else
+                    YjCleaned = (Yj > AmountCorrectionThreshold) ? Yj - AmountCorrectionThreshold : 0.0;
+                }
+              }
             }
           }
-        } else if (!(pm.PHC[k] == PH_SORPTION ||
-                     pm.PHC[k] == PH_POLYEL ||
-                     pm.PHC[k] ==
-                         PH_ADSSBEIL)) { // component has been zeroed off - primal
-                                       // chemical potential not defined
+        } else { // component has been zeroed off - primal chemical potential not defined
           if (L1k == 1)
             continue; // L1kZeroDCs++; No way to improve for pure substance
-          else // possibly lost DC in a solution phase (only estimated mole
-               // fraction available)
-            YjCleaned =
-                pm.EMU[j] * pm.YF[k]; // does not work for adsorption yet
+          else // possibly lost DC in a solution or sorption phase (only estimated mole fraction available)
+            YjCleaned = pm.EMU[j] * pm.YF[k];
         }
 
         YjDiff = YjCleaned - Yj;
@@ -1421,7 +1453,7 @@ long int TMultiBase::PhaseSelectionSpeciationCleanup(long int &kfr,
             pm.Y[j] = pm.DUL[j];
           KinConstrDC = true;
         }
-        if (pm.DLL[j] >= 0) // && Yj <= ( pm.DLL[j] + pa->p.DKIN ) )
+        if (pm.DLL[j] > 0) // && Yj <= ( pm.DLL[j] + pa->p.DKIN ) )
         {
           if (Yj < pm.DLL[j])
             // Fixing a small component constrained from below
@@ -1483,33 +1515,42 @@ long int TMultiBase::PhaseSelectionSpeciationCleanup(long int &kfr,
                     j, MjuDiff);
                 MjuDiff = 609.;
               }
-              YjCleaned =
-                  Yj / exp(MjuDiff); // also applies to a DC in a solution phase
-              if (L1k == 1) {        // Pure phase
-                if (logSI <= -0.4343 * MjuDiffCutoff &&
-                    YjCleaned < AmountThreshold)
-                  YjCleaned = 0.;
-                if (logSI >= pa_p->DF &&
-                    YjCleaned < pm.DFYsM) { // over-stable phase in too small
-                                            // amount - insertion and next IPM
-                                            // loop (experimental)
-                  YjCleaned = pm.DFYsM;
-                  kfr = k;
-                  MassBalanceViolation = true;
+              bool isSorptionPhase = (pm.PHC[k] == PH_SORPTION || pm.PHC[k] == PH_POLYEL ||
+                                      pm.PHC[k] == PH_ADSSBEIL || pm.PHC[k] == PH_ADSORPT ||
+                                      pm.PHC[k] == PH_IONEX);
+              if (!isSorptionPhase || Yj <= AmountThreshold || (PhaseAmount > 0.0 && Yj / PhaseAmount <= 0.05)) {
+                YjCleaned =
+                    Yj / exp(MjuDiff); // also applies to a DC in a solution phase
+                if (isSorptionPhase && fabs(YjCleaned - Yj) > AmountThreshold) {
+                  if (YjCleaned > Yj)
+                    YjCleaned = Yj + AmountThreshold;
+                  else
+                    YjCleaned = (Yj > AmountThreshold) ? Yj - AmountThreshold : 0.0;
+                }
+                if (L1k == 1) {        // Pure phase
+                  if (logSI <= -0.4343 * MjuDiffCutoff &&
+                      YjCleaned < AmountThreshold)
+                    YjCleaned = 0.;
+                  if (logSI >= pa_p->DF &&
+                      YjCleaned < pm.DFYsM) { // over-stable phase in too small
+                                              // amount - insertion and next IPM
+                                              // loop (experimental)
+                    YjCleaned = pm.DFYsM;
+                    kfr = k;
+                    MassBalanceViolation = true;
+                  }
                 }
               }
             }
-          } else if (!(pm.PHC[k] == PH_SORPTION ||
-                       pm.PHC[k] == PH_POLYEL ||
-                       pm.PHC[k] == PH_ADSSBEIL)) { // component has been zeroed
-                                                  // off - primal chemical
-                                                  // potential not defined
+          } else { // component has been zeroed off - primal chemical potential not defined
             if (L1k == 1)
               continue; // L1kZeroDCs++; No way to improve for pure substance
-            else // possibly lost DC in a solution phase (only estimated mole
-                 // fraction available)
-              YjCleaned =
-                  pm.EMU[j] * pm.YF[k]; // does not work for adsorption yet
+            else { // possibly lost DC in a solution or sorption phase (only estimated mole fraction available)
+              YjCleaned = pm.EMU[j] * pm.YF[k];
+              if (YjCleaned >= pm.DcMinM) {
+                DCinserted++;
+              }
+            }
           }
           YjDiff = YjCleaned - Yj;
           if (fabs(YjDiff) > CutoffDistortionMBR) {
@@ -1691,8 +1732,13 @@ void TMultiBase::StabilityIndexes(void) {
       case DC_SUR_SPECIES:
       case DC_SUR_COMPLEX:
       case DC_SUR_IPAIR:
-        ln_ax_dual -= lnFmol;
-        //                gamma_primal = exp( pm.F0[j] );
+        if (pm.PHC[k] != PH_ADSSBEIL)
+          ln_ax_dual -= lnFmol;
+        else {
+          ln_ax_dual -= lnFugPur;
+          if (fabs(pm.F0[j]) < 80.0)
+            gamma_primal = exp(pm.F0[j]);
+        }
         break;
       case DC_PEL_CARRIER:
       case DC_SUR_MINAL:

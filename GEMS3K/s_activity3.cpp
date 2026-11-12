@@ -494,6 +494,13 @@ long int TActivity::CalculateActivityCoefficients(long int LinkMode) {
           // Langmuir isotherm terms, so reset lnGam to prevent double-counting in chemical potential
           for (j = jb; j < je; j++) {
             act.lnGam[j] = 0.0;
+            if (act.lnSACT)
+              act.lnSACT[j] = 0.0;
+            int ja = j - (act.Ls - act.Lads);
+            if (act.lnSAC && ja >= 0 && ja < act.Lads) {
+              act.lnSAC[ja][0] = 0.0;
+              act.lnSAC[ja][1] = 0.0;
+            }
           }
         }
         break;

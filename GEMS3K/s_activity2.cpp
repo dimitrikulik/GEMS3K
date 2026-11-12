@@ -1474,7 +1474,7 @@ long int TActivity::SurfaceActivityCoeff(long int jb, long int je, long int,
       double f_area_st =
           act.MASDT[ka][ist][MSDT_FSUTSA]; // area fraction of this surface type
       if (f_area_st < 1e-6)
-        break; // potentially severe error - null area fraction of surface type
+        continue; // potentially severe error - null area fraction of surface type
       // double GamJ = xj / XVk / Mm / f_area_st * 1e6 / act.Aalp[k] / 1.66054;
       //  this species surface density, 1/nm2
       GamJ = xj * 1e6 / (XVk * Mm * f_area_st * act.Aalp[k]) / 1.66054;
@@ -1850,7 +1850,13 @@ long int TActivity::SurfaceActivityCoeff(long int jb, long int je, long int,
         act.lnSAC[ja][1] = 0.0;
         act.lnSAC[ja][2] = 0.0;
         break;
-      default: // act.lnGam[j] = 0.0;
+      default:
+        act.lnGam[j] = 0.0;
+        act.lnSACT[j] = 0.0;
+        act.lnGammF[j] = 0.0;
+        act.lnSAC[ja][0] = 0.0;
+        act.lnSAC[ja][1] = 0.0;
+        act.lnSAC[ja][2] = 0.0;
         break;
       }
       // Make optional ....

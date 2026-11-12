@@ -845,7 +845,7 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
           "EIL charge density plane B {} truncated to +- 1.0 C/m2  "
           "IT={} k= {} ist= {}",
           sigB, pm.IT, ka, ist);
-      SigmB[ist] = sigB < 0.0 ? -2.0 : 2.0;
+      SigmB[ist] = sigB < 0.0 ? -1.0 : 1.0;
       status = 61;
     } else
       SigmB[ist] = sigB;
@@ -854,7 +854,7 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
           "EIL charge density plane C {} truncated to +- 1.0 C/m2  "
           "IT={} k= {} ist= {}",
           sigC, pm.IT, ka, ist);
-      SigmC[ist] = sigC < 0.0 ? -2.0 : 2.0;
+      SigmC[ist] = sigC < 0.0 ? -1.0 : 1.0;
       status = 62;
     } else
       SigmC[ist] = sigC;
@@ -863,7 +863,7 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
           "EIL charge density plane D {} truncated to +- 0.7 C/m2  "
           "IT={} k= {} ist= {}",
           sigD, pm.IT, ka, ist);
-      SigmD[ist] = sigD < 0.0 ? -1.4 : 1.4;
+      SigmD[ist] = sigD < 0.0 ? -0.7 : 0.7;
       status = 63;
     } else
       SigmD[ist] = sigD;
@@ -918,6 +918,17 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
     }
     // Unpack results from EILModelResult emr fields to MULTI data for this
     // phase and surface type
+    // Physical bracketing of EDL plane potentials (V)
+    const double MAX_PSI = 0.40; // Max physical EDL potential: 400 mV
+    if (emr.psi0 > MAX_PSI) emr.psi0 = MAX_PSI;
+    else if (emr.psi0 < -MAX_PSI) emr.psi0 = -MAX_PSI;
+    if (emr.psi1 > MAX_PSI) emr.psi1 = MAX_PSI;
+    else if (emr.psi1 < -MAX_PSI) emr.psi1 = -MAX_PSI;
+    if (emr.psi2 > MAX_PSI) emr.psi2 = MAX_PSI;
+    else if (emr.psi2 < -MAX_PSI) emr.psi2 = -MAX_PSI;
+    if (emr.psid > MAX_PSI) emr.psid = MAX_PSI;
+    else if (emr.psid < -MAX_PSI) emr.psid = -MAX_PSI;
+
     pm.XpsiA[ka][ist] = emr.psi0;
     pm.XpsiB[ka][ist] = emr.psi1;
     pm.XpsiC[ka][ist] = emr.psi2;
@@ -1803,7 +1814,7 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
       double f_area_st =
           pm.MASDT[ka][ist][MSDT_FSUTSA]; // area fraction of this surface type
       if (f_area_st < 1e-6)
-        break; // potentially severe error - null area fraction of surface type
+        continue; // potentially severe error - null area fraction of surface type
       // double GamJ = xj / XVk / Mm / f_area_st * 1e6 / pm.Aalp[k] / 1.66054;
       //  this species surface density, 1/nm2
       GamJ = xj * 1e6 / (XVk * Mm * f_area_st * pm.Aalp[k]) / 1.66054;
@@ -2184,7 +2195,13 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
         pm.lnSAC[ja][1] = 0.0;
         pm.lnSAC[ja][2] = 0.0;
         break;
-      default: // pm.lnGam[j] = 0.0;
+      default:
+        pm.lnGam[j] = 0.0;
+        pm.lnSACT[j] = 0.0;
+        pm.lnGammF[j] = 0.0;
+        pm.lnSAC[ja][0] = 0.0;
+        pm.lnSAC[ja][1] = 0.0;
+        pm.lnSAC[ja][2] = 0.0;
         break;
       }
     }
