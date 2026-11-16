@@ -1289,4 +1289,205 @@ double TNode::DC_mu0(const long int xCH, bool norm) {
   */
 }
 
+namespace {
+
+// Returns the [jb, je) range of general DC indices in MULTI belonging to phase k,
+// using pmm->L1 so it remains consistent across all multicomponent phases in MULTI.
+bool phaseDCRangeInMulti(const MULTI *pmm, const long int k, long int &jb,
+                         long int &je) {
+  if (!pmm || !pmm->L1 || k < 0 || k >= pmm->FI) {
+    return false;
+  }
+  jb = 0;
+  for (long int kk = 0; kk < k; kk++) {
+    jb += pmm->L1[kk];
+  }
+  je = jb + pmm->L1[k];
+  return true;
+}
+
+} // namespace
+
+//-----------------------------------------------------------------------------
+// Direct access implementations for modernized sorption phase models (MULTI)
+//-----------------------------------------------------------------------------
+
+long int TNode::ka2k(const long int ka) const {
+  if (!pmm || pmm->FIa <= 0 || ka < 0 || ka >= pmm->FIa) {
+    node_logger->warn("TNode::ka2k(): invalid sorption phase index ka={} (FIa={})",
+                      ka, pmm ? pmm->FIa : -1);
+    return -1;
+  }
+  return (pmm->FIs - pmm->FIa) + ka;
+}
+
+long int TNode::k2ka(const long int k) const {
+  if (!pmm || pmm->FIa <= 0) {
+    node_logger->warn("TNode::k2ka(): no sorption phases present in MULTI");
+    return -1;
+  }
+  long int ka = k - (pmm->FIs - pmm->FIa);
+  if (ka < 0 || ka >= pmm->FIa) {
+    node_logger->warn(
+        "TNode::k2ka(): phase index k={} is not a sorption phase (range [{}..{}))",
+        k, pmm->FIs - pmm->FIa, pmm->FIs);
+    return -1;
+  }
+  return ka;
+}
+
+long int TNode::k2ka(const std::string &phase_name) const {
+  long int k = Ph_name_to_xCH(phase_name);
+  if (k < 0) {
+    return -1;
+  }
+  return k2ka(k);
+}
+
+long int TNode::Get_Lads_ka(const long int ka) const {
+  long int k = ka2k(ka);
+  if (k < 0 || !pmm->L1) {
+    return -1;
+  }
+  return pmm->L1[k];
+}
+
+long int TNode::j_ka2ja(const long int j, const long int ka) const {
+  if (!pmm || pmm->Lads <= 0) {
+    node_logger->warn("TNode::j_ka2ja(): no sorption species present in MULTI");
+    return -1;
+  }
+  long int ja = j - (pmm->Ls - pmm->Lads);
+  if (ja < 0 || ja >= pmm->Lads) {
+    node_logger->warn(
+        "TNode::j_ka2ja(): DC index j={} is not a sorption species (range [{}..{}))",
+        j, pmm->Ls - pmm->Lads, pmm->Ls);
+    return -1;
+  }
+  if (ka >= 0) {
+    long int k = ka2k(ka);
+    long int jb = 0, je = 0;
+    if (k < 0 || !phaseDCRangeInMulti(pmm, k, jb, je)) {
+      return -1;
+    }
+    if (j < jb || j >= je) {
+      node_logger->warn(
+          "TNode::j_ka2ja(): DC index j={} does not belong to sorption phase ka={} (range [{}..{}))",
+          j, ka, jb, je);
+      return -1;
+    }
+  }
+  return ja;
+}
+
+long int TNode::j_ka2ja(const std::string &species_name,
+                        const long int ka) const {
+  if (!pmm || pmm->Lads <= 0 || !CSD) {
+    node_logger->warn("TNode::j_ka2ja(): no sorption species present in MULTI");
+    return -1;
+  }
+  long int jb = pmm->Ls - pmm->Lads;
+  long int je = pmm->Ls;
+  if (ka >= 0) {
+    long int k = ka2k(ka);
+    if (k < 0 || !phaseDCRangeInMulti(pmm, k, jb, je)) {
+      return -1;
+    }
+  }
+  for (long int j = jb; j < je && j < static_cast<long int>(CSD->DCNL.size());
+       j++) {
+    if (CSD->DCNL[j] == species_name) {
+      return j - (pmm->Ls - pmm->Lads);
+    }
+  }
+  node_logger->warn(
+      "TNode::j_ka2ja(): sorption species '{}' not found in sorption phase ka={}",
+      species_name, ka);
+  return -1;
+}
+
+long int TNode::ja2j(const long int ja) const {
+  if (!pmm || pmm->Lads <= 0 || ja < 0 || ja >= pmm->Lads) {
+    node_logger->warn(
+        "TNode::ja2j(): invalid sorption species index ja={} (Lads={})", ja,
+        pmm ? pmm->Lads : -1);
+    return -1;
+  }
+  return (pmm->Ls - pmm->Lads) + ja;
+}
+
+long int TNode::ja2ist(const long int ja) const {
+  long int j = ja2j(ja);
+  if (j < 0) {
+    return -1;
+  }
+  long int ka = -1;
+  if (pmm->L1 && pmm->FIa > 0) {
+    long int jb = pmm->Ls - pmm->Lads;
+    for (long int kka = 0; kka < pmm->FIa; kka++) {
+      long int k = (pmm->FIs - pmm->FIa) + kka;
+      long int je = jb + pmm->L1[k];
+      if (j >= jb && j < je) {
+        ka = kka;
+        break;
+      }
+      jb = je;
+    }
+  }
+  if (pmm->XSMD && pmm->Nfsp && ka >= 0) {
+    long int found_ist = -1;
+    for (long int iss = 0; iss < NSURFSITES; iss++) {
+      if (pmm->XSMD[ja][iss] > 0) {
+        long int site_ist =
+            static_cast<long int>(std::llround(pmm->Nfsp[ka][iss][FSIT_S_SURTYPE]));
+        if (found_ist < 0) {
+          found_ist = site_ist;
+        } else if (found_ist != site_ist) {
+          node_logger->warn(
+              "TNode::ja2ist(): surface species ja={} is bound to multiple surface types ({} and {})",
+              ja, found_ist, site_ist);
+          return -1;
+        }
+      }
+    }
+    if (found_ist >= 0) {
+      return (found_ist < MNST) ? found_ist : -1;
+    }
+  }
+  if (pmm->SATX) {
+    long int st = pmm->SATX[ja][XL_ST];
+    if (st >= 0 && st < MNST) {
+      return st;
+    }
+  }
+  return -1;
+}
+
+void TNode::Set_SSA(const double SSA_val, const long int k) {
+  if (!pmm || k < 0 || k >= pmm->FI) {
+    node_logger->warn("TNode::Set_SSA(): invalid phase index k={} (FI={})", k,
+                      pmm ? pmm->FI : -1);
+    return;
+  }
+  if (pmm->Aalp) {
+    pmm->Aalp[k] = SSA_val;
+  } else {
+    node_logger->warn("TNode::Set_SSA(): pmm->Aalp is null");
+  }
+  if (CSD && CSD->nAalp > 0 && CNode && CNode->aPH) {
+    long int xBR = Ph_xCH_to_xDB(k);
+    if (xBR >= 0) {
+      CNode->aPH[xBR] = SSA_val * kg_to_g;
+    }
+  }
+  load_thermodynamic_data = false;
+}
+
+void TNode::Set_SSA_ka(const double SSA_val, const long int ka) {
+  long int k = ka2k(ka);
+  if (k >= 0) {
+    Set_SSA(SSA_val, k);
+  }
+}
+
 //-----------------------End of node2.cpp--------------------------

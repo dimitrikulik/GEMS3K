@@ -322,6 +322,8 @@ void TNode::InitCopyActivities(DATACH *csd, MULTI *mp, DATABR *cnd) {
   ap->XdlC =
       mp->XdlC; //< Effective thickness of 0-d C EDL layer, nm [FIs][FIat]
   ap->XdlD = mp->XdlD; //< Effective thickness of diffuse layer, nm [FIs][FIat]
+  ap->XdlZ =
+      mp->XdlZ; //< Effective thickness of 0-slipplane layer, nm [FIs][FIat]
   // TSorpMod & TKinMet stuff
   ap->SorMc = mp->SorMc; //< new: Phase-related kinetics and sorption model
                          // parameters: [nPS][16] < in the same order as from

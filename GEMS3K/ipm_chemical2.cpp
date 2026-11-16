@@ -356,7 +356,10 @@ void TMultiBase::CalculateConcentrationsInPhase(double X[], double XF[],
       break; // error in DC class code
     };
   } // j
-  pm.Zeff = sqrt(pm.Zeff / (2.0 * pm.IC));
+  if (pm.PHC[k] == PH_AQUEL) {
+    pm.Zeff = (pm.IC > 0.0 && pm.Zeff > 0.0) ? sqrt(pm.Zeff / (2.0 * pm.IC))
+                                             : 1.0;
+  }
   // Effective valency z_eff = sqrt(sum(c_i * z_i^4) / sum(c_i * z_i^2))
   // or z_eff = sqrt(sum(c_i * |z_i|^3) / sum(c_i * z_i^2))
 }
@@ -509,7 +512,8 @@ void TMultiBase::CalculateConcentrations(double X[], double XF[],
           // Only sorbent mass
           pm.FWGT[k] += X[jj] * pm.MM[jj];
         } else {
-          ist = (pm.SATX && jja >= 0 && jja < pm.Lads) ? pm.SATX[jja][XL_ST] : 0;
+          ist =
+              (pm.SATX && jja >= 0 && jja < pm.Lads) ? pm.SATX[jja][XL_ST] : 0;
           if (ist < 0 || ist >= MNST)
             ist = 0;
           if (ka >= 0 && ka < pm.FIa && pm.XFTS && X[jj] > pm.DcMinM)
@@ -532,7 +536,8 @@ void TMultiBase::CalculateConcentrations(double X[], double XF[],
         if (X[jj] > pm.DcMinM) {
           pm.FWGT[k] += X[jj] * pm.MM[jj];
           jja = jj - (pm.Ls - pm.Lads);
-          ist = (pm.SATX && jja >= 0 && jja < pm.Lads) ? pm.SATX[jja][XL_ST] : 0;
+          ist =
+              (pm.SATX && jja >= 0 && jja < pm.Lads) ? pm.SATX[jja][XL_ST] : 0;
           if (ist < 0 || ist >= MNST)
             ist = 0;
           if (ka >= 0 && ka < pm.FIa && pm.XFTS)
@@ -574,8 +579,9 @@ void TMultiBase::CalculateConcentrations(double X[], double XF[],
     j = i;
   } // k
 
-  // Modernized/site-balance SCM: compute dissolved-equivalent molalities and mass concentrations
-  // for site IComps (IC_ADDIT = 'a' and IC_SSITE = 's') that were accumulated from sorption phases
+  // Modernized/site-balance SCM: compute dissolved-equivalent molalities and
+  // mass concentrations for site IComps (IC_ADDIT = 'a' and IC_SSITE = 's')
+  // that were accumulated from sorption phases
   if (pm.LO && pm.FWGT[0] >= pa_p->DB) {
     for (ii = 0; ii < pm.NR; ii++) {
       if (!inAquel[ii] && (pm.ICC[ii] == IC_ADDIT || pm.ICC[ii] == IC_SSITE)) {
@@ -642,7 +648,8 @@ void TMultiBase::IS_EtaCalc() {
     if (pm.FIa > 0 && (pm.PHC[k] == PH_POLYEL || pm.PHC[k] == PH_SORPTION ||
                        pm.PHC[k] == PH_ADSSBEIL)) {
       // ka = k - (pm.FIs-pm.FIa);
-      if (ka >= 0 && ka < pm.FIa && pm.XetaA && pm.XetaB && pm.XetaC && pm.XetaD) {
+      if (ka >= 0 && ka < pm.FIa && pm.XetaA && pm.XetaB && pm.XetaC &&
+          pm.XetaD) {
         for (ist = 0; ist < MNST; ist++) { // Replaced pm.FIat with MNST
           pm.XetaA[ka][ist] = 0.0;         // plane charges in eq (moles)
           pm.XetaB[ka][ist] = 0.0;
@@ -683,7 +690,8 @@ void TMultiBase::IS_EtaCalc() {
                                    eil_model == SC_DDL || eil_model == SC_CCM ||
                                    eil_model == SC_TCE);
           if (!is_electrostatic)
-            continue; // For SC_NEM or unused, permanent charge is kept in XfIEC and not added to XetaA
+            continue; // For SC_NEM or unused, permanent charge is kept in XfIEC
+                      // and not added to XetaA
 
           etaA = 0.0; // Units of etaA, etaB, ... in moles (eq)
           if (fabs(pm.XfIEC[ka][ist][FSIT_S_CAPACITY]) > pm.DHBM) {
@@ -697,7 +705,8 @@ void TMultiBase::IS_EtaCalc() {
                       pm.Aalp[k] * 1e-18 *
                       pm.MASDT[ka][ist][MSDT_FSUTSA]; // fraction of this stype
           }
-          pm.XetaA[ka][ist] += etaA; // Add moles of permanent charge to A-plane on electrostatic surface type
+          pm.XetaA[ka][ist] += etaA; // Add moles of permanent charge to A-plane
+                                     // on electrostatic surface type
         }
       }
       break;
@@ -732,7 +741,8 @@ void TMultiBase::IS_EtaCalc() {
       case DC_SCM_SPECIES:
       case DC_IESC_A:
       case DC_IEWC_B:
-        if (ka >= 0 && ka < pm.FIa && ja >= 0 && ja < pm.Lads && pm.SATX && pm.XetaA && pm.XetaB && pm.XetaC) {
+        if (ka >= 0 && ka < pm.FIa && ja >= 0 && ja < pm.Lads && pm.SATX &&
+            pm.XetaA && pm.XetaB && pm.XetaC) {
           //  SCM Modernization: charges from mCDc[ja][0..1]
           CDA = pm.mCDc ? pm.mCDc[ja][CHARGE_ON_A]
                         : 0.0; // species charge that goes into 0 plane
@@ -763,7 +773,8 @@ void TMultiBase::IS_EtaCalc() {
     // Charge balance for d-plane on all surface types
     if (pm.FIa > 0 && (pm.PHC[k] == PH_POLYEL || pm.PHC[k] == PH_SORPTION ||
                        pm.PHC[k] == PH_ADSSBEIL)) {
-      if (ka >= 0 && ka < pm.FIa && pm.XetaD && pm.XetaA && pm.XetaB && pm.XetaC) {
+      if (ka >= 0 && ka < pm.FIa && pm.XetaD && pm.XetaA && pm.XetaB &&
+          pm.XetaC) {
         for (ist = 0; ist < MNST; ist++) {
           pm.XetaD[ka][ist] =
               0.0 - pm.XetaA[ka][ist] - pm.XetaB[ka][ist] - pm.XetaC[ka][ist];
@@ -800,9 +811,10 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
     return status;          // no sorbent or sorbed component amounts
 
   ka = k - (pm.FIs - pm.FIa);
-  if (ka < 0 || ka >= pm.FIa || !pm.SCMC || !pm.MASDT || !pm.XetaA || !pm.XetaB ||
-      !pm.XetaC || !pm.XetaD || !pm.XpsiA || !pm.XpsiB || !pm.XpsiC || !pm.XpsiD ||
-      !pm.XpsiZ || !pm.XcapA || !pm.XcapB || !pm.XcapC || !pm.XcapD || !pm.XcapZ)
+  if (ka < 0 || ka >= pm.FIa || !pm.SCMC || !pm.MASDT || !pm.XetaA ||
+      !pm.XetaB || !pm.XetaC || !pm.XetaD || !pm.XpsiA || !pm.XpsiB ||
+      !pm.XpsiC || !pm.XpsiD || !pm.XpsiZ || !pm.XcapA || !pm.XcapB ||
+      !pm.XcapC || !pm.XcapD || !pm.XcapZ)
     return status; // not a sorption phase or arrays not allocated
 
   // newly implemented for the sorbent mass, both with or without site balances
@@ -920,14 +932,22 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
     // phase and surface type
     // Physical bracketing of EDL plane potentials (V)
     const double MAX_PSI = 0.40; // Max physical EDL potential: 400 mV
-    if (emr.psi0 > MAX_PSI) emr.psi0 = MAX_PSI;
-    else if (emr.psi0 < -MAX_PSI) emr.psi0 = -MAX_PSI;
-    if (emr.psi1 > MAX_PSI) emr.psi1 = MAX_PSI;
-    else if (emr.psi1 < -MAX_PSI) emr.psi1 = -MAX_PSI;
-    if (emr.psi2 > MAX_PSI) emr.psi2 = MAX_PSI;
-    else if (emr.psi2 < -MAX_PSI) emr.psi2 = -MAX_PSI;
-    if (emr.psid > MAX_PSI) emr.psid = MAX_PSI;
-    else if (emr.psid < -MAX_PSI) emr.psid = -MAX_PSI;
+    if (emr.psi0 > MAX_PSI)
+      emr.psi0 = MAX_PSI;
+    else if (emr.psi0 < -MAX_PSI)
+      emr.psi0 = -MAX_PSI;
+    if (emr.psi1 > MAX_PSI)
+      emr.psi1 = MAX_PSI;
+    else if (emr.psi1 < -MAX_PSI)
+      emr.psi1 = -MAX_PSI;
+    if (emr.psi2 > MAX_PSI)
+      emr.psi2 = MAX_PSI;
+    else if (emr.psi2 < -MAX_PSI)
+      emr.psi2 = -MAX_PSI;
+    if (emr.psid > MAX_PSI)
+      emr.psid = MAX_PSI;
+    else if (emr.psid < -MAX_PSI)
+      emr.psid = -MAX_PSI;
 
     pm.XpsiA[ka][ist] = emr.psi0;
     pm.XpsiB[ka][ist] = emr.psi1;
@@ -945,351 +965,12 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
         (emr.dlth > 0.0)
             ? emr.dlth
             : (debye_m * 1e9); // Eff. thickness of diffuse layer (nm)
-    pm.XdlZ[ka][ist] =
-        x_slip * 1e9; // Effective thickness of 0-slipplane layer, nm
+    if (pm.XdlZ)
+      pm.XdlZ[ka][ist] =
+          x_slip * 1e9; // Effective thickness of 0-slipplane layer, nm
   } // ist   end of loop over surface types
   return status;
 }
-/*
-  SigA = 0.;
-  SigB = 0.;
-  SigD = 0.;
-  SigDDL = 0.; // Cleanup 07.12.2009 DK
-  pm.XcapD[k][ist] = 0.0;
-  pm.XpsiD[k][ist] = 0.0;
-  if (fabs(XetaA[ist]) < pm.DHBM && // pm.lowPosNum*1e6 &&
-      fabs(XetaB[ist]) < pm.DHBM && // pm.lowPosNum*1e6 &&
-      fabs(XetaD[ist]) < pm.DHBM)   // pm.lowPosNum*1e6 )
-    goto GEMU_CALC;                 // skipping at near-zero charge
-  // calculating charge density at diffuse layer
-  switch (pm.SCMC[k][ist][0]) {
-  case SC_CCM:   // Constant-Capacitance Model Schindler, extension Nilsson
-  case SC_ISCCM: // 2026 SC_ISCCM uses dependcy of capacity with IS C =
-                 // sqrt(IS)/alpha, alpha is given instead of capacity
-    SigA = pm.XfIEC[k][ist][0] + XetaA[ist];
-    SigDDL = -SigA - XetaB[ist];
-    SigB = XetaB[ist];
-    break;
-  case SC_DDLM: // Generalized Double Layer Model [Dzombak and Morel, 1990]
-    SigA = pm.XfIEC[k][ist][0] + XetaA[ist];
-    SigDDL = -SigA;
-    SigB = 0.0;
-    break;
-  case SC_TLM: // Triple-Layer Model [Hayes and Leckie, 1987]
-    SigA = pm.XfIEC[k][ist][0] + XetaA[ist];
-    SigB = XetaB[ist];
-    SigDDL = -SigA - XetaB[ist];
-    break;
-  case SC_MTL: // Modified Triple-Layer Model [Robertson, 1997]
-    SigA = pm.XfIEC[k][ist][0] + XetaA[ist];
-    SigB = XetaB[ist];
-    SigDDL = -SigA - XetaB[ist];
-    break;
-  case SC_BSM: // Basic Stern model: [Christl and Kretzschmar, 1999]
-    SigA = pm.XfIEC[k][ist][0] + XetaA[ist];
-    SigB = XetaB[ist];
-    SigDDL = -SigA - XetaB[ist];
-    break;
-  case SC_3LM: // Three-layer model: Hiemstra ea 1996; Tadanier & Eick 2002
-    SigA = pm.XfIEC[k][ist][0] + XetaA[ist];
-    SigB = XetaB[ist];
-    SigD = XetaD[ist];
-    SigDDL = -SigA - SigB - SigD;
-    break;
-  case SC_MXC: // BSM for Ion-Exchange on permanent-charge surface
-    SigA = pm.XfIEC[k][ist][0] + XetaA[ist];
-    SigB = XetaB[ist];
-    SigDDL = -SigA - XetaB[ist];
-    break;
-  case SC_NNE: // Non-Electrostatic
-    break;
-  default:
-    continue;
-  }
-  //        if( fabs( SigD ) > 1 )
-  //        {
-  //           ipm_logger->debug("EDL charge density D {} truncated to +- 1
-  //           C/m2  IT={} k= {} ist= {}", SigD, pm.IT, k, ist); SigD = SigD <
-  //           0.0 ? -1.0: 1.0;
-  //        }
-  // Gouy-Chapman equation
-  // parameters of diffuse layer using [Damaskin, 1987,p.192-195]
-  A = 1e-9;
-  F2RT = pm.FRT / 2.;
-  Sig = SigDDL; //  - XetaW[ist] ;
-  I = pm.IC;
-  Zeff = pm.Zeff;
-  rhoW = pm.denW[0];
-  epsW = pm.epsW[0];
-  if (I > 1e-7)
-  // Aq solution density Ro included acc. to [Machesky ea., 1999]
-  // Only for the basic Stern model for now
-  {
-    double Ro = 1.0;
-    if (pm.SCMC[k][ist][0] == SC_BSM && pm.FVOL[0] > 1e-16)
-      Ro = pm.FWGT[0] / pm.FVOL[0];
-    A = sqrt(2000. * 8.854e-12 * pm.epsW[0] * pm.RT * I * Ro);
-  }
-  Cap = F2RT * sqrt(4. * A * A + Sig * Sig);
-
-  // SD: workaround because of problems with log argument
-  f3 = sqrt(1. + Sig * Sig / (4. * A * A)) - Sig / (2. * A);
-  if (f3 < 1) {
-    f1 = exp(-3. * F2RT);
-    if (f3 < f1)
-      f3 = f1;
-  } else {
-    f1 = exp(3. * F2RT);
-    if (f3 > f1)
-      f3 = f1;
-  }
-  ipm_logger->trace(" f1={} f2={}", f1, f3);
-  PSIo = log(f3) / F2RT;
-  //          PSIo = log( sqrt( 1.+Sig*Sig/(4.*A*A) ) - Sig/(2.*A) ) / F2RT;
-  //          Cap0 = fabs(Sig/PSIo);
-  //          Del = A*1e9/(2.*I*F)/cosh(PSIo*F2RT);
-  //          pm.XdlD[k] = Del;
-  pm.XcapD[k][ist] = Cap;
-  pm.XpsiD[k][ist] = PSIo;
-  PsiD = PSIo;
-  // Truncating diffuse plane potential to avoid divergence
-  if (fabs(PsiD) > 0.4) {
-    ipm_logger->debug(
-        "All EIL models: PsiD ={} truncated to +- 0.4 V IT={} k= {} ist= {}",
-        PsiD, pm.IT, k, ist);
-    PsiD = PsiD < 0 ? -0.4 : 0.4;
-    status = 63;
-  }
-GEMU_CALC: // calculating potentials at EIL planes
-  switch (pm.SCMC[k][ist][SCMC_EILM_CODE]) {
-  case SC_NEM: // Non-electrostatic, charge densities on zero plane
-               // calculated, but potentials and Coulomb terms are zeros
-    break;
-  case SC_4LM: // Four-layer model
-    break;
-  case SC_3LM: // Three-layer EIL model for CD-MUSIC
-  case SC_TLM: // Triple-layer model
-    break;
-  case SC_BSM: // Basic Stern model
-    break;
-  case SC_CCM: // Constant-capacitance model
-    break;
-  case SC_DDL: // Double-layer model
-    break;
-  default:
-    break;
-  }
-  // calculating potentials at EIL planes
-  switch (pm.SCMC[k][ist][0]) {
-  case SC_DDLM: // Generalized Double Layer Model [Dzombak & Morel 1990]
-    pm.XpsiA[k][ist] = PsiD;
-    pm.XpsiB[k][ist] = PsiD;
-    break;
-  case SC_CCM:   // Constant-Capacitance Model Schindler, ext. Nilsson
-  case SC_ISCCM: // 2026 SC_ISCCM uses dependcy of capacity with IS C =
-                 // sqrt(IS)/alpha, alpha is given instead of capacity
-    if (pm.XcapA[k][ist] >
-        0.0) { // Classic CCM Schindler with inner-sphere species only
-      if (pm.SCMC[k][ist][0] == SC_ISCCM)
-        PsiA = SigA / (sqrt(I) / pm.XcapA[k][ist]);
-      else
-        PsiA = SigA / pm.XcapA[k][ist];
-      if (fabs(PsiA) > 0.7) // truncated 0-plane potential
-      {
-        PsiA = PsiA < 0 ? -0.7 : 0.7;
-        status = 64;
-      }
-      pm.XpsiA[k][ist] = PsiA;
-    }
-    if (pm.XcapB[k][ist] <
-        0.001) { // Extended CCM model [Nilsson ea 1996] as TLM with PsiD = 0
-      if (approximatelyZero(pm.XcapB[k][ist])) {
-        PsiB = 0.0; //-SigB<0? -0.3: 0.3;
-        ipm_logger->debug("Extended CCM model XcapB = {} IT={} k= {} ist= {}",
-                          pm.XcapB[k][ist], pm.IT, k, ist);
-      } else {
-        if (pm.SCMC[k][ist][0] == SC_ISCCM)
-          PsiB = -SigB / (sqrt(I) / pm.XcapB[k][ist]);
-        else
-          PsiB = -SigB / pm.XcapB[k][ist];
-      }
-      if (fabs(PsiB) > 0.3) // truncated B-plane potential
-      {
-        PsiB = PsiB < 0 ? -0.3 : 0.3;
-        status = 65;
-      }
-      if (approximatelyZero(pm.XcapA[k][ist])) {
-        PsiA = 0.0; // SigA<0? -0.7: 0.7;
-        ipm_logger->debug("Extended CCM model XcapA = {} IT={} k= {} ist= {}",
-                          pm.XcapA[k][ist], pm.IT, k, ist);
-      } else {
-        if (pm.SCMC[k][ist][0] == SC_ISCCM)
-          PsiA = PsiB + SigA / (sqrt(I) / pm.XcapA[k][ist]);
-        else
-          PsiA = PsiB + SigA / pm.XcapA[k][ist];
-      }
-      if (fabs(PsiA) > 0.7) {
-        PsiA = PsiA < 0 ? -0.7 : 0.7;
-        status = 66;
-      }
-      pm.XpsiA[k][ist] = PsiA;
-      pm.XpsiB[k][ist] = PsiB;
-    }
-    break;
-  case SC_MTL: // Modified Triple Layer Model for X- Robertson | Kulik
-               // PsiD = 0.0; // test
-    if (approximatelyZero(pm.XcapB[k][ist])) {
-      PsiB = 0.0; // SigB<0 ? -0.6: 0.6;
-      ipm_logger->debug(
-          "Modified Triple Layer Model XcapB = {} IT={} k= {} ist= {}",
-          pm.XcapB[k][ist], pm.IT, k, ist);
-    } else {
-      PsiB = PsiD - SigDDL / pm.XcapB[k][ist];
-    }
-    if (fabs(PsiB) > 0.6) // truncated B-plane potential
-    {
-      ipm_logger->debug(
-          "EIL (MTL) PsiB = {} truncated to +- 0.6 V IT={} k= {} ist= {}",
-PsiB, pm.IT, k, ist); PsiB = PsiB < 0 ? -0.6 : 0.6; status = 67;
-    }
-    if (approximatelyZero(pm.XcapA[k][ist])) {
-      PsiA = 0.0; // SigA<0? -1.1: 1.1;
-      ipm_logger->debug(
-          "Modified Triple Layer Model XcapA = {} IT={} k= {} ist= {}",
-          pm.XcapA[k][ist], pm.IT, k, ist);
-    } else {
-      PsiA = PsiB + SigA / pm.XcapA[k][ist];
-    }
-    if (fabs(PsiA) > 1.1) // truncated 0 plane potential
-    {
-      ipm_logger->debug(
-          "EIL (MTL) PsiA ={} truncated to +- 1.1 V IT={} k= {} ist= {}",
-PsiA, pm.IT, k, ist); PsiA = PsiA < 0 ? -1.1 : 1.1; status = 68;
-    }
-    pm.XpsiA[k][ist] = PsiA;
-    pm.XpsiB[k][ist] = PsiB;
-    break;
-  case SC_TLM: // Triple-Layer Model   [Hayes 1987]
-    if (approximatelyZero(pm.XcapB[k][ist])) {
-      PsiB = 0.0; // SigB<0 ? -0.6: 0.6;
-      ipm_logger->debug("Triple-Layer Model XcapB = {} IT={} k= {} ist= {}",
-                        pm.XcapB[k][ist], pm.IT, k, ist);
-    } else {
-      PsiB = PsiD - SigDDL / pm.XcapB[k][ist];
-    }
-    if (fabs(PsiB) > 0.6) // // truncated B-plane potential
-    {
-      ipm_logger->debug(
-          "EIL (TLM) PsiB ={} truncated to +- 0.6 V IT={} k= {} ist= {}",
-PsiB, pm.IT, k, ist); PsiB = PsiB < 0 ? -0.6 : 0.6; status = 69;
-    }
-    if (approximatelyZero(pm.XcapA[k][ist])) {
-      PsiA = 0.0; // SigA<0? -1.1: 1.1;
-      ipm_logger->debug("Triple-Layer Model XcapA = {} IT={} k= {} ist= {}",
-                        pm.XcapA[k][ist], pm.IT, k, ist);
-    } else {
-      PsiA = PsiB + SigA / pm.XcapA[k][ist];
-    }
-    if (fabs(PsiA) > 1.1) // truncated 0-plane potential
-    {
-      ipm_logger->debug(
-          "EIL (TLM) PsiA ={} truncated to +- 1.1 V IT={} k= {} ist= {}",
-PsiA, pm.IT, k, ist); PsiA = PsiA < 0 ? -1.1 : 1.1; status = 70;
-    }
-    pm.XpsiA[k][ist] = PsiA;
-    pm.XpsiB[k][ist] = PsiB;
-    break;
-  case SC_3LM: // Three-Layer Model [Hiemstra & van Riemsdijk 1996]
-               //            PsiB = PsiD + SigD / pm.XcapB[k][ist];
-    ipm_logger->debug("EIL (3LM) PsiB(D) ={} IT={} k= {} ist= {}", PsiB,
-pm.IT, k, ist); if (approximatelyZero(pm.XcapB[k][ist])) { PsiB = 0.0; //
-SigA<0 ? -0.6: 0.6; ipm_logger->debug("Three-Layer Model XcapB = {} IT={} k=
-{} ist= {}", pm.XcapB[k][ist], pm.IT, k, ist); } else { PsiB = PsiD + (SigA +
-SigB) / pm.XcapB[k][ist]; // Compare!
-    }
-    ipm_logger->debug("EIL (3LM) PsiB(AB) ={} IT={} k= {} ist= {}", PsiB,
-pm.IT, k, ist); if (fabs(PsiB) > 0.6) // truncated B-plane potential
-    {
-      ipm_logger->debug(
-          "EIL (3LM) PsiB ={} truncated to +- 0.6 V IT={} k= {} ist= {}",
-PsiB, pm.IT, k, ist); PsiB = PsiB < 0 ? -0.6 : 0.6; status = 71;
-    }
-    if (approximatelyZero(pm.XcapA[k][ist])) {
-      PsiA = 0.0; // SigA<0? -1.1: 1.1;
-      ipm_logger->debug("Three-Layer Model XcapA = {} IT={} k= {} ist= {}",
-                        pm.XcapA[k][ist], pm.IT, k, ist);
-    } else {
-      PsiA = PsiB + SigA / pm.XcapA[k][ist];
-    }
-    if (fabs(PsiA) > 1.1) // truncated 0-plane potential
-    {
-      ipm_logger->debug(
-          "EIL (3LM) PsiA ={} truncated to +- 1.1 V IT={} k= {} ist= {}",
-PsiA, pm.IT, k, ist); PsiA = PsiA < 0 ? -1.1 : 1.1; status = 72;
-    }
-    pm.XpsiA[k][ist] = PsiA;
-    pm.XpsiB[k][ist] = PsiB;
-    break;
-  case SC_BSM: // Basic Stern model, Christl & Kretzschmar, 1999
-    PsiB = PsiD;
-    if (fabs(PsiB) > 0.6) // truncated B-plane potential
-    {
-      ipm_logger->debug(
-          "EIL (BSM) PsiB ={} truncated to +- 0.6 V IT={} k= {} ist= {}",
-PsiB, pm.IT, k, ist); PsiB = PsiB < 0 ? -0.6 : 0.6; status = 73;
-    }
-    if (approximatelyZero(pm.XcapA[k][ist])) {
-      PsiA = 0.0; // SigA<0? -1.1: 1.1;
-      ipm_logger->debug("Basic Stern model XcapA = {} IT={} k= {} ist= {}",
-                        pm.XcapA[k][ist], pm.IT, k, ist);
-    } else {
-      PsiA = PsiB + SigA / pm.XcapA[k][ist];
-    }
-    if (fabs(PsiA) > 1.1) // truncated 0-plane potential
-    {
-      ipm_logger->debug(
-          "EIL (BSM) PsiA ={} truncated to +- 1.1 V IT={} k= {} ist= {}",
-PsiA, pm.IT, k, ist); PsiA = PsiA < 0 ? -1.1 : 1.1; status = 74;
-    }
-    pm.XpsiA[k][ist] = PsiA;
-    pm.XpsiB[k][ist] = PsiB;
-    break;
-  case SC_MXC: // BSM for permanent charge surfaces
-    PsiB = PsiD;
-    if (fabs(PsiB) > 0.6) // truncated B-plane potential
-    {
-      ipm_logger->debug(
-          "EIL (MXC) PsiB ={} truncated to +- 0.6 V IT={} k= {} ist= {}",
-PsiB, pm.IT, k, ist); PsiB = PsiB < 0 ? -0.6 : 0.6; status = 75;
-    }
-    if (approximatelyZero(pm.XcapA[k][ist])) {
-      PsiA = 0.0; // SigA<0? -1.1: 1.1;
-      ipm_logger->debug(
-          "BSM for permanent charge surfaces XcapA = {} IT={} k= {} ist= {}",
-          pm.XcapA[k][ist], pm.IT, k, ist);
-    } else {
-      PsiA = PsiB + SigA / pm.XcapA[k][ist];
-    }
-    if (fabs(PsiA) > 1.1) // truncated 0-plane potential
-    {
-      ipm_logger->debug(
-          "EIL (MXC) PsiA ={} truncated to +- 1.1 V IT={} k= {} ist= {}",
-PsiA, pm.IT, k, ist); PsiA = PsiA < 0 ? -1.1 : 1.1; status = 76;
-    }
-    pm.XpsiA[k][ist] = PsiA;
-    pm.XpsiB[k][ist] = PsiB;
-    break;
-  case SC_NNE: // Non-Electrostatic
-    pm.XpsiA[k][ist] = 0.0;
-    pm.XpsiB[k][ist] = 0.0;
-    break;
-  default:
-    break;
-  }
-*/
-// } // ist   end of loop over surface types
-// return status;
-// }
 
 // Added on 18.10.2026  by DK in ClaySorEl project
 // Dynamic relative permittivity of water via Malmberg & Maryott (1956)
@@ -1675,24 +1356,26 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
   // SACTS only apply for sorption phases without site balances [so far]
   if (pm.XF[k] <= pm.DSM) // No sorption phase retained by the IPM
     return status;
-  if (pm.PHC[k] != PH_ADSSBEIL && pm.XFA[k] <= pm.DSM) // no amount of sorbent remains
+  if (pm.PHC[k] != PH_ADSSBEIL &&
+      pm.XFA[k] <= pm.DSM) // no amount of sorbent remains
     return status;
 
   XVk = (pm.PHC[k] == PH_ADSSBEIL) ? pm.XF[k] : pm.XFA[k];
-  Mm = (XVk > pm.DSM) ? (pm.FWGTS[k] / XVk) : 1.0; // molar mass of the sorbent as a whole
+  Mm = (XVk > pm.DSM) ? (pm.FWGTS[k] / XVk)
+                      : 1.0;  // molar mass of the sorbent as a whole
   ka = k - (pm.FIs - pm.FIa); // index for sorption arrays only
   // Initialization of work array: D[NSURFSITES][MNST]
   for (i = 0; i < MNST; i++) // SCM Modernization: loop over MNST surf patches
   {
     iSurf[i] = -1;
     for (ii = 0; ii < NSURFSITES; ii++) { // SCM Modernization: site types
-      pm.D[ii][i] = 0.0;       // matrix for sites totals in surface types
-      XFTS_site[ii][i] = 0.0;  // matrix for surf species totals on site types
-      iSite[ii] = -1;          // index for site type
-      sj[ii] = 0.0;            // moles of sites occupied on this site type
+      pm.D[ii][i] = 0.0;      // matrix for sites totals in surface types
+      XFTS_site[ii][i] = 0.0; // matrix for surf species totals on site types
+      iSite[ii] = -1;         // index for site type
+      sj[ii] = 0.0;           // moles of sites occupied on this site type
     }
     if (ka >= 0 && ka < pm.FIa && pm.XFTS)
-      pm.XFTS[ka][i] = 0.0;    // matrix for surf species totals in surface types
+      pm.XFTS[ka][i] = 0.0; // matrix for surf species totals in surface types
   }
   // Extraction of site indices for the neutral >OH group
   for (j = jb; j < je; j++) {
@@ -1730,17 +1413,20 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
         if (pm.XSMD[ja][iss] > 0 && pm.Nfsp[ka][iss][FSIT_S_DENSITY] > 0.0) {
           // SCM Modernization: D[NSURFSITES][MNST]
           pm.D[iss][ist] += pm.X[j] * pm.XSMD[ja][iss]; // adding to site totals
-          XFTS_site[iss][ist] += pm.X[j]; // adding to species moles totals on site
+          XFTS_site[iss][ist] +=
+              pm.X[j]; // adding to species moles totals on site
         }
       } else {
-        if (iss == pm.SATX[ja][XL_SI] && pm.Nfsp[ka][iss][FSIT_S_DENSITY] > 0.0) {
+        if (iss == pm.SATX[ja][XL_SI] &&
+            pm.Nfsp[ka][iss][FSIT_S_DENSITY] > 0.0) {
           pm.D[iss][ist] += pm.X[j];
           XFTS_site[iss][ist] += pm.X[j];
         }
       }
     }
     if (ka >= 0 && ka < pm.FIa && pm.XFTS)
-      pm.XFTS[ka][ist] += pm.X[j]; // adding to species moles totals on surface type ist
+      pm.XFTS[ka][ist] +=
+          pm.X[j]; // adding to species moles totals on surface type ist
   }
   for (j = jb; j < je; j++) { // Main loop for DCs - surface complexes
     lnGamjo = pm.lnGmo[j];    // bugfix 16.03.2008 DK
@@ -1771,22 +1457,26 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
       /// different site types [XL_SI] and index of farthest EIL plane [XL_SP]
       // Cj - index of carrier endmember (-1 - whole sorbent)
       Cj = pm.SATX[ja][XL_EM];
-      if (Cj < 0) {             // Assigned to the whole sorbent
-        XVk = (pm.PHC[k] == PH_ADSSBEIL) ? pm.XF[k] : pm.XFA[k];        // Amount of sorbent
-        Mm = (XVk > pm.DSM) ? (pm.FWGTS[k] / XVk) : 1.0; // molar mass of the sorbent as a whole
+      if (Cj < 0) { // Assigned to the whole sorbent
+        XVk = (pm.PHC[k] == PH_ADSSBEIL) ? pm.XF[k]
+                                         : pm.XFA[k]; // Amount of sorbent
+        Mm = (XVk > pm.DSM) ? (pm.FWGTS[k] / XVk)
+                            : 1.0; // molar mass of the sorbent as a whole
       } else { // Assigned to one of the sorbent end-members: TBD, does not work
         XVk = pm.X[Cj];
         if (XVk < pm.ScMinM) // pm.DSM*0.1 )
           continue;          // This end-member is zeroed off by IPM
         double xfak = (pm.PHC[k] == PH_ADSSBEIL) ? pm.XF[k] : pm.XFA[k];
-        Mm = (xfak > pm.DSM) ? (pm.MM[Cj] * XVk / xfak) : pm.MM[Cj]; // mol.mass (fracional?)
+        Mm = (xfak > pm.DSM) ? (pm.MM[Cj] * XVk / xfak)
+                             : pm.MM[Cj]; // mol.mass (fracional?)
       }
       xj = pm.X[j]; // Current moles of this surface species
       for (iss = 0; iss < NSURFSITES; iss++) {
         sj[iss] =
             xj * pm.XSMD[ja][iss]; // moles of sites under this surface species
         XSk[iss] =
-            XFTS_site[iss][ist]; // Total moles of sorbates on site & surface type
+            XFTS_site[iss]
+                     [ist]; // Total moles of sorbates on site & surface type
         XSs[iss] =
             pm.D[iss][ist]; // Total moles of occupied sites on site & surf type
         GamS[iss] = pm.Nfsp[ka][iss][FSIT_S_DENSITY];
@@ -1814,7 +1504,8 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
       double f_area_st =
           pm.MASDT[ka][ist][MSDT_FSUTSA]; // area fraction of this surface type
       if (f_area_st < 1e-6)
-        continue; // potentially severe error - null area fraction of surface type
+        continue; // potentially severe error - null area fraction of surface
+                  // type
       // double GamJ = xj / XVk / Mm / f_area_st * 1e6 / pm.Aalp[k] / 1.66054;
       //  this species surface density, 1/nm2
       GamJ = xj * 1e6 / (XVk * Mm * f_area_st * pm.Aalp[k]) / 1.66054;

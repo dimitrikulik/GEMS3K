@@ -294,6 +294,7 @@ void TMultiBase::set_def(int) {
   pm.XdlB = nullptr;
   pm.XdlC = nullptr;
   pm.XdlD = nullptr;
+  pm.XdlZ = nullptr;
   pm.XpsiA = nullptr;
   pm.XpsiB = nullptr;
   pm.XpsiC = nullptr;
@@ -379,6 +380,7 @@ void TMultiBase::set_def(int) {
   pm.SM2 = nullptr;
   pm.SM3 = nullptr;
   pm.SF2 = nullptr;
+  pm.SF3 = nullptr;
   pm.DCC3 = nullptr;
   pm.IPx = nullptr;
   pm.ITF = pm.ITG = 0;
@@ -637,6 +639,7 @@ void TMultiBase::to_file(GemDataStream &ff) {
     ff.writeArray((double *)pm.XdlB, pm.FIa * MNST);
     ff.writeArray((double *)pm.XdlC, pm.FIa * MNST);
     ff.writeArray((double *)pm.XdlD, pm.FIa * MNST);
+    ff.writeArray((double *)pm.XdlZ, pm.FIa * MNST);
     ff.writeArray((double *)pm.XpsiA, pm.FIa * MNST);
     ff.writeArray((double *)pm.XpsiB, pm.FIa * MNST);
     ff.writeArray((double *)pm.XpsiC, pm.FIa * MNST);
@@ -652,7 +655,9 @@ void TMultiBase::to_file(GemDataStream &ff) {
     ff.writeArray((long int *)pm.SATX, pm.Lads * 4);
     ff.writeArray(pm.SATT, pm.Lads);
     ff.writeArray((double *)pm.MASDJ, pm.Lads * DNFCN);
-    if (pm.mCDc)
+    if (pm.Lads > 0 && pm.XSMD)
+      ff.writeArray((long int *)pm.XSMD, pm.Lads * NSURFSITES);
+    if (pm.Lads > 0 && pm.mCDc)
       ff.writeArray((double *)pm.mCDc, pm.Lads * DMCDC);
     ff.writeArray((double *)pm.lnSAC, pm.Lads * 4);
     ff.writeArray((char *)pm.SM3, MAXDCNAME * pm.Lads);
@@ -709,12 +714,14 @@ void TMultiBase::to_file(GemDataStream &ff) {
     long int IsoCtSum, IsoScSum;
     long int IsoPcSum, xSMdSum;
     getLsISmosum(IsoCtSum, IsoScSum, IsoPcSum, xSMdSum);
-    ff.writeArray((long int *)pm.XSMD, xSMdSum);
+    if (xSMdSum > 0)
+      ff.writeArray((long int *)pm.XSMD, xSMdSum);
     ff.writeArray(pm.IsoPc, IsoPcSum);
     ff.writeArray(pm.IsoSc, IsoScSum);
     ff.writeArray(pm.IsoCt, IsoCtSum);
     ff.writeArray(pm.EImc, EImcSum);
-    ff.writeArray((double *)pm.mCDc, mCDcSum);
+    if (mCDcSum > 0)
+      ff.writeArray((double *)pm.mCDc, mCDcSum);
 
     ff.writeArray(pm.FWGTS, pm.FIs);
     ff.writeArray(pm.lnSACT, pm.Ls);
@@ -908,6 +915,7 @@ void TMultiBase::from_file(GemDataStream &ff) {
     ff.readArray((double *)pm.XdlB, pm.FIa * MNST);
     ff.readArray((double *)pm.XdlC, pm.FIa * MNST);
     ff.readArray((double *)pm.XdlD, pm.FIa * MNST);
+    ff.readArray((double *)pm.XdlZ, pm.FIa * MNST);
     ff.readArray((double *)pm.XpsiA, pm.FIa * MNST);
     ff.readArray((double *)pm.XpsiB, pm.FIa * MNST);
     ff.readArray((double *)pm.XpsiC, pm.FIa * MNST);
@@ -923,7 +931,9 @@ void TMultiBase::from_file(GemDataStream &ff) {
     ff.readArray((long int *)pm.SATX, pm.Lads * 4);
     ff.readArray(pm.SATT, pm.Lads);
     ff.readArray((double *)pm.MASDJ, pm.Lads * DNFCN);
-    if (pm.mCDc)
+    if (pm.Lads > 0 && pm.XSMD)
+      ff.readArray((long int *)pm.XSMD, pm.Lads * NSURFSITES);
+    if (pm.Lads > 0 && pm.mCDc)
       ff.readArray((double *)pm.mCDc, pm.Lads * DMCDC);
     ff.readArray((double *)pm.lnSAC, pm.Lads * 4);
     ff.readArray((char *)pm.SM3, MAXDCNAME * pm.Lads);
@@ -994,19 +1004,23 @@ void TMultiBase::from_file(GemDataStream &ff) {
     long int IsoPcSum, xSMdSum;
     getLsISmosum(IsoCtSum, IsoScSum, IsoPcSum, xSMdSum);
 
-    alloc_XSMD(xSMdSum);
+    if (xSMdSum > 0) {
+      alloc_XSMD(xSMdSum);
+      ff.readArray((long int *)pm.XSMD, xSMdSum);
+    }
     alloc_IsoPc(IsoPcSum);
     alloc_IsoSc(IsoScSum);
     alloc_IsoCt(IsoCtSum);
     alloc_EImc(EImcSum);
-    alloc_mCDc(mCDcSum);
+    if (mCDcSum > 0) {
+      alloc_mCDc(mCDcSum);
+      ff.readArray((double *)pm.mCDc, mCDcSum);
+    }
 
-    ff.readArray((long int *)pm.XSMD, xSMdSum);
     ff.readArray(pm.IsoPc, IsoPcSum);
     ff.readArray(pm.IsoSc, IsoScSum);
     ff.readArray(pm.IsoCt, IsoCtSum);
     ff.readArray(pm.EImc, EImcSum);
-    ff.readArray((double *)pm.mCDc, mCDcSum);
 
     ff.readArray(pm.FWGTS, pm.FIs);
     ff.readArray(pm.lnSACT, pm.Ls);
@@ -1225,6 +1239,8 @@ void TMultiBase::to_text_file(const std::string &path, bool append) {
 
     prar.writeArray("SATC", &pm.SATX[0][0], pm.Lads * 4);
     prar.writeArray("MASDJ", &pm.MASDJ[0][0], pm.Lads * DNFCN);
+    if (pm.Lads > 0 && pm.XSMD)
+      prar.writeArray("XSMD", &pm.XSMD[0][0], pm.Lads * NSURFSITES);
     if (pm.mCDc)
       prar.writeArray("mCDc", &pm.mCDc[0][0], pm.Lads * DMCDC);
     prar.writeArray("lnSAC", &pm.lnSAC[0][0], pm.Lads * 4);
@@ -1278,7 +1294,8 @@ void TMultiBase::to_text_file(const std::string &path, bool append) {
     long int IsoPcSum, xSMdSum;
     getLsISmosum(IsoCtSum, IsoScSum, IsoPcSum, xSMdSum);
     prar.writeArray("LsISmo", pm.LsISmo, pm.FIs * 4);
-    prar.writeArray("XSMD", (long int *)pm.XSMD, xSMdSum);
+    if (xSMdSum > 0)
+      prar.writeArray("XSMD", (long int *)pm.XSMD, xSMdSum);
     prar.writeArray("IsoPc", pm.IsoPc, IsoPcSum);
     prar.writeArray("IsoSc", pm.IsoSc, IsoScSum);
     prar.writeArray("IsoCt", pm.IsoCt, IsoCtSum, 1L);
@@ -1286,7 +1303,8 @@ void TMultiBase::to_text_file(const std::string &path, bool append) {
     getLsESmosum(EImcSum, mCDcSum);
     prar.writeArray("LsESmo", pm.LsESmo, pm.FIs * 4);
     prar.writeArray("EImc", pm.EImc, EImcSum);
-    prar.writeArray("mCDc", (double *)pm.mCDc, mCDcSum);
+    if (mCDcSum > 0)
+      prar.writeArray("mCDc", (double *)pm.mCDc, mCDcSum);
 
     prar.writeArray("FWGTS", pm.FWGTS, pm.FIs);
     prar.writeArray("lnSACT", pm.lnSACT, pm.Ls);

@@ -353,7 +353,11 @@ void TActivity::CalculateConcentrationsInPhase(double X[], double XF[],
       break; // error in DC class code
     };
   } // j
-  act.Zeff = sqrt(act.Zeff / (2.0 * act.IC));
+  if (act.PHC[k] == PH_AQUEL) {
+    act.Zeff = (act.IC > 0.0 && act.Zeff > 0.0)
+                   ? sqrt(act.Zeff / (2.0 * act.IC))
+                   : 1.0;
+  }
   // Effective aq valency z_eff = sqrt(sum(c_i * z_i^4) / sum(c_i * z_i^2))
 }
 
@@ -945,6 +949,9 @@ long int TActivity::GouyChapman(long int, long int, long int k) {
         emr.sld0d; // Eff. thickness of Stern layer (0 to 3-plane or d-plane)
     act.XdlD[ka][ist] =
         (emr.dlth > 0.0) ? emr.dlth : (debye_m * 1e9); // Eff. thickness of diffuse layer (nm)
+    if (act.XdlZ)
+      act.XdlZ[ka][ist] =
+          x_slip * 1e9; // Effective thickness of 0-slipplane layer, nm
   } // ist   end of loop over surface types
 
   return status;

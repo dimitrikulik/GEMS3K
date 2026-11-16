@@ -438,34 +438,33 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
   double (*Xr0h0)[2]; ///< mean r & h of particles (- pores), nm  [0:FI-1][2],
                       ///< reserved
   // Tier 2: Surface site types [NSURFSITES=8]
-  double (*Nfsp)[NSURFSITES]
-                [NFSIT]; ///< SCM Modernization: Site densities, capacities, and
-                         ///< surface patch index [FIa][NSURFSITES=8][NFSIT=4]
+  double (*Nfsp)[NSURFSITES][NFSIT];
+  ///< SCM Modernization: Site densities [FIa][NSURFSITES=8][NFSIT=4]
   // Tier 1: Surface types / patches [MNST=4]
   double (*MASDT)[MNST][NMSDT]; ///< SCM Modernization: Area fraction and patch
                                 ///< isotherm parameters [FIa][MNST=4][NMSDT=4]
   double (
-      *XcapA)[MNST]; ///< Capacitance density of 0 EDL layer, F/m2 [FIa][FIat]
+      *XcapA)[MNST]; ///< Capacitance density of 0 EIL layer, F/m2 [FIa][FIat]
   double (
-      *XcapB)[MNST]; ///< Capacitance density of B EDL layer, F/m2 [FIa][FIat]
+      *XcapB)[MNST]; ///< Capacitance density of B EIL layer, F/m2 [FIa][FIat]
   double (
-      *XcapC)[MNST]; ///< Capacitance density of Ba EDL layer F/m2 [FIa][FIat]
+      *XcapC)[MNST]; ///< Capacitance density of C EIL layer F/m2 [FIa][FIat]
   double (*XcapZ)[MNST]; ///< Location of slip plane for zeta potential
                          ///< (fraction of Debye length) [FIa][FIat]
   double (
       *XcapD)[MNST]; ///< Eff. cap. density of diffuse layer, F/m2 [FIa][FIat]
-  double (*XdlA)[MNST]; ///< Effective thickness of 0-1 A EDL layer, nm
+  double (*XdlA)[MNST]; ///< Effective thickness of 0-1 A EIL layer, nm
                         ///< [FIa][FIat], tbd
-  double (*XdlB)[MNST]; ///< Effective thickness of 0-2 B EDL layer, nm
+  double (*XdlB)[MNST]; ///< Effective thickness of 0-2 B EIL layer, nm
                         ///< [FIa][FIat], tbd
-  double (*XdlC)[MNST]; ///< Effective thickness of 0-d C EDL layer, nm
+  double (*XdlC)[MNST]; ///< Effective thickness of 0-d C EIL layer, nm
                         ///< [FIa][FIat], tbd
   double (*XdlD)[MNST]; ///< Effective thickness of diffuse layer, nm
                         ///< [FIa][FIat], tbd
   double (*XdlZ)[MNST]; ///< Effective thickness of 0-slipplane layer, nm
                         ///< [FIa][FIat], tbd
   double (
-      *XlamA)[MNST]; ///< Factor of EDL discretness  A < 1 [FIa][MNST], reserved
+      *XlamA)[MNST]; ///< Factor of EIL discretness  A < 1 [FIa][MNST], reserved
   double (*XfIEC)[MNST]
                  [NCIEC]; ///< SCM Modernization: Fixed permanent charge density
                           ///< in 1/nm2 and IEC in eq/kg [FIa][MNST=4][NCIEC=2]
@@ -554,8 +553,8 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
   double *FWGTS; ///< new: Mass (g) of implicit sorbent in site-balance-based
                  ///< SCMs [FIs] // was FWGTS unused: Surface/volume SACTs [Ls_]
   double *lnSACT;  ///< new: ln isotherm-specific SACT for surface species [Ls_]
-  double *lnGammF; ///< new: Frumkin or BET non-electrostatic activity
-                   ///< coefficients [Ls_]
+  double *lnGammF; ///< new: FFG or BET non-electrostatic activity coefficients
+                   ///< [Ls_]
   double *CTerms;  ///< new: Coulomb terms for DCs (electrostatic activity
                    ///< coefficients) [Ls_]
   double
@@ -592,12 +591,12 @@ ndh,    /// TW new: number of generic DH coefficients (rows in dhc array)
   double (*XetaB)[MNST]; ///< Total charge on B (1) EIL plane, mol [FIa][FIat]
   double (*XetaC)[MNST]; ///< New Total charge on C (2, gamma) EIL plane,
                          ///< mol [FIa][FIat]
-  double (*XetaD)[MNST]; ///< Total charge on D (3) EDL plane, mol [FIa][FIat]
+  double (*XetaD)[MNST]; ///< Total charge on D (3) EIL plane, mol [FIa][FIat]
   double (
-      *XpsiA)[MNST]; ///< Relative potential at A (0) EDL plane,V [FIa][FIat]
-  double (*XpsiB)[MNST]; ///< Relative potential at B (1, beta) EDL plane,V
+      *XpsiA)[MNST]; ///< Relative potential at A (0) EIL plane,V [FIa][FIat]
+  double (*XpsiB)[MNST]; ///< Relative potential at B (1, beta) EIL plane,V
                          ///< [FIa][FIat]
-  double (*XpsiC)[MNST]; ///< New Relative potential at C (2, gamma) EDL plane,V
+  double (*XpsiC)[MNST]; ///< New Relative potential at C (2, gamma) EIL plane,V
                          ///< [FIa][FIat]
   double (*XpsiD)[MNST]; ///< Relative potential at D (2) plane,V [FIa][FIat]
   double (*XpsiZ)[MNST]; ///< New Zeta potential at slip plane,V [FIa][FIat]
@@ -747,7 +746,7 @@ struct EILModelResult {
   double sigma0{0.0}, sigma1{0.0}, sigma2{0.0}, sigmad{0.0},
       sigmanet{0.0}; // Plane charges (C/m²): '0', '1', '2', 'd', 'net'
   double psi0{0.0}, psi1{0.0}, psi2{0.0},
-      psid{0.0}; // Plane Potentials (V): '0', '1', '2', 'd'
+      psid{0.0};     // Plane Potentials (V): '0', '1', '2', 'd'
   double zeta{0.0};  // Electrokinetic Zeta potential (V)
   double cap_d{0.0}; // Capacitance of diffuse layer (F/m2)?
   double sld01{0.0}, sld02{0.0}, sld0d{0.0},

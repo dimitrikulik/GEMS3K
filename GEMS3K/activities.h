@@ -314,6 +314,8 @@ typedef struct /// ACTIVITY - data structure for computing DC activities in
                          ///< [FIs][FIat], tbd
   double (*XdlD)[MNST];  ///< Effective thickness of diffuse layer, nm
                          ///< [FIs][FIat], tbd
+  double (*XdlZ)[MNST];  ///< Effective thickness of 0-slipplane layer, nm
+                         ///< [FIs][FIat]
   double (*XFTS)[MNST]; ///< Total number of moles of surface DC at surface type
                         ///< [FIs][FIat]
                         // Tier 2: Surface site types [NSURFSITES=8]

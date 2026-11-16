@@ -12,3 +12,13 @@ target_compile_definitions(
 )
 
 add_test(NAME pstall_default_reset COMMAND pstall_default_test)
+
+add_executable(sorption_api_test sorption_api_test.cpp)
+
+if(TARGET GEMS3K-static)
+    target_link_libraries(sorption_api_test PRIVATE GEMS3K-static)
+else()
+    target_link_libraries(sorption_api_test PRIVATE GEMS3K)
+endif()
+
+add_test(NAME sorption_api_test COMMAND sorption_api_test)

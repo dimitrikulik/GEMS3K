@@ -142,6 +142,8 @@ void TMultiBase::alloc_lPhc(long int lPhcSum) {
 }
 
 void TMultiBase::alloc_XSMD(long int xSMdSum) {
+  if (xSMdSum <= 0)
+    return;
   if (pm.XSMD)
     delete[] pm.XSMD;
   pm.XSMD = (long int (*)[NSURFSITES])(new long int[xSMdSum]);
@@ -172,6 +174,8 @@ void TMultiBase::alloc_EImc(long int EImcSum) {
 }
 
 void TMultiBase::alloc_mCDc(long int mCDcSum) {
+  if (mCDcSum <= 0)
+    return;
   if (pm.mCDc)
     delete[] pm.mCDc;
   pm.mCDc = (double (*)[DMCDC]) new double[mCDcSum];
