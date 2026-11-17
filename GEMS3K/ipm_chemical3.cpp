@@ -27,10 +27,84 @@
 //-------------------------------------------------------------------
 //
 
+#include <algorithm>
+#include <cmath>
+
 #include "m_const_base.h"
 #include "ms_multi.h"
 #include "v_detail.h"
 #include "v_service.h"
+
+void TMultiBase::resetEDLPotentialState() {
+  edl_psi_state.last_it = -999;
+  edl_psi_state.planes.clear();
+  edl_psi_state.max_psi_lag = 0.0;
+}
+
+void TMultiBase::resetSACTRelaxState() {
+  sact_relax_state.last_it = -999;
+  sact_relax_state.sp.clear();
+  sact_relax_state.max_lag = 0.0;
+}
+
+void TMultiBase::relaxEDLPotentials(long int ka) {
+  if (ka < 0 || ka >= pm.FIa || pm.FIa <= 0)
+    return;
+  const size_t n_slots = static_cast<size_t>(pm.FIa * MNST);
+  if (edl_psi_state.planes.size() != n_slots) {
+    edl_psi_state.planes.assign(n_slots, {});
+    edl_psi_state.last_it = -999;
+    edl_psi_state.max_psi_lag = 0.0;
+  }
+  if (edl_psi_state.last_it != pm.IT) {
+    edl_psi_state.last_it = pm.IT;
+    edl_psi_state.max_psi_lag = 0.0;
+  }
+  for (long int ist = 0; ist < MNST; ++ist) {
+    const char eilm = pm.SCMC ? pm.SCMC[ka][ist][SCMC_EILM_CODE] : SC_NEM;
+    if (eilm == SC_NEM || eilm == SC_NOT_USED)
+      continue;
+    const size_t idx = static_cast<size_t>(ka * MNST + ist);
+    double *ptrs[3] = {&pm.XpsiA[ka][ist], &pm.XpsiB[ka][ist],
+                       &pm.XpsiC[ka][ist]};
+    for (int p = 0; p < 3; ++p) {
+      auto &ps = edl_psi_state.planes[idx][p];
+      const double raw = *ptrs[p];
+      if (!ps.init) {
+        ps.omega = 0.15;
+        const double step = std::clamp(ps.omega * raw, -0.05, 0.05);
+        ps.prev_used = 0.0;
+        ps.prev_res = raw;
+        ps.used = step;
+        ps.init = true;
+        edl_psi_state.max_psi_lag =
+            std::max(edl_psi_state.max_psi_lag, std::fabs(raw));
+      } else {
+        const double res = raw - ps.used;
+        edl_psi_state.max_psi_lag =
+            std::max(edl_psi_state.max_psi_lag, std::fabs(res));
+        if (ps.has_prev) {
+          const double dpsi = ps.used - ps.prev_used;
+          const double dr = res - ps.prev_res;
+          if (std::fabs(dr) > 1e-9 && (dpsi * dr) < 0.0) {
+            const double w_sec = -dpsi / dr;
+            ps.omega = std::clamp(0.5 * ps.omega + 0.5 * w_sec, 0.003, 0.8);
+          } else if (res * ps.prev_res < 0.0) {
+            ps.omega = std::max(0.003, ps.omega * 0.5);
+          } else {
+            ps.omega = std::min(0.6, ps.omega * 1.15);
+          }
+        }
+        const double step = std::clamp(ps.omega * res, -0.05, 0.05);
+        ps.prev_used = ps.used;
+        ps.prev_res = res;
+        ps.has_prev = true;
+        ps.used += step;
+      }
+      *ptrs[p] = ps.used;
+    }
+  }
+}
 
 /// Returns current value of smoothing factor for chemical potentials of highly
 /// non-ideal DCs
@@ -603,6 +677,9 @@ long int TMultiBase::CalculateActivityCoefficients(long int LinkMode) {
             (pm.XFA[0] > pm.XwMinM && pm.XF[0] > pm.DSM)) {
           if (pm.E) {
             statusGC = GouyChapman(jb, je, k);
+            if (ka >= 0 && ka < pm.FIa && pm.FitVar[4] >= 0.0 &&
+                SmoothingFactor() >= 0.999)
+              relaxEDLPotentials(ka);
             // PoissonBoltzmann( q, jb, je, k )
           }
           // Calculating surface activity coefficient terms
@@ -614,6 +691,9 @@ long int TMultiBase::CalculateActivityCoefficients(long int LinkMode) {
             (pm.XFA[0] > pm.XwMinM && pm.XF[0] > pm.DSM)) {
           if (pm.E) {
             statusGC = GouyChapman(jb, je, k);
+            if (ka >= 0 && ka < pm.FIa && pm.FitVar[4] >= 0.0 &&
+                SmoothingFactor() >= 0.999)
+              relaxEDLPotentials(ka);
             // PoissonBoltzmann( q, jb, je, k )
           }
           // Calculating surface activity coefficient terms & populating XFTS / lnSAC

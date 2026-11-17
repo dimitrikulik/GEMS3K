@@ -21,4 +21,11 @@ else()
     target_link_libraries(sorption_api_test PRIVATE GEMS3K)
 endif()
 
+target_compile_definitions(
+    sorption_api_test
+    PRIVATE
+        GEMS3K_GIBBSITE_DATA_DIR="${CMAKE_SOURCE_DIR}/../eil_scms/tests/AluSioMSA/AluSioMSA-Gibbsite-dat"
+        GEMS3K_CLAYSORP_DATA_DIR="${CMAKE_SOURCE_DIR}/../eil_scms/tests/ClaySorp/ClaySorp-Mont2tlNi01-dat"
+)
+
 add_test(NAME sorption_api_test COMMAND sorption_api_test)

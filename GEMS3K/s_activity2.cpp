@@ -513,7 +513,8 @@ void TActivity::CalculateConcentrations(double X[], double XF[], double XFA[]) {
           // Only sorbent mass
           act.FWGT[k] += X[jj] * act.MM[jj];
         } else {
-          ist = (act.SATX && jja >= 0 && jja < act.Lads) ? act.SATX[jja][XL_ST] : 0;
+          ist = (act.SATX && jja >= 0 && jja < act.Lads) ? act.SATX[jja][XL_ST]
+                                                         : 0;
           if (ist < 0 || ist >= MNST)
             ist = 0;
           if (ka >= 0 && ka < act.FIa && act.XFTS && X[jj] > act.DcMinM)
@@ -541,7 +542,8 @@ void TActivity::CalculateConcentrations(double X[], double XF[], double XFA[]) {
         if (X[jj] > act.DcMinM) {
           act.FWGT[k] += X[jj] * act.MM[jj];
           jja = jj - (act.Ls - act.Lads);
-          ist = (act.SATX && jja >= 0 && jja < act.Lads) ? act.SATX[jja][XL_ST] : 0;
+          ist = (act.SATX && jja >= 0 && jja < act.Lads) ? act.SATX[jja][XL_ST]
+                                                         : 0;
           if (ist < 0 || ist >= MNST)
             ist = 0;
           if (ka >= 0 && ka < act.FIa && act.XFTS)
@@ -585,11 +587,13 @@ void TActivity::CalculateConcentrations(double X[], double XF[], double XFA[]) {
     j = i;
   } // k
 
-  // Modernized/site-balance SCM: compute dissolved-equivalent molalities and mass concentrations
-  // for site IComps (IC_ADDIT = 'a' and IC_SSITE = 's') that were accumulated from sorption phases
+  // Modernized/site-balance SCM: compute dissolved-equivalent molalities and
+  // mass concentrations for site IComps (IC_ADDIT = 'a' and IC_SSITE = 's')
+  // that were accumulated from sorption phases
   if (act.LO && act.FWGT[0] >= act.DHBM) {
     for (ii = 0; ii < act.NR; ii++) {
-      if (!inAquel[ii] && (act.ICC[ii] == IC_ADDIT || act.ICC[ii] == IC_SSITE)) {
+      if (!inAquel[ii] &&
+          (act.ICC[ii] == IC_ADDIT || act.ICC[ii] == IC_SSITE)) {
         if (act.IC_m[ii] >= act.DHBM)
           act.IC_lm[ii] = ln_to_lg * log(act.IC_m[ii]);
         else
@@ -650,7 +654,8 @@ void TActivity::IS_EtaCalc() {
     ka = k - (act.FIs - act.FIa);
     if (act.FIa > 0 && (act.PHC[k] == PH_POLYEL || act.PHC[k] == PH_SORPTION ||
                         act.PHC[k] == PH_ADSSBEIL)) {
-      if (ka >= 0 && ka < act.FIa && act.XetaA && act.XetaB && act.XetaC && act.XetaD) {
+      if (ka >= 0 && ka < act.FIa && act.XetaA && act.XetaB && act.XetaC &&
+          act.XetaD) {
         for (ist = 0; ist < MNST; ist++) { // Loop over surface types MNST
           act.XetaA[ka][ist] = 0.0;        // plane charges in eq (moles)
           act.XetaB[ka][ist] = 0.0;
@@ -686,13 +691,15 @@ void TActivity::IS_EtaCalc() {
     case PH_ADSSBEIL:
       if (ka >= 0 && ka < act.FIa && act.XfIEC && act.MASDT && act.XetaA) {
         for (ist = 0; ist < MNST; ist++) {
-          char eil_model = act.SCMC ? act.SCMC[ka][ist][SCMC_EILM_CODE] : SC_NEM;
+          char eil_model =
+              act.SCMC ? act.SCMC[ka][ist][SCMC_EILM_CODE] : SC_NEM;
           bool is_electrostatic = (eil_model == SC_4LM || eil_model == SC_3LM ||
                                    eil_model == SC_TLM || eil_model == SC_BSM ||
                                    eil_model == SC_DDL || eil_model == SC_CCM ||
                                    eil_model == SC_TCE);
           if (!is_electrostatic)
-            continue; // For SC_NEM or unused, permanent charge is kept in XfIEC and not added to XetaA
+            continue; // For SC_NEM or unused, permanent charge is kept in XfIEC
+                      // and not added to XetaA
 
           etaA = 0.0; // Units of etaA, etaB, ... in moles (eq)
           if (fabs(act.XfIEC[ka][ist][FSIT_S_CAPACITY]) > act.DHBM) {
@@ -706,7 +713,8 @@ void TActivity::IS_EtaCalc() {
                       act.Aalp[k] * 1e-18 *
                       act.MASDT[ka][ist][MSDT_FSUTSA]; // fraction of this stype
           }
-          act.XetaA[ka][ist] += etaA; // Add moles of permanent charge to A-plane on electrostatic surface type
+          act.XetaA[ka][ist] += etaA; // Add moles of permanent charge to
+                                      // A-plane on electrostatic surface type
         }
       }
       break;
@@ -741,7 +749,8 @@ void TActivity::IS_EtaCalc() {
       case DC_SCM_SPECIES:
       case DC_IESC_A:
       case DC_IEWC_B:
-        if (ka >= 0 && ka < act.FIa && ja >= 0 && ja < act.Lads && act.SATX && act.XetaA && act.XetaB && act.XetaC) {
+        if (ka >= 0 && ka < act.FIa && ja >= 0 && ja < act.Lads && act.SATX &&
+            act.XetaA && act.XetaB && act.XetaC) {
           //  SCM Modernization: charges from mCDc[ja][0..1]
           CDA = act.mCDc ? act.mCDc[ja][CHARGE_ON_A]
                          : 0.0; // species charge that goes into 0 plane
@@ -750,7 +759,8 @@ void TActivity::IS_EtaCalc() {
           CDC = act.mCDc ? act.mCDc[ja][CHARGE_ON_C]
                          : 0.0; // species charge that goes into c (2) plane
           //
-          Ez = act.EZ[j]; // take formula charge if no plane charges are provided
+          Ez =
+              act.EZ[j]; // take formula charge if no plane charges are provided
           if (fabs(CDA) < act.DHBM && fabs(CDB) < act.DHBM &&
               fabs(CDC) < act.DHBM)
             CDA = Ez; // Only as 0-plane charge
@@ -773,10 +783,11 @@ void TActivity::IS_EtaCalc() {
     // Charge balance for d-plane on all surface types
     if (act.FIa > 0 && (act.PHC[k] == PH_POLYEL || act.PHC[k] == PH_SORPTION ||
                         act.PHC[k] == PH_ADSSBEIL)) {
-      if (ka >= 0 && ka < act.FIa && act.XetaD && act.XetaA && act.XetaB && act.XetaC) {
+      if (ka >= 0 && ka < act.FIa && act.XetaD && act.XetaA && act.XetaB &&
+          act.XetaC) {
         for (ist = 0; ist < MNST; ist++) {
-          act.XetaD[ka][ist] =
-              0.0 - act.XetaA[ka][ist] - act.XetaB[ka][ist] - act.XetaC[ka][ist];
+          act.XetaD[ka][ist] = 0.0 - act.XetaA[ka][ist] - act.XetaB[ka][ist] -
+                               act.XetaC[ka][ist];
         }
       }
     }
@@ -812,9 +823,10 @@ long int TActivity::GouyChapman(long int, long int, long int k) {
     return status;            // no sorbent or sorbed component amounts
 
   ka = k - (act.FIs - act.FIa);
-  if (ka < 0 || ka >= act.FIa || !act.SCMC || !act.MASDT || !act.XetaA || !act.XetaB ||
-      !act.XetaC || !act.XetaD || !act.XpsiA || !act.XpsiB || !act.XpsiC || !act.XpsiD ||
-      !act.XpsiZ || !act.XcapA || !act.XcapB || !act.XcapC || !act.XcapD || !act.XcapZ)
+  if (ka < 0 || ka >= act.FIa || !act.SCMC || !act.MASDT || !act.XetaA ||
+      !act.XetaB || !act.XetaC || !act.XetaD || !act.XpsiA || !act.XpsiB ||
+      !act.XpsiC || !act.XpsiD || !act.XpsiZ || !act.XcapA || !act.XcapB ||
+      !act.XcapC || !act.XcapD || !act.XcapZ)
     return status; // not a sorption phase or arrays not allocated
 
   // Determining the sorbent mass in grams
@@ -846,41 +858,21 @@ long int TActivity::GouyChapman(long int, long int, long int k) {
     if (fabs(act.XetaD[ka][ist]) > act.DHBM)  // moles
       sigD = act.XetaD[ka][ist] * convFactor; // C/m2
 
-    // Limit maximum charge densities to prevent GEM divergence
-    if (fabs(sigA) > 1.4) {
-      //      ipm_logger->debug(
-      //          "EIL charge density plane A {} truncated to +- 1.4 C/m2  "
-      //          "IT={} ka= {} ist= {}",
-      //          sigA, act.IT, k, ist);
-      SigmA[ist] = sigA < 0.0 ? -1.4 : 1.4;
-      status = 60;
+    // Limit maximum charge densities to prevent divergence
+    if (fabs(sigA) > 2.5) {
+      SigmA[ist] = sigA < 0.0 ? -2.5 : 2.5;
     } else
       SigmA[ist] = sigA;
-    if (fabs(sigB) > 1.0) {
-      //      ipm_logger->debug(
-      //          "EIL charge density plane B {} truncated to +- 1.0 C/m2  "
-      //          "IT={} ka= {} ist= {}",
-      //          sigB, act.IT, k, ist);
-      SigmB[ist] = sigB < 0.0 ? -2.0 : 2.0;
-      status = 61;
+    if (fabs(sigB) > 2.5) {
+      SigmB[ist] = sigB < 0.0 ? -2.5 : 2.5;
     } else
       SigmB[ist] = sigB;
-    if (fabs(sigC) > 1.0) {
-      //      ipm_logger->debug(
-      //          "EIL charge density plane C {} truncated to +- 1.0 C/m2  "
-      //          "IT={} ka= {} ist= {}",
-      //          sigC, act.IT, k, ist);
-      SigmC[ist] = sigC < 0.0 ? -2.0 : 2.0;
-      status = 62;
+    if (fabs(sigC) > 2.5) {
+      SigmC[ist] = sigC < 0.0 ? -2.5 : 2.5;
     } else
       SigmC[ist] = sigC;
-    if (fabs(sigD) > 0.7) {
-      //     ipm_logger->debug(
-      //         "EIL charge density plane D {} truncated to +- 0.7 C/m2  "
-      //         "IT={} ka= {} ist= {}",
-      //         sigD, act.IT, k, ist);
-      SigmD[ist] = sigD < 0.0 ? -1.4 : 1.4;
-      status = 63;
+    if (fabs(sigD) > 2.5) {
+      SigmD[ist] = sigD < 0.0 ? -2.5 : 2.5;
     } else
       SigmD[ist] = sigD;
 
@@ -948,7 +940,9 @@ long int TActivity::GouyChapman(long int, long int, long int k) {
     act.XdlC[ka][ist] =
         emr.sld0d; // Eff. thickness of Stern layer (0 to 3-plane or d-plane)
     act.XdlD[ka][ist] =
-        (emr.dlth > 0.0) ? emr.dlth : (debye_m * 1e9); // Eff. thickness of diffuse layer (nm)
+        (emr.dlth > 0.0)
+            ? emr.dlth
+            : (debye_m * 1e9); // Eff. thickness of diffuse layer (nm)
     if (act.XdlZ)
       act.XdlZ[ka][ist] =
           x_slip * 1e9; // Effective thickness of 0-slipplane layer, nm
@@ -1027,13 +1021,9 @@ double TActivity::calc_psi_d_from_sigma_d(double sigma_d, double I,
   double gc_coeff = std::sqrt(8.0 * EPS_0 * eps_r * RT * I_m3 * rhoW);
   double arg = sigma_d / (-gc_coeff);
   double psiD = (2.0 / (z_eff * F_RT)) * std::asinh(arg);
-  // Truncating diffuse plane potential to avoid divergence of GEM
-  if (fabs(psiD) > 0.5) {
-    //   ipm_logger->debug(
-    //       "All EIL models: PsiD ={} truncated to +- 0.5 V IT={} k= {} ist=
-    //       {}", psi_d, act.IT, k, ist);
-    psiD = psiD < 0.0 ? -0.5 : 0.5;
-    //    status = 64;
+  // Safety overflow guard for diffuse plane potential
+  if (fabs(psiD) > 0.8) {
+    psiD = psiD < 0.0 ? -0.8 : 0.8;
   }
   return psiD;
 }
@@ -1338,24 +1328,26 @@ long int TActivity::SurfaceActivityCoeff(long int jb, long int je, long int,
   // SACTS only apply for sorption phases without site balances [so far]
   if (act.XF[k] <= act.DSM) // No sorption phase retained by the IPM
     return status;
-  if (act.PHC[k] != PH_ADSSBEIL && act.XFA[k] <= act.DSM) // no amount of sorbent remains
+  if (act.PHC[k] != PH_ADSSBEIL &&
+      act.XFA[k] <= act.DSM) // no amount of sorbent remains
     return status;
 
   XVk = (act.PHC[k] == PH_ADSSBEIL) ? act.XF[k] : act.XFA[k];
-  Mm = (XVk > act.DSM) ? (act.FWGTS[k] / XVk) : 1.0; // molar mass of the sorbent as a whole
+  Mm = (XVk > act.DSM) ? (act.FWGTS[k] / XVk)
+                       : 1.0;   // molar mass of the sorbent as a whole
   ka = k - (act.FIs - act.FIa); // index for sorption arrays only
   // Initialization of work array: D[NSURFSITES][MNST]
   for (i = 0; i < MNST; i++) // SCM Modernization: loop over MNST surf patches
   {
     iSurf[i] = -1;
     for (ii = 0; ii < NSURFSITES; ii++) { // SCM Modernization: site types
-      act.D[ii][i] = 0.0;       // matrix for sites totals in surface types
-      XFTS_site[ii][i] = 0.0;  // matrix for surf species totals on site types
-      iSite[ii] = -1;          // index for site type
-      sj[ii] = 0.0;            // moles of sites occupied on this site type
+      act.D[ii][i] = 0.0;     // matrix for sites totals in surface types
+      XFTS_site[ii][i] = 0.0; // matrix for surf species totals on site types
+      iSite[ii] = -1;         // index for site type
+      sj[ii] = 0.0;           // moles of sites occupied on this site type
     }
     if (ka >= 0 && ka < act.FIa && act.XFTS)
-      act.XFTS[ka][i] = 0.0;   // matrix for surf species totals in surface types
+      act.XFTS[ka][i] = 0.0; // matrix for surf species totals in surface types
   }
   // Extraction of site indices for the neutral >OH group
   for (j = jb; j < je; j++) {
@@ -1394,17 +1386,20 @@ long int TActivity::SurfaceActivityCoeff(long int jb, long int je, long int,
           // SCM Modernization: D[NSURFSITES][MNST]
           act.D[iss][ist] +=
               act.X[j] * act.XSMD[ja][iss]; // adding to site totals
-          XFTS_site[iss][ist] += act.X[j];  // adding to species moles totals on site
+          XFTS_site[iss][ist] +=
+              act.X[j]; // adding to species moles totals on site
         }
       } else {
-        if (iss == act.SATX[ja][XL_SI] && act.Nfsp[ka][iss][FSIT_S_DENSITY] > 0.0) {
+        if (iss == act.SATX[ja][XL_SI] &&
+            act.Nfsp[ka][iss][FSIT_S_DENSITY] > 0.0) {
           act.D[iss][ist] += act.X[j];
           XFTS_site[iss][ist] += act.X[j];
         }
       }
     }
     if (ka >= 0 && ka < act.FIa && act.XFTS)
-      act.XFTS[ka][ist] += act.X[j]; // adding to species moles totals on surface type ist
+      act.XFTS[ka][ist] +=
+          act.X[j]; // adding to species moles totals on surface type ist
   }
   for (j = jb; j < je; j++) { // Main loop for DCs - surface complexes
     lnGamjo = act.lnGmo[j];   // bugfix 16.03.2008 DK
@@ -1436,15 +1431,18 @@ long int TActivity::SurfaceActivityCoeff(long int jb, long int je, long int,
       /// different site types [XL_SI] and index of farthest EIL plane [XL_SP]
       // Cj - index of carrier endmember (-1 - whole sorbent)
       Cj = act.SATX[ja][XL_EM];
-      if (Cj < 0) {              // Assigned to the whole sorbent
-        XVk = (act.PHC[k] == PH_ADSSBEIL) ? act.XF[k] : act.XFA[k];        // Amount of sorbent
-        Mm = (XVk > act.DSM) ? (act.FWGTS[k] / XVk) : 1.0; // molar mass of the sorbent as a whole
+      if (Cj < 0) { // Assigned to the whole sorbent
+        XVk = (act.PHC[k] == PH_ADSSBEIL) ? act.XF[k]
+                                          : act.XFA[k]; // Amount of sorbent
+        Mm = (XVk > act.DSM) ? (act.FWGTS[k] / XVk)
+                             : 1.0; // molar mass of the sorbent as a whole
       } else { // Assigned to one of the sorbent end-members: TBD, does not work
         XVk = act.X[Cj];
         if (XVk < act.ScMinM) // act.DSM*0.1 )
           continue;           // This end-member is zeroed off by IPM
         double xfak = (act.PHC[k] == PH_ADSSBEIL) ? act.XF[k] : act.XFA[k];
-        Mm = (xfak > act.DSM) ? (act.MM[Cj] * XVk / xfak) : act.MM[Cj]; // mol.mass (fracional?)
+        Mm = (xfak > act.DSM) ? (act.MM[Cj] * XVk / xfak)
+                              : act.MM[Cj]; // mol.mass (fracional?)
       }
       xj = act.X[j]; // Current moles of this surface species
       for (iss = 0; iss < NSURFSITES; iss++) {
@@ -1481,7 +1479,8 @@ long int TActivity::SurfaceActivityCoeff(long int jb, long int je, long int,
       double f_area_st =
           act.MASDT[ka][ist][MSDT_FSUTSA]; // area fraction of this surface type
       if (f_area_st < 1e-6)
-        continue; // potentially severe error - null area fraction of surface type
+        continue; // potentially severe error - null area fraction of surface
+                  // type
       // double GamJ = xj / XVk / Mm / f_area_st * 1e6 / act.Aalp[k] / 1.66054;
       //  this species surface density, 1/nm2
       GamJ = xj * 1e6 / (XVk * Mm * f_area_st * act.Aalp[k]) / 1.66054;
@@ -1866,118 +1865,9 @@ long int TActivity::SurfaceActivityCoeff(long int jb, long int je, long int,
         act.lnSAC[ja][2] = 0.0;
         break;
       }
-      // Make optional ....
-      /*
-            switch (pm.SATT[ja]) // selection of the old SAT model
-            {
-            //  Obsolete old SAT calculations (retained from previous versions)
-            case SAT_COMP: // Competitive SAT (obsolete) on a surface type
-              if (iSite[ist] < 0)
-                xjn = 0.0;
-              else
-                xjn = pm.X[iSite[ist]]; // neutral site does not compete!
-              // SCM Modernization: MASDT patch fraction and density
-              XS0 = fabs(pm.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6 *
-                    pm.MASDT[ka][ist][MSDT_FSUTSA]; // expected total in moles
-              if (pa_p->PC <= 2)
-                rIEPS = pa_p->IEPS * XS0; // relative IEPS
-              XSkC = XSk - xjn - xj;      // occupied by the competing species;
-                                          // this sorbate cannot compete to
-         itself! if (XSkC < 0.0) XSkC = 0.0; if (XSkC >= XS0) // Limits XSkC =
-         XS0 - 2.0 * rIEPS; xj0 = XS0 - XSkC; // expected moles of this sorbate
-              if (xj >= xj0)
-                xj = xj0 - rIEPS; // Limits
-              if (xj * 2 <= xj0)
-                ISAT = 0.0; // ideal case
-              else {
-                q1 = xj0 - xj;
-                q2 = rIEPS * XS0;
-                if ((pa_p->PC == 3 && !pm.W1) || pa_p->PC != 3) {
-                  if (q1 > q2)
-                    q2 = q1;
-                } else {
-                  q2 = q1;
-                  if (q2 <= 1e-33)
-                    q2 = 1e-33;
-                }
-                ISAT = log(xj) - log(q2);
-              }
-              pm.lnGam[j] = ISAT;
-              pm.lnSAC[ja][0] = ISAT;
-              break;
-            case SAT_NCOMP: // Non-competitive truncated Langmuir SAT (obsolete)
-              // rIEPS = pa->p.IEPS * 2;
-              xj0 = fabs(pm.MASDJ[ja][PI_DEN]) * XVk * Mm / 1e6 *
-                    pm.MASDT[ka][ist][MSDT_FSUTSA]; // in moles
-              if (pa_p->PC <= 2)
-                rIEPS = pa_p->IEPS * xj0; // relative IEPS
-              if (xj >= xj0)
-                xj = xj0 - rIEPS;  // upper limit
-              if (xj * 2.0 <= xj0) // Linear adsorption - to improve !
-                ISAT = 0.0;
-              else {
-                q1 = xj0 - xj; // limits: rIEPS to 0.5*xj0
-                q2 = xj0 * rIEPS;
-                if (pa_p->PC == 3 && pm.W1)
-                  ISAT = log(xj) - log(q1);
-                else {
-                  if (q1 > q2)
-                    ISAT = log(xj) - log(q1);
-                  else
-                    ISAT = log(xj) - log(q2);
-                }
-              }
-              pm.lnGam[j] = ISAT;
-              pm.lnSAC[ja][0] = ISAT;
-              break;
-            case SAT_SOLV: // Neutral surface site (e.g. >O0.5H@ group)
-                           // applies to the whole surface type!
-              XSs = 0.0;   // calc total moles on all sites on surface type
-              for (i = 0; i < MNST; i++)
-                XSs += pm.D[i][ist];
-              XSkC = XSs / XVk / Mm * 1e6 // total non-solvent surf.species
-                     / pm.MASDT[ka][ist][MSDT_FSUTSA] / pm.Aalp[k] /
-                     1.66054; // per nm2
-              XS0 = fabs(pm.MASDJ[ja][PI_DEN]);
-              SATst = pa_p->DNS * 1.66054 * pm.Aalp[k] / XS0;
-              XS0 = XS0 / pm.Aalp[k] / 1.66054;
-              if (pa_p->PC <= 2)
-                rIEPS = pa_p->IEPS * XS0; // relative IEPS
-              if (XSkC < 0.0)
-                XSkC = 0.0;
-              if (XSkC >= XS0) // Limits
-                XSkC = XS0 - 2.0 * rIEPS;
-              q1 = XS0 - XSkC;
-              if ((pa_p->PC == 3 && !pm.W1) || pa_p->PC != 3) {
-                q2 = rIEPS * XS0;
-                if (q1 > q2)
-                  q2 = q1;
-              } else {
-                q2 = q1;
-                if (q2 <= 1e-22)
-                  q2 = 1e-22;
-              }
-              ISAT = log(XS0) - log(q2);
-              pm.lnGam[j] = ISAT + log(SATst);
-              pm.lnSAC[ja][0] = ISAT;
-              pm.lnSAC[ja][1] = log(SATst);
-              break;
-            }
-      */
     }
-    if (lnGamjo > act.DHBM) { // Workaround DK 07.12.2009
-      lnFactor = 0.2;
-      lnDiff = act.lnGam[j] - lnGamjo;
-      if (fabs(lnDiff) > fabs(lnFactor)) // e times
-      {
-        if (fabs(lnDiff) > 6.907755) // 1000 times
-          status = 101;              // the SACT has changed too much;
-                        // the threshold pa->p.IEPS needs adjustment!
-        // Smoothing (provisional)
-        act.lnGam[j] = lnDiff > 0 ? lnGamjo + lnDiff - lnFactor
-                                  : lnGamjo + lnDiff + lnFactor;
-      }
-    }
+    // Raw lnGam[j] = lnSACT + lnGammF without artificial -0.2 shift or
+    // status=101 SIA abort
   } // j
   return status;
 }
@@ -2011,7 +1901,7 @@ double TActivity::update_q2_gamma(double GamJS, double GamC,
                                   long int denticity) {
   double delta = (denticity > 0) ? (double)denticity : 1.0;
   double rIEPS = act.IEPS * GamC; // relative IEPS
-  if (rIEPS <= 0.0 || rIEPS > 0.002 * GamC)
+  if (rIEPS <= 0.0 || rIEPS > 0.05 * GamC)
     rIEPS = 1e-3 * GamC;
   if (GamJS < 0.0)
     GamJS = 0.0;
@@ -2041,7 +1931,7 @@ double TActivity::update_q2_theta(double thetaS, double thetaC,
                                   long int denticity) {
   double delta = (denticity > 0) ? (double)denticity : 1.0;
   double tIEPS = act.IEPS * thetaC; // relative IEPS for theta
-  if (tIEPS <= 0.0 || tIEPS > 0.002 * thetaC)
+  if (tIEPS <= 0.0 || tIEPS > 0.05 * thetaC)
     tIEPS = 1e-3 * thetaC;
   if (thetaS < 0.0)
     thetaS = 0.0;

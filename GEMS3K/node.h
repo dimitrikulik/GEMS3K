@@ -1557,7 +1557,13 @@ public:
         }
       }
     }
-    if (count == 0 && pmm->SATX && pmm->SATX[ja][XL_SI] >= 0 &&
+    const long int j = (pmm->Ls - pmm->Lads) + ja;
+    const bool is_carrier =
+        (pmm->DCC && j >= 0 && j < pmm->Ls &&
+         (pmm->DCC[j] == DC_SUR_CARRIER || pmm->DCC[j] == DC_SUR_MINAL ||
+          pmm->DCC[j] == DC_PEL_CARRIER)) ||
+        (pmm->SATT && pmm->SATT[ja] == SAT_SOLV);
+    if (!is_carrier && count == 0 && pmm->SATX && pmm->SATX[ja][XL_SI] >= 0 &&
         pmm->SATX[ja][XL_SI] < NSURFSITES) {
       count = 1;
     }

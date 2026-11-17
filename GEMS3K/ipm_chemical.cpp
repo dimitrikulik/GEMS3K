@@ -446,7 +446,6 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
   double psiA, psiB, psiC, CDA = 0.0, CDB = 0.0, CDC = 0.0, CoulombA = 0.0,
                            CoulombB = 0.0, CoulombC = 0.0;
   double FactSur = 0.0;
-  bool isElectrostatic = false;
   const BASE_PARAM *pa_p = base_param();
 
   Fold = pm.F0[j];
@@ -504,11 +503,6 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
     F0 = pm.lnGmM[j]; /* + pm.lnGam[j]; */
     // Surface type to which this surface species belongs
     ist = pm.SATX[ja][SURSP_ALLOC_SURFTYPE];
-    if (pm.SCMC && ka >= 0 && ka < pm.FIa && ist >= 0 && ist < MNST) {
-      char eilm = pm.SCMC[ka][ist][SCMC_EILM_CODE];
-      if (eilm != SC_NEM && eilm != SC_NOT_USED)
-        isElectrostatic = true;
-    }
     // reading out the computed surface plane potentials
     psiA = pm.XpsiA[ka][ist];
     psiB = pm.XpsiB[ka][ist];
@@ -530,13 +524,12 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
       CoulombA += psiA * Ez * pm.FRT; // Charge distro array not provided
       pm.CTerms[j] = CoulombA; // Collecting Coulomb terms for surface species
     }
-    // Internal bracketing of Coulomb term:
-    // A dimensionless term of +-12 corresponds to ~308 mV at 25 C for monovalent species,
-    // which covers the full physical range while preventing numerical divergence.
-    if (pm.CTerms[j] > 12.0)
-      pm.CTerms[j] = 12.0;
-    else if (pm.CTerms[j] < -12.0)
-      pm.CTerms[j] = -12.0;
+    // Internal bracketing of Coulomb term (safety overflow guard; ~770 mV at 25 C for |z|=1,
+    // ~385 mV for |z|=2) without premature saturation within physical EDL potential ranges.
+    if (pm.CTerms[j] > 30.0)
+      pm.CTerms[j] = 30.0;
+    else if (pm.CTerms[j] < -30.0)
+      pm.CTerms[j] = -30.0;
 
     F0 += pm.CTerms[j];
     pm.lnSAC[ja][3] = pm.CTerms[j];
@@ -592,14 +585,9 @@ double TMultiBase::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
     dF0 = F0 - Fold;
     if (pm.X[j] > std::min(pm.lowPosNum, pm.DcMinM) && fabs(dF0) >= SmoSensT) {
       double sf = SmoothingFactor();
-      if (isElectrostatic && sf >= 0.999) {
-        // Automatic internal under-relaxation for electrostatic SCM when Pa_DGC == 0
-        // Prevents non-linear limit cycles between EDL capacitance and surface speciation
-        sf = 0.1;
-        // Step-size trust region: limit change in chemical potential per iteration to |dF0 * sf| <= 1.0
-        if (fabs(dF0 * sf) > 1.0)
-          sf = 1.0 / fabs(dF0);
-      }
+      // Note: When sf >= 0.999 (Pa_DGC == 0), EDL potentials (XpsiA/B/C) are already
+      // adaptively relaxed per plane in CalculateActivityCoefficients() so F0 stays
+      // thermodynamically consistent with the active potentials.
       F0 = Fold + dF0 * sf; // Changed 18.06.2008 DK
     }
   }

@@ -27,6 +27,9 @@
 //-------------------------------------------------------------------
 //
 
+#include <algorithm>
+#include <vector>
+
 #include "m_const_base.h"
 #include "ms_multi.h"
 
@@ -842,41 +845,37 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
     if (fabs(pm.XetaD[ka][ist]) > pm.DHBM)   // moles
       sigD = pm.XetaD[ka][ist] * convFactor; // C/m2
 
-    // Limit maximum charge densities to prevent GEM divergence
-    if (fabs(sigA) > 1.4) {
+    // Limit maximum charge densities to prevent GEM divergence without aborting SIA
+    if (fabs(sigA) > 2.5) {
       ipm_logger->debug(
-          "EIL charge density plane A {} truncated to +- 1.4 C/m2  "
+          "EIL charge density plane A {} truncated to +- 2.5 C/m2  "
           "IT={} k= {} ist= {}",
           sigA, pm.IT, ka, ist);
-      SigmA[ist] = sigA < 0.0 ? -1.4 : 1.4;
-      status = 60;
+      SigmA[ist] = sigA < 0.0 ? -2.5 : 2.5;
     } else
       SigmA[ist] = sigA;
-    if (fabs(sigB) > 1.0) {
+    if (fabs(sigB) > 2.5) {
       ipm_logger->debug(
-          "EIL charge density plane B {} truncated to +- 1.0 C/m2  "
+          "EIL charge density plane B {} truncated to +- 2.5 C/m2  "
           "IT={} k= {} ist= {}",
           sigB, pm.IT, ka, ist);
-      SigmB[ist] = sigB < 0.0 ? -1.0 : 1.0;
-      status = 61;
+      SigmB[ist] = sigB < 0.0 ? -2.5 : 2.5;
     } else
       SigmB[ist] = sigB;
-    if (fabs(sigC) > 1.0) {
+    if (fabs(sigC) > 2.5) {
       ipm_logger->debug(
-          "EIL charge density plane C {} truncated to +- 1.0 C/m2  "
+          "EIL charge density plane C {} truncated to +- 2.5 C/m2  "
           "IT={} k= {} ist= {}",
           sigC, pm.IT, ka, ist);
-      SigmC[ist] = sigC < 0.0 ? -1.0 : 1.0;
-      status = 62;
+      SigmC[ist] = sigC < 0.0 ? -2.5 : 2.5;
     } else
       SigmC[ist] = sigC;
-    if (fabs(sigD) > 0.7) {
+    if (fabs(sigD) > 2.5) {
       ipm_logger->debug(
-          "EIL charge density plane D {} truncated to +- 0.7 C/m2  "
+          "EIL charge density plane D {} truncated to +- 2.5 C/m2  "
           "IT={} k= {} ist= {}",
           sigD, pm.IT, ka, ist);
-      SigmD[ist] = sigD < 0.0 ? -0.7 : 0.7;
-      status = 63;
+      SigmD[ist] = sigD < 0.0 ? -2.5 : 2.5;
     } else
       SigmD[ist] = sigD;
 
@@ -931,7 +930,7 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
     // Unpack results from EILModelResult emr fields to MULTI data for this
     // phase and surface type
     // Physical bracketing of EDL plane potentials (V)
-    const double MAX_PSI = 0.40; // Max physical EDL potential: 400 mV
+    const double MAX_PSI = 1.00; // Safety overflow guard for EDL potential (1000 mV)
     if (emr.psi0 > MAX_PSI)
       emr.psi0 = MAX_PSI;
     else if (emr.psi0 < -MAX_PSI)
@@ -1044,13 +1043,9 @@ double TMultiBase::calc_psi_d_from_sigma_d(double sigma_d, double I,
   double gc_coeff = std::sqrt(8.0 * EPS_0 * eps_r * RT * I_m3 * rhoW);
   double arg = sigma_d / (-gc_coeff);
   double psiD = (2.0 / (z_eff * F_RT)) * std::asinh(arg);
-  // Truncating diffuse plane potential to avoid divergence of GEM
-  if (fabs(psiD) > 0.5) {
-    //   ipm_logger->debug(
-    //       "All EIL models: PsiD ={} truncated to +- 0.5 V IT={} k= {} ist=
-    //       {}", psi_d, pm.IT, k, ist);
-    psiD = psiD < 0.0 ? -0.5 : 0.5;
-    //    status = 64;
+  // Safety overflow guard for diffuse plane potential
+  if (fabs(psiD) > 0.8) {
+    psiD = psiD < 0.0 ? -0.8 : 0.8;
   }
   return psiD;
 }
@@ -1348,7 +1343,7 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
   // Surf solvent surface type and site type
   double XVk, XSk[NSURFSITES], XSkC, xj, Mm, rIEPS, ISAT, thetaJ, q1theta,
       q2theta, thetaJC, XSs[NSURFSITES], GamC, GamJ, GamJC, alpF, qBet, bBet,
-      cN, eF, lnGamjo, lnDiff, lnFactor, GamS[NSURFSITES], qS[NSURFSITES],
+      cN, eF, GamS[NSURFSITES], qS[NSURFSITES],
       sjsurfsolv, thetaC, sj[NSURFSITES], XFTS_site[NSURFSITES][MNST];
 
   const BASE_PARAM *pa_p = base_param();
@@ -1428,8 +1423,11 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
       pm.XFTS[ka][ist] +=
           pm.X[j]; // adding to species moles totals on surface type ist
   }
+  std::vector<double> raw_gam(pm.Lads > 0 ? pm.Lads : 1, 0.0);
+  std::vector<double> gain_vec(pm.Lads > 0 ? pm.Lads : 1, 0.0);
+  std::vector<char> active_mask(pm.Lads > 0 ? pm.Lads : 1, 0);
   for (j = jb; j < je; j++) { // Main loop for DCs - surface complexes
-    lnGamjo = pm.lnGmo[j];    // bugfix 16.03.2008 DK
+    double sact_gain = 0.0;
     if (pm.X[j] < std::min(pm.DcMinM, pm.lowPosNum))
       continue; // This surface DC has been killed by GEM IPM
                 //        OSAT = pm.lnGmo[j]; // added 6.07.01 by KDA
@@ -1531,6 +1529,7 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
         thetaC = 1.0;
         q2theta = update_q2_theta(thetaJ);
         ISAT = log(thetaC) - log(q2theta); // SACT Langmuir individual
+        sact_gain = std::max(0.0, thetaJ) / std::max(q2theta, 1e-6);
         // truncation for linear part of isotherm is not needed in this form
         pm.lnGam[j] = ISAT;
         pm.lnSACT[j] = ISAT;
@@ -1582,6 +1581,7 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
         // truncated difference of species sum coverage fraction and
         // complete coverage fraction
         ISAT = log(thetaC) - log(q2theta);
+        sact_gain = std::max(0.0, thetaJC) / std::max(q2theta, 1e-6);
         // SACT Langmuir competitive ratio (in ln scale)
         pm.lnGam[j] = ISAT;
         pm.lnSACT[j] = ISAT;
@@ -1629,6 +1629,7 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
         // truncated difference of sites sum coverage fraction and
         // complete site type coverage fraction
         ISAT = log(thetaC) - log(q2theta);
+        sact_gain = std::max(0.0, thetaJC) / std::max(q2theta, 1e-6);
         // SACT Langmuir competitive ratio (in ln scale)
         pm.lnGam[j] = ISAT;
         pm.lnSACT[j] = ISAT;
@@ -1669,6 +1670,7 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
         // truncated difference of species sum site coverage fraction and
         // complete coverage fraction
         ISAT = (dentt - 1.0) * log(q1theta) - dentt * log(q2theta);
+        sact_gain = std::max(0.0, dentt * thetaJ) / std::max(q2theta, 1e-6);
         // This is QCA SACT for immobile surface species for dentt 1 to 4
         // At dentt = 1 it is Langmuir non - competitive SACT
         pm.lnGam[j] = ISAT;
@@ -1715,6 +1717,7 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
         thetaJC = GamJC / GamC; // sum of surf species coverage fraction
         q2theta = update_q2_theta(thetaJC);
         ISAT = log(thetaC) - log(q2theta);
+        sact_gain = std::max(0.0, thetaJC) / std::max(q2theta, 1e-6);
         // Calculation of the Frumkin exponential term
         if (fabs(alpF) < 1e-9 || fabs(cN) < 1e-9)
           eF = 0.0;
@@ -1741,6 +1744,7 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
         thetaC = 1.0;
         q2theta = update_q2_theta(thetaJ);
         ISAT = log(thetaC) - log(q2theta); // SACT Langmuir individual
+        sact_gain = std::max(0.0, thetaJ) / std::max(q2theta, 1e-6);
         // SACT Langmuir competitive ratio (in ln scale)
         // Calculation of FFG exponential term (competitive)
         if (fabs(alpF) < 1e-9 || fabs(cN) < 1e-9)
@@ -1768,6 +1772,7 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
         thetaC = 1.0;
         q2theta = update_q2_theta(thetaJ);
         ISAT = log(thetaC) - log(q2theta); // SACT Langmuir individual
+        sact_gain = std::max(0.0, thetaJ) / std::max(q2theta, 1e-6);
         // SACT Langmuir competitive ratio (in ln scale)
         // ISAT = log(xj0) + log(q1) * (dentt - 1) - log(q2) * dentt;
         // Calculation of the Frumkin exponential term
@@ -1897,20 +1902,122 @@ long int TMultiBase::SurfaceActivityCoeff(long int jb, long int je, long int,
       }
     }
 
-    if (lnGamjo > pm.DHBM) { // Workaround DK 07.12.2009
-      lnFactor = 0.2;
-      lnDiff = pm.lnGam[j] - lnGamjo;
-      if (fabs(lnDiff) > fabs(lnFactor)) // e times
-      {
-        if (fabs(lnDiff) > 6.907755) // 1000 times
-          status = 101;              // the SACT has changed too much;
-                        // the threshold pa->p.IEPS needs adjustment!
-        // Smoothing (provisional)
-        pm.lnGam[j] = lnDiff > 0 ? lnGamjo + lnDiff - lnFactor
-                                 : lnGamjo + lnDiff + lnFactor;
-      }
+    if (pm.PHC[k] != PH_ADSSBEIL && pm.Lads > 0 && ja >= 0 && ja < pm.Lads) {
+      raw_gam[static_cast<size_t>(ja)] = pm.lnGam[j];
+      gain_vec[static_cast<size_t>(ja)] = sact_gain;
+      active_mask[static_cast<size_t>(ja)] = 1;
     }
   } // j
+
+  if (pm.PHC[k] != PH_ADSSBEIL && pm.Lads > 0 && pm.FitVar[4] >= 0.0 &&
+      SmoothingFactor() >= 0.999) {
+    auto &st = sact_relax_state;
+    if (st.sp.size() != static_cast<size_t>(pm.Lads)) {
+      st.sp.assign(static_cast<size_t>(pm.Lads), {});
+      st.last_it = -999;
+      st.max_lag = 0.0;
+    }
+    if (st.last_it != pm.IT) {
+      st.last_it = pm.IT;
+      st.max_lag = 0.0;
+    }
+    double num_bb = 0.0, den_bb = 0.0, dot_rr = 0.0, max_gain = 0.0;
+    bool any_active = false, all_init = true, all_has_prev = true;
+    for (long int jj = jb; jj < je; ++jj) {
+      const long int jj_a = jj - (pm.Ls - pm.Lads);
+      if (jj_a < 0 || jj_a >= pm.Lads ||
+          !active_mask[static_cast<size_t>(jj_a)])
+        continue;
+      any_active = true;
+      max_gain = std::max(max_gain, gain_vec[static_cast<size_t>(jj_a)]);
+      auto &ss = st.sp[static_cast<size_t>(jj_a)];
+      if (!ss.init)
+        all_init = false;
+      if (!ss.has_prev)
+        all_has_prev = false;
+      if (ss.init) {
+        const double res = raw_gam[static_cast<size_t>(jj_a)] - ss.used;
+        st.max_lag = std::max(st.max_lag, std::fabs(res));
+        if (ss.has_prev) {
+          const double dgam = ss.used - ss.prev_used;
+          const double dr = res - ss.prev_res;
+          num_bb += dgam * dr;
+          den_bb += dr * dr;
+          dot_rr += res * ss.prev_res;
+        }
+      }
+    }
+    if (any_active) {
+      const double w_jac_cap = std::clamp(1.2 / (1.0 + max_gain), 0.004, 0.5);
+      double omega_k = 0.1;
+      for (long int jj = jb; jj < je; ++jj) {
+        const long int jj_a = jj - (pm.Ls - pm.Lads);
+        if (jj_a >= 0 && jj_a < pm.Lads &&
+            active_mask[static_cast<size_t>(jj_a)]) {
+          omega_k = st.sp[static_cast<size_t>(jj_a)].omega;
+          break;
+        }
+      }
+      if (!all_init) {
+        omega_k = w_jac_cap;
+      } else if (all_has_prev && den_bb > 1e-22) {
+        if (num_bb < 0.0) {
+          const double w_bb = std::clamp(-num_bb / den_bb, 0.004, w_jac_cap);
+          omega_k = std::min(w_jac_cap, 0.5 * omega_k + 0.5 * w_bb);
+        } else if (dot_rr < 0.0) {
+          omega_k = std::max(0.004, std::min(w_jac_cap, omega_k * 0.5));
+        } else {
+          omega_k = std::min(w_jac_cap, omega_k * 1.15);
+        }
+      } else {
+        omega_k = std::min(omega_k, w_jac_cap);
+      }
+      double max_step = 0.0;
+      for (long int jj = jb; jj < je; ++jj) {
+        const long int jj_a = jj - (pm.Ls - pm.Lads);
+        if (jj_a < 0 || jj_a >= pm.Lads ||
+            !active_mask[static_cast<size_t>(jj_a)])
+          continue;
+        const auto &ss = st.sp[static_cast<size_t>(jj_a)];
+        const double base = ss.init ? ss.used : 0.0;
+        const double res = raw_gam[static_cast<size_t>(jj_a)] - base;
+        max_step = std::max(max_step, std::fabs(omega_k * res));
+      }
+      const double step_lim = (!all_init) ? 3.5 : 0.5;
+      const double scale = (max_step > step_lim) ? (step_lim / max_step) : 1.0;
+      for (long int jj = jb; jj < je; ++jj) {
+        const long int jj_a = jj - (pm.Ls - pm.Lads);
+        if (jj_a < 0 || jj_a >= pm.Lads ||
+            !active_mask[static_cast<size_t>(jj_a)])
+          continue;
+        auto &ss = st.sp[static_cast<size_t>(jj_a)];
+        if (!ss.init) {
+          // Warm-initialize SACT lnGam from clamped raw_gam rather than 0.0
+          // to avoid large IT=0..1 chemical potential transients on SCMs.
+          const double init_g =
+              std::clamp(raw_gam[static_cast<size_t>(jj_a)], -10.0, 12.0);
+          const double lag0 =
+              std::fabs(raw_gam[static_cast<size_t>(jj_a)] - init_g);
+          st.max_lag = std::max(st.max_lag, lag0);
+          ss.prev_used = init_g;
+          ss.prev_res = 0.0;
+          ss.has_prev = false;
+          ss.init = true;
+          ss.omega = omega_k;
+          ss.used = init_g;
+        } else {
+          const double base = ss.used;
+          const double res = raw_gam[static_cast<size_t>(jj_a)] - base;
+          ss.prev_used = base;
+          ss.prev_res = res;
+          ss.has_prev = true;
+          ss.omega = omega_k;
+          ss.used = base + scale * omega_k * res;
+        }
+        pm.lnGam[jj] = ss.used;
+      }
+    }
+  }
   return status;
 }
 
@@ -1944,7 +2051,7 @@ double TMultiBase::update_q2_gamma(double GamJS, double GamC,
   double delta = (denticity > 0) ? (double)denticity : 1.0;
   const BASE_PARAM *pa_p = base_param();
   double rIEPS = pa_p->IEPS * GamC; // relative IEPS
-  if (rIEPS <= 0.0 || rIEPS > 0.002 * GamC)
+  if (rIEPS <= 0.0 || rIEPS > 0.05 * GamC)
     rIEPS = 1e-3 * GamC;
   if (GamJS < 0.0)
     GamJS = 0.0;
@@ -1975,7 +2082,7 @@ double TMultiBase::update_q2_theta(double thetaS, double thetaC,
   double delta = (denticity > 0) ? (double)denticity : 1.0;
   const BASE_PARAM *pa_p = base_param();
   double tIEPS = pa_p->IEPS * thetaC; // relative IEPS for theta
-  if (tIEPS <= 0.0 || tIEPS > 0.002 * thetaC)
+  if (tIEPS <= 0.0 || tIEPS > 0.05 * thetaC)
     tIEPS = 1e-3 * thetaC;
   if (thetaS < 0.0)
     thetaS = 0.0;

@@ -37,6 +37,9 @@
 // TSolMod header
 #include "s_solmod.h"
 // TsorpMod and TKinMet
+#include <array>
+#include <vector>
+
 #include "gems3k_impex.h"
 #include "s_kinmet.h"
 #include "s_sorpmod.h"
@@ -935,6 +938,36 @@ protected:
                 ///< approximation [nNu]
   long int *ICNud; ///< List of IC indexes for divergent dual chemical
                    ///< potentials [nNu]
+
+  // Adaptive per-plane EDL potential under-relaxation state during IPM
+  struct EDLPlaneRelaxState {
+    double used = 0.0;
+    double prev_used = 0.0;
+    double prev_res = 0.0;
+    double omega = 0.15;
+    bool init = false;
+    bool has_prev = false;
+  };
+  struct EDLPsiRelaxState {
+    long int last_it = -999;
+    std::vector<std::array<EDLPlaneRelaxState, 3>> planes;
+    double max_psi_lag = 0.0;
+  } edl_psi_state;
+
+  // Adaptive phase-coherent SACT lnGam under-relaxation state during IPM
+  struct SactSpeciesRelaxState {
+    double used = 0.0;
+    double prev_used = 0.0;
+    double prev_res = 0.0;
+    double omega = 0.05;
+    bool init = false;
+    bool has_prev = false;
+  };
+  struct SactRelaxState {
+    long int last_it = -999;
+    std::vector<SactSpeciesRelaxState> sp;
+    double max_lag = 0.0;
+  } sact_relax_state;
   void Alloc_uDD(long int newN);
   void Free_uDD();
   void Reset_uDD(long int cr, bool trace = false);
@@ -1058,6 +1091,9 @@ protected:
   void SetSmoothingFactor(long int mode); // new smoothing function (3 variants)
   // Main call for calculation of activity coefficients on IPM iterations
   long int CalculateActivityCoefficients(long int LinkMode);
+  void resetEDLPotentialState();
+  void relaxEDLPotentials(long int ka);
+  void resetSACTRelaxState();
   // Built-in activity coefficient models
   // Generic solution model calls
   void SolModCreate(

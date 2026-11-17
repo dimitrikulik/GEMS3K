@@ -709,6 +709,12 @@ void TMultiBase::ScaleSystemToInternal(  double ScFact )
               for( j=0; j<MNST; j++ )
                   pm.XFTS[is][j] *= ScFact;
       }
+      if ( pm.D )
+      {
+          for( long int is=0; is<NSURFSITES; is++ )
+              for( j=0; j<MNST; j++ )
+                  pm.D[is][j] *= ScFact;
+      }
   }
 
  pm.SizeFactor = ScFact;
@@ -799,6 +805,12 @@ void TMultiBase::RescaleSystemFromInternal(  double ScFact )
           for( long int is=0; is<NSURFSITES; is++ )
               for( j=0; j<MNST; j++ )
                   pm.XFTS[is][j] /= ScFact;
+      }
+      if ( pm.D )
+      {
+          for( long int is=0; is<NSURFSITES; is++ )
+              for( j=0; j<MNST; j++ )
+                  pm.D[is][j] /= ScFact;
       }
   }
 
@@ -910,6 +922,10 @@ void TMultiBase::MultiConstInit() // from MultiRemake
 /// Calculation by IPM (internal step initialization)
 void TMultiBase::GEM_IPM_Init()
 {
+   // Clear adaptive EDL/SACT relaxer state before FIA and MassBalanceRefinement(0)
+   // so consecutive GEM_run() calls cannot leak prior potentials or lnGam history.
+   resetEDLPotentialState();
+   resetSACTRelaxState();
    int i,j,k;
 
    for( i=0; i<pm.N; i++ )

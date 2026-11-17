@@ -1029,6 +1029,18 @@ TMultiBase::InteriorPointsMethod(long int &status /*, long int rLoop*/) {
   double LM = 0., LM1 = 1., FX1, DivTol;
   const BASE_PARAM *pa_p = base_param();
 
+  // Reset relaxers only on the initial IPM entry; preserve warm EDL/SACT
+  // iterates across PSSC phase-selection retries (pm.K2 > 0) to prevent
+  // cold-start transients from re-zeroing minor aqueous species (e.g. Al+3).
+  if (!pm.K2) {
+    resetEDLPotentialState();
+    resetSACTRelaxState();
+  } else {
+    edl_psi_state.last_it = -999;
+    edl_psi_state.max_psi_lag = 0.0;
+    sact_relax_state.last_it = -999;
+    sact_relax_state.max_lag = 0.0;
+  }
   status = 0;
   if (pm.FIs)
     for (J = 0; J < pm.Ls; J++)
@@ -1159,7 +1171,8 @@ TMultiBase::InteriorPointsMethod(long int &status /*, long int rLoop*/) {
     // STEPWISE (6)  Stop point at IPM() main iteration
     STEP_POINT("IPM Iteration");
 
-    if (pm.PCI <= pm.DXM) // Dikin criterion satisfied - converged!
+    if (pm.PCI <= pm.DXM && edl_psi_state.max_psi_lag <= 1e-4 &&
+        sact_relax_state.max_lag <= 5e-3) // Dikin + EDL + SACT self-consistency!
       goto CONVERGED;
     if (nCNud > 0L &&
         (IT1 >= cnr - 2 && IT1 >= 2)) // finish here because u vector diverges
