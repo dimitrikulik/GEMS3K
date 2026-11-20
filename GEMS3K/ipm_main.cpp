@@ -503,7 +503,16 @@ mEFD: // Mass balance refinement (formerly EnterFeasibleDomain())
       CalculateConcentrations(pm.X, pm.XF,
                               pm.XFA); // also ln activities (DualTh)
       if (pm.PD >= 2) {
-        CalculateActivityCoefficients(LINK_UX_MODE);
+        if (hasActiveEDLSorption()) {
+          // Post-IPM cleanup/MBR is final: commit exact GouyChapman()
+          // potentials matching pm.X without re-damping toward stale iterates.
+          const double saved_fitvar4 = pm.FitVar[4];
+          pm.FitVar[4] = -1.0;
+          CalculateActivityCoefficients(LINK_UX_MODE);
+          pm.FitVar[4] = saved_fitvar4;
+        } else {
+          CalculateActivityCoefficients(LINK_UX_MODE);
+        }
       }
       break;
     case 5: // Cleaned-up Lagrange multiplier for metastability broken for DC
@@ -1054,6 +1063,7 @@ TMultiBase::InteriorPointsMethod(long int &status /*, long int rLoop*/) {
 
   //----------------------------------------------------------------------------
   //  Main loop of IPM iterations
+  double last_edl_pci = 0.0;
   for (IT1 = 0; IT1 < pa_p->IIM; IT1++, pm.IT++, pm.ITG++) {
     StatusDivg = false;
     pm.NR = pm.N;
@@ -1171,7 +1181,35 @@ TMultiBase::InteriorPointsMethod(long int &status /*, long int rLoop*/) {
     // STEPWISE (6)  Stop point at IPM() main iteration
     STEP_POINT("IPM Iteration");
 
-    if (pm.PCI <= pm.DXM && edl_psi_state.max_psi_lag <= 1e-4 &&
+    bool edl_converged = true;
+    last_edl_pci = 0.0;
+    if (hasActiveEDLSorption()) {
+      // Trace sorption sites in 1 kg solvent can pass global Dikin (pm.PCI)
+      // while still carrying multi-mV surface potential errors when C2 is low
+      // on site-balance SCMs (PH_ADSSBEIL).
+      bool has_site_bal_edl = false;
+      double edl_pci = 0.0;
+      long int jb_k = 0;
+      for (long int kk = 0; kk < pm.FIs; ++kk) {
+        const long int je_k = jb_k + pm.L1[kk];
+        if (phaseHasActiveEDL(kk) && pm.PHC[kk] == PH_ADSSBEIL) {
+          has_site_bal_edl = true;
+          const double xf_norm = std::max(pm.XF[kk], 1.0e-6);
+          for (long int jj = jb_k; jj < je_k; ++jj) {
+            edl_pci += fabs(pm.MU[jj]) / xf_norm;
+          }
+        }
+        jb_k = je_k;
+      }
+      last_edl_pci = edl_pci;
+      if (has_site_bal_edl) {
+        edl_converged = (edl_psi_state.max_psi_lag <= 2.0e-5 &&
+                         edl_pci <= std::max(pm.DXM, 1.0e-5));
+      }
+    }
+
+    if (pm.PCI <= pm.DXM && edl_converged &&
+        edl_psi_state.max_psi_lag <= 1e-4 &&
         sact_relax_state.max_lag <= 5e-3) // Dikin + EDL + SACT self-consistency!
       goto CONVERGED;
     if (nCNud > 0L &&
@@ -1182,10 +1220,15 @@ TMultiBase::InteriorPointsMethod(long int &status /*, long int rLoop*/) {
     Restore_Y_YF_Vectors();
   } // end of the main IPM cycle
   // DXM was not reached in IPM iterations
-  setErrorMessage(
-      6, "E06IPM: IPM Main Descent: ",
-      "IPM convergence criterion tolerance (Pa_DK) could not be reached"
-      " (more than Pa_IIM iterations done);\n");
+  {
+    std::string e06 =
+        "IPM convergence criterion tolerance (Pa_DK) could not be reached"
+        " (more than Pa_IIM iterations done; PCI=" +
+        std::to_string(pm.PCI) + ", edl_psi_lag=" +
+        std::to_string(edl_psi_state.max_psi_lag) +
+        ", edl_pci=" + std::to_string(last_edl_pci) + ");\n";
+    setErrorMessage(6, "E06IPM: IPM Main Descent: ", e06.c_str());
+  }
   return 2L; // bad convergence - too many IPM iterations or deterioration of
              // dual solution!
 //----------------------------------------------------------------------------
@@ -1279,9 +1322,43 @@ double TMultiBase::OptimizeStepSize(double LM) {
 
 SH1:
   if (fabs(FX1 - FX2) <=
-      ((fabs(FX1) < fabs(FX2) ? fabs(FX2) : fabs(FX1)) * 1e-13))
+      ((fabs(FX1) < fabs(FX2) ? fabs(FX2) : fabs(FX1)) * 1e-13)) {
+    // When trace EDL sorption changes are smaller than bulk |FX| * 1e-13
+    // (mainly solvent water offset), refine on [A, B] using the cancellation-
+    // free directional derivative dG/d(lambda) when no SACT relaxation is active
+    // (site-balance PH_ADSSBEIL models with fixed pm.G during line search).
+    bool has_sact_phase = false;
+    for (long int kk = 0; kk < pm.FIs; ++kk) {
+      if (pm.PHC[kk] == PH_SORPTION || pm.PHC[kk] == PH_POLYEL) {
+        has_sact_phase = true;
+        break;
+      }
+    }
+    if (!has_sact_phase && hasActiveEDLSorption() && B > C) {
+      double lo = A;
+      double hi = std::min({B, 0.95 * LM, 2.0});
+      if (hi > lo) {
+        double d_lo = DirectionalDerivativeGX(lo);
+        if (d_lo < 0.0) {
+          double d_hi = DirectionalDerivativeGX(hi);
+          if (d_hi <= 0.0)
+            return hi;
+          for (int it_b = 0; it_b < 14 && (hi - lo) > 1e-3 * std::max(1.0, hi);
+               ++it_b) {
+            const double mid = 0.5 * (lo + hi);
+            const double d_mid = DirectionalDerivativeGX(mid);
+            if (d_mid < 0.0)
+              lo = mid;
+            else
+              hi = mid;
+          }
+          return 0.5 * (lo + hi);
+        }
+      }
+    }
     goto OCT; // Important fix of loss of IPM3 convergence (fix by Svitlana SD
               // on 5.Mar.2020)
+  }
   if (FX1 > FX2) // && fabs(FX1 - FX2) > ( (fabs(FX1) < fabs(FX2) ? fabs(FX2) :
                  // fabs(FX1)) * 1e-16 ))
     goto SH2;

@@ -816,6 +816,82 @@ double TMultiBase::GX(double LM) {
   return (FX);
 }
 
+double TMultiBase::DirectionalDerivativeGX(double LM) {
+  if (LM < pm.lowPosNum) {
+    for (long int i = 0; i < pm.L; ++i)
+      pm.X[i] = pm.Y[i];
+  } else {
+    for (long int i = 0; i < pm.L; ++i) {
+      pm.X[i] = pm.Y[i] + LM * pm.MU[i];
+      if (pm.X[i] < pm.DcMinM)
+        pm.X[i] = 0.0;
+    }
+  }
+  TotalPhasesAmounts(pm.X, pm.XF, pm.XFA);
+
+  double dG = 0.0;
+  long int j = 0;
+  for (long int k = 0; k < pm.FI; ++k) {
+    const long int i = j + pm.L1[k];
+    double logXw = -101.0;
+    double XFw = 0.0;
+    if (pm.FIs && k < pm.FIs)
+      XFw = pm.XFA[k];
+    if ((pm.PHC[k] == PH_AQUEL && XFw >= pm.XwMinM) ||
+        (pm.PHC[k] == PH_SORPTION && XFw >= pm.ScMinM) ||
+        (pm.PHC[k] == PH_POLYEL && XFw >= pm.ScMinM))
+      logXw = log(XFw);
+
+    const double XF = pm.XF[k];
+    if (!(pm.FIs && k < pm.FIs)) {
+      if (XF < pm.PhMinM) {
+        j = i;
+        continue;
+      }
+    } else if (XF < pm.DSM && logXw < -100.0) {
+      j = i;
+      continue;
+    }
+    const double logYFk = log(XF);
+
+    double mu_XF = 0.0;
+    double mu_Xw = 0.0;
+    double X_asym = 0.0;
+    double X_sym = 0.0;
+    for (long int jj = j; jj < i; ++jj) {
+      const double x = pm.X[jj];
+      if (x < pm.DcMinM)
+        continue;
+      const double mu = pm.MU[jj];
+      mu_XF += mu;
+      if (pm.DCCW[jj] == DC_ASYM_CARRIER && pm.FIs)
+        mu_Xw += mu;
+      switch (pm.DCCW[jj]) {
+      case DC_ASYM_SPECIES:
+        X_asym += x;
+        dG += mu * (pm.G[jj] + log(x) - logXw + 1.0);
+        break;
+      case DC_ASYM_CARRIER:
+      case DC_SYMMETRIC:
+        X_sym += x;
+        dG += mu * (pm.G[jj] + log(x) - logYFk + 1.0);
+        break;
+      case DC_SINGLE:
+        dG += mu * pm.G[jj];
+        break;
+      default:
+        break;
+      }
+    }
+    if (X_asym > 0.0 && XFw > 0.0)
+      dG -= mu_Xw * (X_asym / XFw);
+    if (X_sym > 0.0 && XF > 0.0)
+      dG -= mu_XF * (X_sym / XF);
+    j = i;
+  }
+  return dG;
+}
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 /// Conversion of g(T,P) value for DCs into the uniform cj scale.
 /// \param k - index of phase, \param j - index DC in phase

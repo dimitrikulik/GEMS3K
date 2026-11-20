@@ -47,6 +47,39 @@ void TMultiBase::resetSACTRelaxState() {
   sact_relax_state.max_lag = 0.0;
 }
 
+bool TMultiBase::phaseHasActiveEDL(long int k) const {
+  if (!pm.E || pm.FIa <= 0 || !pm.SCMC || !pm.MASDT)
+    return false;
+  if (k < 0 || k >= pm.FIs)
+    return false;
+  if (!(pm.PHC[k] == PH_POLYEL || pm.PHC[k] == PH_SORPTION ||
+        pm.PHC[k] == PH_ADSSBEIL))
+    return false;
+  if (pm.XF[k] < pm.ScMinM)
+    return false;
+  const long int ka = k - (pm.FIs - pm.FIa);
+  if (ka < 0 || ka >= pm.FIa)
+    return false;
+  for (long int ist = 0; ist < MNST; ++ist) {
+    const char eilm = pm.SCMC[ka][ist][SCMC_EILM_CODE];
+    if (eilm != SC_NEM && eilm != SC_NOT_USED &&
+        pm.MASDT[ka][ist][MSDT_FSUTSA] >= pm.DHBM) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool TMultiBase::hasActiveEDLSorption() const {
+  if (!pm.E || pm.FIa <= 0 || !pm.SCMC || !pm.MASDT)
+    return false;
+  for (long int k = pm.FIs - pm.FIa; k < pm.FIs; ++k) {
+    if (phaseHasActiveEDL(k))
+      return true;
+  }
+  return false;
+}
+
 void TMultiBase::relaxEDLPotentials(long int ka) {
   if (ka < 0 || ka >= pm.FIa || pm.FIa <= 0)
     return;
@@ -60,6 +93,9 @@ void TMultiBase::relaxEDLPotentials(long int ka) {
     edl_psi_state.last_it = pm.IT;
     edl_psi_state.max_psi_lag = 0.0;
   }
+  const long int k = (pm.FIs - pm.FIa) + ka;
+  const bool is_site_bal_edl =
+      (k >= 0 && k < pm.FIs && pm.PHC[k] == PH_ADSSBEIL);
   for (long int ist = 0; ist < MNST; ++ist) {
     const char eilm = pm.SCMC ? pm.SCMC[ka][ist][SCMC_EILM_CODE] : SC_NEM;
     if (eilm == SC_NEM || eilm == SC_NOT_USED)
@@ -67,39 +103,163 @@ void TMultiBase::relaxEDLPotentials(long int ka) {
     const size_t idx = static_cast<size_t>(ka * MNST + ist);
     double *ptrs[3] = {&pm.XpsiA[ka][ist], &pm.XpsiB[ka][ist],
                        &pm.XpsiC[ka][ist]};
+    double raws[3] = {*ptrs[0], *ptrs[1], *ptrs[2]};
+
+    // Compute coherent Barzilai-Borwein under-relaxation across coupled planes
+    // (0, 1, B/2) of surface type `ist` so instantaneous capacitive jumps
+    // stay synchronized without cross-plane phase lag.
+    bool all_init = true;
+    bool all_has_prev = true;
+    bool all_has_prev2 = true;
+    double r[3] = {0.0, 0.0, 0.0};
+    double dx0[3] = {0.0, 0.0, 0.0};
+    double df0[3] = {0.0, 0.0, 0.0};
+    double dx1[3] = {0.0, 0.0, 0.0};
+    double df1[3] = {0.0, 0.0, 0.0};
+    double num_bb = 0.0;
+    double den_bb = 0.0;
+    double dot_rr = 0.0;
+    double r_norm2 = 0.0;
+    double omega_ist = edl_psi_state.planes[idx][0].omega;
+    for (int p = 0; p < 3; ++p) {
+      const auto &ps = edl_psi_state.planes[idx][p];
+      if (!ps.init)
+        all_init = false;
+      if (!ps.has_prev)
+        all_has_prev = false;
+      if (!ps.has_prev2)
+        all_has_prev2 = false;
+      if (ps.init) {
+        r[p] = raws[p] - ps.used;
+        r_norm2 += r[p] * r[p];
+        if (ps.has_prev) {
+          dx0[p] = ps.used - ps.prev_used;
+          df0[p] = r[p] - ps.prev_res;
+          dx1[p] = ps.prev2_dx;
+          df1[p] = ps.prev2_df;
+          num_bb += dx0[p] * df0[p];
+          den_bb += df0[p] * df0[p];
+          dot_rr += r[p] * ps.prev_res;
+        }
+      }
+    }
+
+    constexpr double kOmegaMin = 1.0e-3;
+    constexpr double kOmegaMax = 0.5;
+    const double bb_min = is_site_bal_edl ? kOmegaMin : 0.005;
+    if (!all_init) {
+      omega_ist = 0.15;
+    } else if (all_has_prev && den_bb > 1e-18) {
+      if (num_bb < 0.0) {
+        const double w_bb = std::clamp(-num_bb / den_bb, bb_min, kOmegaMax);
+        omega_ist =
+            std::clamp(0.5 * omega_ist + 0.5 * w_bb, bb_min, kOmegaMax);
+      } else if (dot_rr < 0.0) {
+        omega_ist = std::max(bb_min, omega_ist * 0.5);
+      } else {
+        omega_ist = std::min(kOmegaMax, omega_ist * 1.15);
+      }
+    }
+
+    // Use safeguarded Anderson Acceleration (m <= 2) on site-balance EDL
+    // models (PH_ADSSBEIL), where pm.X responds solely to (Psi, X) without
+    // nonlinear SACT relaxation transients (PH_SORPTION uses coherent BB).
+    double step_vec[3] = {0.0, 0.0, 0.0};
+    bool used_aa = false;
+    if (is_site_bal_edl && all_init && all_has_prev && den_bb > 1e-18) {
+      double g00 = 0.0, g01 = 0.0, g11 = 0.0, b0 = 0.0, b1 = 0.0;
+      for (int p = 0; p < 3; ++p) {
+        g00 += df0[p] * df0[p];
+        g01 += df0[p] * df1[p];
+        g11 += df1[p] * df1[p];
+        b0 += df0[p] * r[p];
+        b1 += df1[p] * r[p];
+      }
+      double gamma0 = 0.0, gamma1 = 0.0;
+      bool solved_aa = false;
+      if (all_has_prev2 && g00 > 1e-18 && g11 > 1e-18) {
+        const double reg = 1.0e-12 * (g00 + g11);
+        const double a00 = g00 + reg;
+        const double a11 = g11 + reg;
+        const double det = a00 * a11 - g01 * g01;
+        if (det > 1.0e-10 * a00 * a11) {
+          gamma0 = (a11 * b0 - g01 * b1) / det;
+          gamma1 = (a00 * b1 - g01 * b0) / det;
+          solved_aa = true;
+        }
+      }
+      if (!solved_aa && g00 > 1e-18) {
+        gamma0 = b0 / g00;
+        gamma1 = 0.0;
+        solved_aa = true;
+      }
+      if (solved_aa && (std::fabs(gamma0) + std::fabs(gamma1)) <= 20.0) {
+        double r_aa[3] = {0.0, 0.0, 0.0};
+        double r_aa_norm2 = 0.0;
+        const double beta_aa = std::clamp(omega_ist, 0.05, 0.25);
+        double cand_step[3] = {0.0, 0.0, 0.0};
+        double max_cand = 0.0;
+        for (int p = 0; p < 3; ++p) {
+          r_aa[p] = r[p] - gamma0 * df0[p] - gamma1 * df1[p];
+          r_aa_norm2 += r_aa[p] * r_aa[p];
+          const double x_aa_shift = -gamma0 * dx0[p] - gamma1 * dx1[p];
+          cand_step[p] = x_aa_shift + beta_aa * r_aa[p];
+          max_cand = std::max(max_cand, std::fabs(cand_step[p]));
+        }
+        if (r_aa_norm2 <= 1.05 * r_norm2) {
+          const double scale = (max_cand > 0.035) ? (0.035 / max_cand) : 1.0;
+          for (int p = 0; p < 3; ++p)
+            step_vec[p] = scale * cand_step[p];
+          used_aa = true;
+        }
+      }
+    }
+
     for (int p = 0; p < 3; ++p) {
       auto &ps = edl_psi_state.planes[idx][p];
-      const double raw = *ptrs[p];
+      const double raw = raws[p];
       if (!ps.init) {
-        ps.omega = 0.15;
-        const double step = std::clamp(ps.omega * raw, -0.05, 0.05);
-        ps.prev_used = 0.0;
-        ps.prev_res = raw;
-        ps.used = step;
+        ps.omega = omega_ist;
+        const double init_psi =
+            (pm.pNP) ? std::clamp(raw, -0.5, 0.5)
+                     : std::clamp(omega_ist * raw, -0.05, 0.05);
+        ps.prev_used = init_psi;
+        ps.prev_res = raw - init_psi;
+        ps.prev2_dx = 0.0;
+        ps.prev2_df = 0.0;
+        ps.used = init_psi;
+        ps.has_prev = false;
+        ps.has_prev2 = false;
         ps.init = true;
         edl_psi_state.max_psi_lag =
-            std::max(edl_psi_state.max_psi_lag, std::fabs(raw));
+            std::max(edl_psi_state.max_psi_lag, std::fabs(raw - ps.used));
       } else {
-        const double res = raw - ps.used;
-        edl_psi_state.max_psi_lag =
-            std::max(edl_psi_state.max_psi_lag, std::fabs(res));
+        const double step =
+            used_aa ? step_vec[p]
+                    : std::clamp(omega_ist * r[p],
+                                 is_site_bal_edl ? -0.035 : -0.05,
+                                 is_site_bal_edl ? 0.035 : 0.05);
         if (ps.has_prev) {
-          const double dpsi = ps.used - ps.prev_used;
-          const double dr = res - ps.prev_res;
-          if (std::fabs(dr) > 1e-9 && (dpsi * dr) < 0.0) {
-            const double w_sec = -dpsi / dr;
-            ps.omega = std::clamp(0.5 * ps.omega + 0.5 * w_sec, 0.003, 0.8);
-          } else if (res * ps.prev_res < 0.0) {
-            ps.omega = std::max(0.003, ps.omega * 0.5);
-          } else {
-            ps.omega = std::min(0.6, ps.omega * 1.15);
-          }
+          ps.prev2_dx = dx0[p];
+          ps.prev2_df = df0[p];
+          ps.has_prev2 = true;
         }
-        const double step = std::clamp(ps.omega * res, -0.05, 0.05);
+        if (is_site_bal_edl) {
+          // Track pre-step residual |raw - psi_old| and step magnitude so IPM
+          // cannot exit on the same iteration that Psi jumped to meet raw.
+          edl_psi_state.max_psi_lag = std::max(
+              edl_psi_state.max_psi_lag,
+              std::max(std::fabs(r[p]), std::fabs(step)));
+        }
         ps.prev_used = ps.used;
-        ps.prev_res = res;
+        ps.prev_res = r[p];
         ps.has_prev = true;
+        ps.omega = omega_ist;
         ps.used += step;
+        if (!is_site_bal_edl) {
+          edl_psi_state.max_psi_lag =
+              std::max(edl_psi_state.max_psi_lag, std::fabs(raw - ps.used));
+        }
       }
       *ptrs[p] = ps.used;
     }

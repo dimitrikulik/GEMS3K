@@ -944,9 +944,12 @@ protected:
     double used = 0.0;
     double prev_used = 0.0;
     double prev_res = 0.0;
+    double prev2_dx = 0.0;
+    double prev2_df = 0.0;
     double omega = 0.15;
     bool init = false;
     bool has_prev = false;
+    bool has_prev2 = false;
   };
   struct EDLPsiRelaxState {
     long int last_it = -999;
@@ -1031,6 +1034,7 @@ protected:
   double DC_GibbsEnergyContribution(double G, double x, double logXF,
                                     double logXw, char DCCW);
   double GX(double LM);
+  double DirectionalDerivativeGX(double LM);
   void ConvertDCC();
   long int getXvolume();
 
@@ -1093,6 +1097,8 @@ protected:
   long int CalculateActivityCoefficients(long int LinkMode);
   void resetEDLPotentialState();
   void relaxEDLPotentials(long int ka);
+  bool hasActiveEDLSorption() const;
+  bool phaseHasActiveEDL(long int k) const;
   void resetSACTRelaxState();
   // Built-in activity coefficient models
   // Generic solution model calls
