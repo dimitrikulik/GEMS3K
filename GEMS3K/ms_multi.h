@@ -951,9 +951,16 @@ protected:
     bool has_prev = false;
     bool has_prev2 = false;
   };
+  struct EDLSurfaceRelaxState {
+    double step_cap = 0.035;
+    double prev_r_norm2 = 0.0;
+    int rev_streak = 0;
+    int mono_streak = 0;
+  };
   struct EDLPsiRelaxState {
     long int last_it = -999;
     std::vector<std::array<EDLPlaneRelaxState, 3>> planes;
+    std::vector<EDLSurfaceRelaxState> surfaces;
     double max_psi_lag = 0.0;
   } edl_psi_state;
 

@@ -38,6 +38,7 @@
 void TMultiBase::resetEDLPotentialState() {
   edl_psi_state.last_it = -999;
   edl_psi_state.planes.clear();
+  edl_psi_state.surfaces.clear();
   edl_psi_state.max_psi_lag = 0.0;
 }
 
@@ -84,8 +85,10 @@ void TMultiBase::relaxEDLPotentials(long int ka) {
   if (ka < 0 || ka >= pm.FIa || pm.FIa <= 0)
     return;
   const size_t n_slots = static_cast<size_t>(pm.FIa * MNST);
-  if (edl_psi_state.planes.size() != n_slots) {
+  if (edl_psi_state.planes.size() != n_slots ||
+      edl_psi_state.surfaces.size() != n_slots) {
     edl_psi_state.planes.assign(n_slots, {});
+    edl_psi_state.surfaces.assign(n_slots, {});
     edl_psi_state.last_it = -999;
     edl_psi_state.max_psi_lag = 0.0;
   }
@@ -96,11 +99,13 @@ void TMultiBase::relaxEDLPotentials(long int ka) {
   const long int k = (pm.FIs - pm.FIa) + ka;
   const bool is_site_bal_edl =
       (k >= 0 && k < pm.FIs && pm.PHC[k] == PH_ADSSBEIL);
+  const double base_max_step = is_site_bal_edl ? 0.035 : 0.05;
   for (long int ist = 0; ist < MNST; ++ist) {
     const char eilm = pm.SCMC ? pm.SCMC[ka][ist][SCMC_EILM_CODE] : SC_NEM;
     if (eilm == SC_NEM || eilm == SC_NOT_USED)
       continue;
     const size_t idx = static_cast<size_t>(ka * MNST + ist);
+    auto &surf = edl_psi_state.surfaces[idx];
     double *ptrs[3] = {&pm.XpsiA[ka][ist], &pm.XpsiB[ka][ist],
                        &pm.XpsiC[ka][ist]};
     double raws[3] = {*ptrs[0], *ptrs[1], *ptrs[2]};
@@ -118,6 +123,7 @@ void TMultiBase::relaxEDLPotentials(long int ka) {
     double df1[3] = {0.0, 0.0, 0.0};
     double num_bb = 0.0;
     double den_bb = 0.0;
+    double d_raw2 = 0.0;
     double dot_rr = 0.0;
     double r_norm2 = 0.0;
     double omega_ist = edl_psi_state.planes[idx][0].omega;
@@ -135,6 +141,8 @@ void TMultiBase::relaxEDLPotentials(long int ka) {
         if (ps.has_prev) {
           dx0[p] = ps.used - ps.prev_used;
           df0[p] = r[p] - ps.prev_res;
+          const double d_raw = df0[p] + dx0[p];
+          d_raw2 += d_raw * d_raw;
           dx1[p] = ps.prev2_dx;
           df1[p] = ps.prev2_df;
           num_bb += dx0[p] * df0[p];
@@ -149,17 +157,44 @@ void TMultiBase::relaxEDLPotentials(long int ka) {
     const double bb_min = is_site_bal_edl ? kOmegaMin : 0.005;
     if (!all_init) {
       omega_ist = 0.15;
+      surf.step_cap = base_max_step;
+      surf.rev_streak = 0;
+      surf.mono_streak = 0;
     } else if (all_has_prev && den_bb > 1e-18) {
-      if (num_bb < 0.0) {
+      if (surf.step_cap <= 0.0)
+        surf.step_cap = base_max_step;
+      // Detect sustained bang-bang reversals across a steep potential basin and
+      // shrink the trust-region step cap so steps settle inside the basin.
+      if (dot_rr < 0.0 && r_norm2 > 0.25 * surf.prev_r_norm2) {
+        surf.rev_streak++;
+        surf.mono_streak = 0;
+        if (surf.rev_streak >= 3) {
+          surf.step_cap = std::max(2.0e-4, surf.step_cap * 0.5);
+        }
+      } else if (dot_rr >= 0.0) {
+        surf.mono_streak++;
+        if (surf.mono_streak >= 4) {
+          surf.rev_streak = 0;
+          surf.step_cap = std::min(base_max_step, surf.step_cap * 1.15);
+        }
+      }
+      // Avoid inflating omega_ist on charge-saturated (±2.5 C/m2) plateaus where
+      // raw potentials stay flat (d_raw == 0 => df0 == -dx0 => -num_bb/den_bb == 1).
+      const bool is_saturated_plateau =
+          (r_norm2 > 1.0e-4 && d_raw2 <= 1.0e-10 * den_bb);
+      if (!is_saturated_plateau && num_bb < 0.0) {
         const double w_bb = std::clamp(-num_bb / den_bb, bb_min, kOmegaMax);
         omega_ist =
             std::clamp(0.5 * omega_ist + 0.5 * w_bb, bb_min, kOmegaMax);
       } else if (dot_rr < 0.0) {
         omega_ist = std::max(bb_min, omega_ist * 0.5);
-      } else {
+      } else if (!is_saturated_plateau) {
         omega_ist = std::min(kOmegaMax, omega_ist * 1.15);
       }
     }
+    const double step_cap =
+        (surf.step_cap > 0.0) ? surf.step_cap : base_max_step;
+    surf.prev_r_norm2 = r_norm2;
 
     // Use safeguarded Anderson Acceleration (m <= 2) on site-balance EDL
     // models (PH_ADSSBEIL), where pm.X responds solely to (Psi, X) without
@@ -207,7 +242,8 @@ void TMultiBase::relaxEDLPotentials(long int ka) {
           max_cand = std::max(max_cand, std::fabs(cand_step[p]));
         }
         if (r_aa_norm2 <= 1.05 * r_norm2) {
-          const double scale = (max_cand > 0.035) ? (0.035 / max_cand) : 1.0;
+          const double scale =
+              (max_cand > step_cap) ? (step_cap / max_cand) : 1.0;
           for (int p = 0; p < 3; ++p)
             step_vec[p] = scale * cand_step[p];
           used_aa = true;
@@ -236,9 +272,7 @@ void TMultiBase::relaxEDLPotentials(long int ka) {
       } else {
         const double step =
             used_aa ? step_vec[p]
-                    : std::clamp(omega_ist * r[p],
-                                 is_site_bal_edl ? -0.035 : -0.05,
-                                 is_site_bal_edl ? 0.035 : 0.05);
+                    : std::clamp(omega_ist * r[p], -step_cap, step_cap);
         if (ps.has_prev) {
           ps.prev2_dx = dx0[p];
           ps.prev2_df = df0[p];
