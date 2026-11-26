@@ -429,6 +429,11 @@ void TNode::unpackDataBr( bool uPrimalSol )
                     std::to_string(pmm->B[ CSD->xic[ii] ])+" - out of range" );
         }
     }
+    if( pmm->FWGTS )
+    {
+        for( ii=0; ii<pmm->FIs; ii++ )
+            pmm->FWGTS[ii] = 0.0;
+    }
     for( ii=0; ii<CSD->nPHb; ii++ )
     {
         if( CSD->nAalp > 0 )

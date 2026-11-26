@@ -387,6 +387,8 @@ void TActivity::CalculateConcentrations(double X[], double XF[], double XFA[]) {
   for (k = 0; k < act.FI; k++) { // cycle by phases
     i = j + act.L1[k];
     act.FWGT[k] = 0.0;
+    if (k < act.FIs && act.FWGTS)
+      act.FWGTS[k] = 0.0;
     act.FVOL[k] = 0.0;
     //   Dsur = 0.0;
 
@@ -550,11 +552,8 @@ void TActivity::CalculateConcentrations(double X[], double XF[], double XFA[]) {
             act.XFTS[ka][ist] += X[jj];
         }
       }
-      if (act.FWGTS[k] < act.ScMinM) {
-        // this is probably the first calculation for this chemical system, so
-        // we get the virtual sorbent mass from site IC amounts
+      if (act.FWGTS)
         act.FWGTS[k] = virtualSorbentMass(j, i, act.N);
-      }
       act.logYFk = log(act.YFk);
       break;
     default:
@@ -614,9 +613,23 @@ double TActivity::virtualSorbentMass(long int jb, long int je, long int N) {
   long int j, i;
   std::vector<long int> nDConSite(N, 0);
   std::vector<double> Btot(N, 0.0);
+  std::vector<double> b_multi(N, 0.0);
   double SMASS = 0.0;
   double db = act.DHBM > 0.0 ? act.DHBM : 1e-12;
-  double *b_vec = cnd ? cnd->bIC : nullptr;
+  double scale = (act.SizeFactor > 0.0) ? act.SizeFactor : 1.0;
+
+  if (cnd && cnd->bIC) {
+    if (csd && csd->xic && csd->nICb > 0) {
+      for (long int ii = 0; ii < csd->nICb; ii++) {
+        long int idx = csd->xic[ii];
+        if (idx >= 0 && idx < N)
+          b_multi[idx] = cnd->bIC[ii] * scale;
+      }
+    } else {
+      for (long int ii = 0; ii < N; ii++)
+        b_multi[ii] = cnd->bIC[ii] * scale;
+    }
+  }
 
   for (j = jb; j < je; j++) {
     // screening which site ICs are used in DCs in this phase
@@ -629,8 +642,8 @@ double TActivity::virtualSorbentMass(long int jb, long int je, long int N) {
                           // Now kept here because of error E37FPun when
                           // opening a project caused by IC_SSITE
         nDConSite[i] += 1;
-        if (Btot[i] < db && b_vec)
-          Btot[i] = b_vec[i];
+        if (Btot[i] < db)
+          Btot[i] = b_multi[i];
       }
     }
   }

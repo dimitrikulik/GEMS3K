@@ -395,6 +395,8 @@ void TMultiBase::CalculateConcentrations(double X[], double XF[],
   for (k = 0; k < pm.FI; k++) { // cycle by phases
     i = j + pm.L1[k];
     pm.FWGT[k] = 0.0;
+    if (k < pm.FIs && pm.FWGTS)
+      pm.FWGTS[k] = 0.0;
     pm.FVOL[k] = 0.0;
     //   Dsur = 0.0;
 
@@ -547,9 +549,8 @@ void TMultiBase::CalculateConcentrations(double X[], double XF[],
             pm.XFTS[ka][ist] += X[jj];
         }
       }
-      if (pm.FWGTS[k] < pm.ScMinM) {
+      if (pm.FWGTS)
         pm.FWGTS[k] = virtualSorbentMass(j, i, pm.N);
-      }
       pm.logYFk = log(pm.YFk);
       break;
     default:
@@ -606,12 +607,11 @@ void TMultiBase::CalculateConcentrations(double X[], double XF[],
 // then calculate the sorbent mass from those IC amounts and their mol masses
 double TMultiBase::virtualSorbentMass(long int jb, long int je, long int N) {
   const BASE_PARAM *pa_p = base_param();
-  long int j, i, nDConSite[N];
-  double SMASS = 0.0, Btot[N];
-  for (i = 0; i < N; i++) { // initial cleaning
-    nDConSite[i] = 0;
-    Btot[i] = 0.0;
-  }
+  long int j, i;
+  std::vector<long int> nDConSite(N, 0);
+  std::vector<double> Btot(N, 0.0);
+  double SMASS = 0.0;
+  double db_b = (pm.DHBM > 0.0) ? pm.DHBM : pa_p->DB;
   for (j = jb; j < je; j++) {
     // screening which site ICs are used in DCs in this phase
     for (i = 0; i < N; i++) {
@@ -623,14 +623,14 @@ double TMultiBase::virtualSorbentMass(long int jb, long int je, long int N) {
                           // Now kept here because of error E37FPun when
                           // opening a project caused by IC_SSITE
         nDConSite[i] += 1;
-        if (Btot[i] < pa_p->DB)
+        if (Btot[i] < db_b)
           Btot[i] = pm.B[i];
       }
     }
   }
   // Now calculating the mass of sorbent in the system for the sorption phase
   for (i = 0; i < N; i++) {
-    if (Btot[i] < pa_p->DB || nDConSite[i] == 0)
+    if (Btot[i] < db_b || nDConSite[i] == 0)
       continue;
     SMASS += Btot[i] * pm.Awt[i];
   }
