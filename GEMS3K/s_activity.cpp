@@ -365,6 +365,13 @@ double TActivity::DC_PrimalChemicalPotentialUpdate(long int j, long int k) {
       CoulombA += psiA * Ez * act.FRT; // Charge distro array not provided
       act.CTerms[j] = CoulombA; // Collecting Coulomb terms for surface species
     }
+    // Internal bracketing of Coulomb term (safety overflow guard; ~770 mV at 25 C for |z|=1,
+    // ~385 mV for |z|=2) without premature saturation within physical EDL potential ranges.
+    if (act.CTerms[j] > 30.0)
+      act.CTerms[j] = 30.0;
+    else if (act.CTerms[j] < -30.0)
+      act.CTerms[j] = -30.0;
+
     F0 += act.CTerms[j];
 
     if (act.PHC[k] == PH_SORPTION ||

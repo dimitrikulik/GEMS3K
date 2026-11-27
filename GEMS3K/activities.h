@@ -528,14 +528,15 @@ public:
                              double C2, double C3, double sig0, double sig1,
                              double sig2, double x_slip, double debye_m) const;
   EILModelResult compute_tlm(char ModCode, double I, double z_eff, double C1,
-                             double C2, double sig0, double sig1, double x_slip,
-                             double debye_m) const;
+                             double C2, double sig0, double sig1, double sig2,
+                             double x_slip, double debye_m) const;
   EILModelResult compute_cd_music(char ModCode, double I, double z_eff,
                                   double C1, double C2, double sig0,
-                                  double sig1, double x_slip,
+                                  double sig1, double sig2, double x_slip,
                                   double debye_m) const;
   EILModelResult compute_bsm(char ModCode, double I, double z_eff, double C1,
-                             double sig0, double x_slip, double debye_m) const;
+                             double sig0, double sig2, double x_slip,
+                             double debye_m) const;
   EILModelResult compute_ddl(char ModCode, double I, double z_eff, double sig0,
                              double x_slip) const;
   EILModelResult compute_ccm(char ModCode, double C1, double sig0) const;

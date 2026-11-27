@@ -899,18 +899,18 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
                         pm.XcapC[ka][ist], SigmA[ist], SigmB[ist], SigmC[ist],
                         x_slip, debye_m);
       break;
-    case SC_3LM: // Three-layer EIL model for CD-MUSIC
+    case SC_3LM: // Three-layer EIL model for CD-MUSIC (classic + distance-resolved)
       emr = compute_cd_music(SC_3LM, I, Zeff, pm.XcapA[ka][ist],
-                             pm.XcapB[ka][ist], SigmA[ist], SigmB[ist], x_slip,
-                             debye_m);
+                             pm.XcapB[ka][ist], SigmA[ist], SigmB[ist],
+                             SigmC[ist], x_slip, debye_m);
       break;
     case SC_TLM: // Triple-layer model
       emr = compute_tlm(SC_TLM, I, Zeff, pm.XcapA[ka][ist], pm.XcapB[ka][ist],
-                        SigmA[ist], SigmB[ist], x_slip, debye_m);
+                        SigmA[ist], SigmB[ist], SigmC[ist], x_slip, debye_m);
       break;
-    case SC_BSM: // Basic Stern model
-      emr = compute_bsm(SC_BSM, I, Zeff, pm.XcapA[ka][ist], SigmA[ist], x_slip,
-                        debye_m);
+    case SC_BSM: // Basic Stern model (2-plane: 0-plane + d-plane via SigmC)
+      emr = compute_bsm(SC_BSM, I, Zeff, pm.XcapA[ka][ist], SigmA[ist],
+                        SigmC[ist], x_slip, debye_m);
       break;
     case SC_CCM: // Constant-capacitance model
       emr = compute_ccm(SC_CCM, pm.XcapA[ka][ist], SigmA[ist]);
@@ -1104,16 +1104,17 @@ EILModelResult TMultiBase::compute_flm(char ModCode, double I, double z_eff,
 
 EILModelResult TMultiBase::compute_tlm(char ModCode, double I, double z_eff,
                                        double C1, double C2, double sig0,
-                                       double sig1, double x_slip,
+                                       double sig1, double sig2, double x_slip,
                                        double debye_m) const {
   double sigma0 = sig0;
   double sigma_beta = sig1;
-  double sigmad = -(sigma0 + sigma_beta);
-  double sigmanet = sigma0 + sigma_beta + sigmad;
+  double sigma2 = sig2; // d-plane charge density from mCDc[][CHARGE_ON_C]
+  double sigmad = -(sigma0 + sigma_beta + sigma2);
+  double sigmanet = sigma0 + sigma_beta + sigma2 + sigmad;
 
   double cap_d = calc_cap_d_from_sigma_d(sigmad, I);
   double psi_d = calc_psi_d_from_sigma_d(sigmad, I, z_eff);
-  double psi_beta = psi_d - (sigmad / C2);
+  double psi_beta = psi_d + ((sigma0 + sigma_beta) / C2); // sigma2 is outside C2
   double psi_0 = psi_beta + (sigma0 / C1);
   double zeta = calc_gc_potential_at_distance(psi_d, I, x_slip, z_eff);
 
@@ -1122,12 +1123,12 @@ EILModelResult TMultiBase::compute_tlm(char ModCode, double I, double z_eff,
   res.name = "Triple-Layer Model (TLM)";
   res.sigma0 = sigma0;
   res.sigma1 = sigma_beta;
-  res.sigma2 = 0.0;
+  res.sigma2 = sigma2;
   res.sigmad = sigmad;
   res.sigmanet = sigmanet;
   res.psi0 = psi_0;
   res.psi1 = psi_beta;
-  res.psi2 = 0.0;
+  res.psi2 = psi_d;
   res.psid = psi_d;
   res.zeta = zeta;
   res.cap_d = cap_d;
@@ -1138,16 +1139,17 @@ EILModelResult TMultiBase::compute_tlm(char ModCode, double I, double z_eff,
 EILModelResult TMultiBase::compute_cd_music(char ModCode, double I,
                                             double z_eff, double C1, double C2,
                                             double sig0, double sig1,
-                                            double x_slip,
+                                            double sig2, double x_slip,
                                             double debye_m) const {
   double sigma0 = sig0;
   double sigma1 = sig1;
-  double sigmad = -(sigma0 + sigma1);
-  double sigmanet = sigma0 + sigma1 + sigmad;
+  double sigma2 = sig2; // 2-plane (d-plane) charge density from mCDc[][CHARGE_ON_C]
+  double sigmad = -(sigma0 + sigma1 + sigma2);
+  double sigmanet = sigma0 + sigma1 + sigma2 + sigmad;
 
   double cap_d = calc_cap_d_from_sigma_d(sigmad, I);
-  double psi_2 = calc_psi_d_from_sigma_d(sigmad, I, z_eff);
-  double psi_1 = psi_2 + ((sigma0 + sigma1) / C2);
+  double psi_2 = calc_psi_d_from_sigma_d(sigmad, I, z_eff); // 2-plane == d-plane
+  double psi_1 = psi_2 + ((sigma0 + sigma1) / C2);          // sigma2 is outside C2
   double psi_0 = psi_1 + (sigma0 / C1);
   double zeta = calc_gc_potential_at_distance(psi_2, I, x_slip, z_eff);
 
@@ -1156,12 +1158,12 @@ EILModelResult TMultiBase::compute_cd_music(char ModCode, double I,
   res.name = "CD-MUSIC Model (3LM)";
   res.sigma0 = sigma0;
   res.sigma1 = sigma1;
-  res.sigma2 = 0.0;
+  res.sigma2 = sigma2;
   res.sigmad = sigmad;
   res.sigmanet = sigmanet;
   res.psi0 = psi_0;
   res.psi1 = psi_1;
-  res.psi2 = 0.0;
+  res.psi2 = psi_2; // Propagates to XpsiC for CoulombC = psiC * CDC * FRT
   res.psid = psi_2;
   res.zeta = zeta;
   res.cap_d = cap_d;
@@ -1170,11 +1172,12 @@ EILModelResult TMultiBase::compute_cd_music(char ModCode, double I,
 }
 
 EILModelResult TMultiBase::compute_bsm(char ModCode, double I, double z_eff,
-                                       double C1, double sig0, double x_slip,
-                                       double debye_m) const {
+                                       double C1, double sig0, double sig2,
+                                       double x_slip, double debye_m) const {
   double sigma0 = sig0;
-  double sigmad = -sigma0;
-  double sigmanet = sigma0 + sigmad;
+  double sigma2 = sig2; // d-plane charge density from mCDc[][CHARGE_ON_C]
+  double sigmad = -(sigma0 + sigma2);
+  double sigmanet = sigma0 + sigma2 + sigmad;
 
   double cap_d = calc_cap_d_from_sigma_d(sigmad, I);
   double psi_d = calc_psi_d_from_sigma_d(sigmad, I, z_eff);
@@ -1186,12 +1189,12 @@ EILModelResult TMultiBase::compute_bsm(char ModCode, double I, double z_eff,
   res.name = "Basic Stern Model (BSM)";
   res.sigma0 = sigma0;
   res.sigma1 = 0.0;
-  res.sigma2 = 0.0;
+  res.sigma2 = sigma2;
   res.sigmad = sigmad;
   res.sigmanet = sigmanet;
   res.psi0 = psi_0;
   res.psi1 = 0.0;
-  res.psi2 = 0.0;
+  res.psi2 = psi_d;
   res.psid = psi_d;
   res.zeta = zeta;
   res.cap_d = cap_d;

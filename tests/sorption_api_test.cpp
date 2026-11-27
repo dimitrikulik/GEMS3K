@@ -493,6 +493,13 @@ public:
   using TNode::multi_ptr;
 };
 
+struct TestMultiAccess : public TMultiBase {
+  using TMultiBase::compute_bsm;
+  using TMultiBase::compute_cd_music;
+  using TMultiBase::compute_flm;
+  using TMultiBase::compute_tlm;
+};
+
 void check_roundtrip_state(const TNode &actual, const TNode &expected,
                            long int ka, long int ist, long int ja_sample,
                            const std::string &label) {
@@ -1001,12 +1008,126 @@ void run_claysorp_test() {
             << node.Get_psi_Z(ka, 1) << ")\n";
 }
 
+void test_distance_resolved_eil() {
+  const std::filesystem::path data_dir(GEMS3K_GIBBSITE_DATA_DIR);
+  const std::filesystem::path lst_path = data_dir / "Gibbsite-dat.lst";
+
+  auto run_with_model = [&](char eil_code, double c1, double c2, double c3,
+                            double zB1, double zC1, TestNode &out_node) -> long int {
+    check_cond(out_node.GEM_init(lst_path.string().c_str()) == 0,
+               "EIL test GEM_init returned 0");
+    const long int ka = out_node.k2ka("Gibbsite_an");
+    check_cond(ka == 0, "EIL test Gibbsite_an ka == 0");
+
+    // Assign distance-resolved plane charges with strict sum == z_formula (+0.5, -0.5)
+    out_node.Set_zjA(-0.5, 1);
+    out_node.Set_zjB(zB1, 1);
+    out_node.Set_zjC(zC1, 1);
+    out_node.Set_zjA(0.5, 3);
+    out_node.Set_zjB(-zB1, 3);
+    out_node.Set_zjC(-zC1, 3);
+    check_near(out_node.Get_bzj(1), 0.5, kTol, "EIL test Get_bzj(1)");
+    check_near(out_node.Get_bzj(3), -0.5, kTol, "EIL test Get_bzj(3)");
+
+    out_node.Set_EIL_code(eil_code, ka, 0);
+    out_node.Set_C1(c1, ka, 0);
+    out_node.Set_C2(c2, ka, 0);
+    out_node.Set_C3(c3, ka, 0);
+
+    out_node.pCNode()->NodeStatusCH = NEED_GEM_AIA;
+    const long int rc = out_node.GEM_run(false);
+    check_cond(rc == OK_GEM_AIA || rc == OK_GEM_SIA,
+               std::string("EIL test converged for code ") + eil_code);
+    return ka;
+  };
+
+  // 1. Compare SC_3LM with delta_zC != 0 against classical delta_zC == 0 (confirm non-zero CoulombC effect)
+  TestNode node_3lm_classic;
+  const long int ka_cls = run_with_model('3', 1.0, 0.2, 0.0, 1.0, 0.0, node_3lm_classic);
+  check_near(node_3lm_classic.Get_psi_C(ka_cls, 0),
+             node_3lm_classic.Get_psi_D(ka_cls, 0), kTol,
+             "SC_3LM (zC=0) sets psi_C == psi_D");
+
+  TestNode node_3lm;
+  const long int ka_3lm = run_with_model('3', 1.0, 0.2, 0.0, 0.4, 0.6, node_3lm);
+  const double psiA_3 = node_3lm.Get_psi_A(ka_3lm, 0);
+  const double psiB_3 = node_3lm.Get_psi_B(ka_3lm, 0);
+  const double psiC_3 = node_3lm.Get_psi_C(ka_3lm, 0);
+  const double psiD_3 = node_3lm.Get_psi_D(ka_3lm, 0);
+  check_near(psiC_3, psiD_3, 1e-12, "SC_3LM (zC!=0) sets psi_C == psi_D");
+  check_cond(std::fabs(psiC_3) > 1e-4, "SC_3LM psi_C is non-zero");
+  check_cond(std::fabs(node_3lm.Get_lnCoul_ja(1) - node_3lm_classic.Get_lnCoul_ja(1)) > 1e-3,
+             "SC_3LM with zC=0.6 shifts lnCoul vs zC=0");
+
+  // 2. Direct kernel equivalence: compute_cd_music / compute_tlm vs compute_flm(C3=1e8) (< 1e-9 V)
+  const auto *m_ptr = static_cast<const TestMultiAccess *>(node_3lm.multi_ptr());
+  const auto emr_3 = m_ptr->compute_cd_music(SC_3LM, 0.01, 1.0, 1.0, 0.2,
+                                           0.05, -0.02, 0.03, 0.0, 3e-9);
+  const auto emr_4 = m_ptr->compute_flm(SC_4LM, 0.01, 1.0, 1.0, 0.2, 1.0e8,
+                                        0.05, -0.02, 0.03, 0.0, 3e-9);
+  const auto emr_t = m_ptr->compute_tlm(SC_TLM, 0.01, 1.0, 1.0, 0.2,
+                                        0.05, -0.02, 0.03, 0.0, 3e-9);
+  check_near(emr_3.psi0, emr_4.psi0, 1e-9, "Kernel 3LM vs FLM(C3=1e8) psi0");
+  check_near(emr_3.psi1, emr_4.psi1, 1e-9, "Kernel 3LM vs FLM(C3=1e8) psi1");
+  check_near(emr_3.psi2, emr_4.psi2, 1e-9, "Kernel 3LM vs FLM(C3=1e8) psi2");
+  check_near(emr_3.psid, emr_4.psid, 1e-9, "Kernel 3LM vs FLM(C3=1e8) psid");
+  check_near(emr_t.psi0, emr_3.psi0, 1e-12, "Kernel TLM vs 3LM psi0");
+  check_near(emr_t.psi1, emr_3.psi1, 1e-12, "Kernel TLM vs 3LM psi1");
+  check_near(emr_t.psi2, emr_3.psi2, 1e-12, "Kernel TLM vs 3LM psi2");
+  const auto emr_b = m_ptr->compute_bsm(SC_BSM, 0.01, 1.0, 1.0, 0.05, 0.03, 0.0, 3e-9);
+  const auto emr_3c2 = m_ptr->compute_cd_music(SC_3LM, 0.01, 1.0, 1.0, 1.0e8,
+                                             0.05, 0.0, 0.03, 0.0, 3e-9);
+  check_near(emr_b.psi0, emr_3c2.psi0, 1e-9, "Kernel BSM vs 3LM(C2=1e8) psi0");
+  check_near(emr_b.psi1, 0.0, 1e-12, "Kernel BSM psi1 == 0");
+  check_near(emr_b.psi2, emr_3c2.psi2, 1e-12, "Kernel BSM vs 3LM(C2=1e8) psi2");
+
+  // 3. Full GEM_run equivalence: SC_3LM vs SC_4LM(C3=1e6) within IPM max_psi_lag (2e-5 V)
+  TestNode node_4lm;
+  const long int ka_4lm = run_with_model('4', 1.0, 0.2, 1.0e6, 0.4, 0.6, node_4lm);
+  check_near(psiA_3, node_4lm.Get_psi_A(ka_4lm, 0), 1e-5, "SC_3LM vs SC_4LM(C3=1e6) psi_A");
+  check_near(psiB_3, node_4lm.Get_psi_B(ka_4lm, 0), 1e-5, "SC_3LM vs SC_4LM(C3=1e6) psi_B");
+  check_near(psiC_3, node_4lm.Get_psi_C(ka_4lm, 0), 1e-5, "SC_3LM vs SC_4LM(C3=1e6) psi_C");
+  check_near(psiD_3, node_4lm.Get_psi_D(ka_4lm, 0), 1e-5, "SC_3LM vs SC_4LM(C3=1e6) psi_D");
+  for (long int ja = 0; ja < 4; ++ja) {
+    check_near(node_3lm.Get_lnCoul_ja(ja), node_4lm.Get_lnCoul_ja(ja), 1e-4,
+               "SC_3LM vs SC_4LM(C3=1e6) lnCoul[" + std::to_string(ja) + "]");
+  }
+
+  // 4. SC_TLM with non-zero zC must agree with SC_3LM and propagate psi_C == psi_D
+  TestNode node_tlm;
+  const long int ka_tlm = run_with_model('T', 1.0, 0.2, 0.0, 0.4, 0.6, node_tlm);
+  check_near(node_tlm.Get_psi_A(ka_tlm, 0), psiA_3, 1e-5, "SC_TLM vs SC_3LM psi_A");
+  check_near(node_tlm.Get_psi_B(ka_tlm, 0), psiB_3, 1e-5, "SC_TLM vs SC_3LM psi_B");
+  check_near(node_tlm.Get_psi_C(ka_tlm, 0), psiC_3, 1e-5, "SC_TLM vs SC_3LM psi_C");
+  check_near(node_tlm.Get_psi_D(ka_tlm, 0), psiD_3, 1e-5, "SC_TLM vs SC_3LM psi_D");
+
+  // 5. SC_BSM with d-plane zC != 0 (zB=0) must set psi_C == psi_D, psi_B == 0, and match SC_3LM(C2=1e8)
+  // within IPM EDL lag tolerance (2.0e-5 V in ipm_main.cpp)
+  TestNode node_bsm, node_3lm_c2inf;
+  const long int ka_bsm = run_with_model('S', 1.0, 0.0, 0.0, 0.0, 1.0, node_bsm);
+  const long int ka_3c2 = run_with_model('3', 1.0, 1.0e8, 0.0, 0.0, 1.0, node_3lm_c2inf);
+  check_near(node_bsm.Get_psi_B(ka_bsm, 0), 0.0, kTol, "SC_BSM psi_B == 0");
+  check_near(node_bsm.Get_psi_C(ka_bsm, 0), node_bsm.Get_psi_D(ka_bsm, 0), 1e-12,
+             "SC_BSM psi_C == psi_D");
+  check_cond(std::fabs(node_bsm.Get_psi_C(ka_bsm, 0)) > 1e-4, "SC_BSM psi_C non-zero");
+  check_near(node_bsm.Get_psi_A(ka_bsm, 0), node_3lm_c2inf.Get_psi_A(ka_3c2, 0), 2.5e-5,
+             "SC_BSM vs SC_3LM(C2=1e8) psi_A");
+  check_near(node_bsm.Get_psi_C(ka_bsm, 0), node_3lm_c2inf.Get_psi_C(ka_3c2, 0), 2.5e-5,
+             "SC_BSM vs SC_3LM(C2=1e8) psi_C");
+  check_near(node_bsm.Get_lnCoul_ja(1), node_3lm_c2inf.Get_lnCoul_ja(1), 5e-4,
+             "SC_BSM vs SC_3LM(C2=1e8) lnCoul[1]");
+
+  std::cout << "sorption_api_test passed distance-resolved 3LM/TLM/BSM checks "
+            << "(SC_3LM psiA=" << psiA_3 << ", psiB=" << psiB_3 << ", psiC=psiD=" << psiC_3 << ")\n";
+}
+
 } // namespace
 
 int main() {
   try {
     run_gibbsite_test();
     run_claysorp_test();
+    test_distance_resolved_eil();
   } catch (const std::exception &ex) {
     std::cerr << "sorption_api_test FAILED: " << ex.what() << '\n';
     return 1;
