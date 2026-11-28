@@ -1796,8 +1796,9 @@ public:
     fAsurt_val = Get_fAsurt(ka, ist);
   }
 
-  /// Set A1Tour - Tournassat parameter A1 for clay edge surface type ist of
-  /// sorption phase ka
+  /// Set A1Tour - Tournassat 2D-PB parameter a1 (dimensionless prefactor;
+  /// montmorillonite default 1.4) for clay edge surface type ist of sorption
+  /// phase ka
   inline void Set_A1Tour(const double A1Tour_val, const long int ka,
                          const long int ist) {
     if (pmm && pmm->MASDT && ka >= 0 && ka < pmm->FIa && ist >= 0 &&
@@ -1806,8 +1807,9 @@ public:
       load_thermodynamic_data = false;
     }
   }
-  /// Get A1Tour - Tournassat parameter A1 for clay edge surface type ist of
-  /// sorption phase ka
+  /// Get A1Tour - Tournassat 2D-PB parameter a1 (dimensionless prefactor;
+  /// montmorillonite default 1.4) for clay edge surface type ist of sorption
+  /// phase ka
   inline double Get_A1Tour(const long int ka, const long int ist) const {
     return (pmm && pmm->MASDT && ka >= 0 && ka < pmm->FIa && ist >= 0 &&
             ist < MNST)
@@ -1819,7 +1821,8 @@ public:
     A1Tour_val = Get_A1Tour(ka, ist);
   }
 
-  /// Set A2Tour - Tournassat parameter A2 for clay edge surface type ist of
+  /// Set A2Tour - Tournassat 2D-PB parameter a2 (inverse screening factor in
+  /// m2/C; montmorillonite default 11.0) for clay edge surface type ist of
   /// sorption phase ka
   inline void Set_A2Tour(const double A2Tour_val, const long int ka,
                          const long int ist) {
@@ -1829,7 +1832,8 @@ public:
       load_thermodynamic_data = false;
     }
   }
-  /// Get A2Tour - Tournassat parameter A2 for clay edge surface type ist of
+  /// Get A2Tour - Tournassat 2D-PB parameter a2 (inverse screening factor in
+  /// m2/C; montmorillonite default 11.0) for clay edge surface type ist of
   /// sorption phase ka
   inline double Get_A2Tour(const long int ka, const long int ist) const {
     return (pmm && pmm->MASDT && ka >= 0 && ka < pmm->FIa && ist >= 0 &&
@@ -1842,8 +1846,9 @@ public:
     A2Tour_val = Get_A2Tour(ka, ist);
   }
 
-  /// Set A3Tour - Tournassat parameter A3 for clay edge surface type ist of
-  /// sorption phase ka
+  /// Set A3Tour - Tournassat 2D-PB parameter a3 (basal-to-edge spillover charge
+  /// offset in C/m2; montmorillonite default -0.02, 0.0 disables spillover)
+  /// for clay edge surface type ist of sorption phase ka
   inline void Set_A3Tour(const double A3Tour_val, const long int ka,
                          const long int ist) {
     if (pmm && pmm->MASDT && ka >= 0 && ka < pmm->FIa && ist >= 0 &&
@@ -1852,8 +1857,9 @@ public:
       load_thermodynamic_data = false;
     }
   }
-  /// Get A3Tour - Tournassat parameter A3 for clay edge surface type ist of
-  /// sorption phase ka
+  /// Get A3Tour - Tournassat 2D-PB parameter a3 (basal-to-edge spillover charge
+  /// offset in C/m2; montmorillonite default -0.02, 0.0 disables spillover)
+  /// for clay edge surface type ist of sorption phase ka
   inline double Get_A3Tour(const long int ka, const long int ist) const {
     return (pmm && pmm->MASDT && ka >= 0 && ka < pmm->FIa && ist >= 0 &&
             ist < MNST)
