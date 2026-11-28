@@ -542,8 +542,9 @@ public:
   EILModelResult compute_ccm(char ModCode, double C1, double sig0) const;
   EILModelResult compute_nem(char ModCode, double sig0) const;
   EILModelResult compute_tce(char ModCode, double I, double z_eff, double C1,
-                             double C2, double sig0, double sig1, double par[],
-                             double x_slip, double debye_m) const;
+                             double C2, double sig0, double sig1, double sig2,
+                             const double par[], double x_slip,
+                             double debye_m) const;
   // Calculation of any of 6 EIL models and NEM
   long int GouyChapman(long int jb, long int je, long int k);
   //  Surface activity coefficient terms

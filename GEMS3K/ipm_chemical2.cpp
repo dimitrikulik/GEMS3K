@@ -918,11 +918,11 @@ long int TMultiBase::GouyChapman(long int, long int, long int k) {
     case SC_DDL: // Double-layer model
       emr = compute_ddl(SC_DDL, I, Zeff, SigmA[ist], x_slip);
       break;
-    case SC_TCE: // Tournassat 2013 clay edge potential model with charge
-                 // spillover TBD + TLM
+    case SC_TCE: // Tournassat 2013, 2016 clay edge potential model with charge
+                 // spillover + TLM/3LM/BSM
       emr = compute_tce(SC_TCE, I, Zeff, pm.XcapA[ka][ist], pm.XcapB[ka][ist],
-                        SigmA[ist], SigmB[ist], pm.MASDT[ka][ist], x_slip,
-                        debye_m);
+                        SigmA[ist], SigmB[ist], SigmC[ist], pm.MASDT[ka][ist],
+                        x_slip, debye_m);
       break;
     default:
       continue; // Skip this surface type (no EIL model assigned)
@@ -1281,36 +1281,64 @@ EILModelResult TMultiBase::compute_nem(char ModCode, double sig0) const {
   return res;
 }
 
-// Tournassat model for charge spillover TBD
+// Tournassat et al. (2016, 2018) 2D-PB basal-to-edge charge spillover model
 EILModelResult TMultiBase::compute_tce(char ModCode, double I, double z_eff,
                                        double C1, double C2, double sig0,
-                                       double sig1, double par[], double x_slip,
+                                       double sig1, double sig2,
+                                       const double par[], double x_slip,
                                        double debye_m) const {
-  double A1 = par[1];
-  double A2 = par[2];
-  double A3 = par[3];
-  double sigma0 = sig0;
-  double sigma_beta = sig1;
-  double sigmad = -(sigma0 + sigma_beta);
-  double sigmanet = sigma0 + sigma_beta + sigmad;
+  (void)debye_m;
+  const bool par_uninit =
+      (!par || (par[MSDT_TCE_PA1] <= 0.0 && par[MSDT_TCE_PA2] <= 0.0));
+  const double a1 =
+      (!par_uninit && par[MSDT_TCE_PA1] > 0.0) ? par[MSDT_TCE_PA1] : 1.4;
+  const double a2 =
+      (!par_uninit && par[MSDT_TCE_PA2] > 0.0) ? par[MSDT_TCE_PA2] : 11.0;
+  const double a3 =
+      par_uninit ? ((par && par[MSDT_TCE_PA3] != 0.0 &&
+                     std::isfinite(par[MSDT_TCE_PA3]))
+                        ? par[MSDT_TCE_PA3]
+                        : -0.02)
+                 : ((par && std::isfinite(par[MSDT_TCE_PA3]))
+                        ? par[MSDT_TCE_PA3]
+                        : 0.0);
 
-  double cap_d = calc_cap_d_from_sigma_d(sigmad, I);
-  double psi_d = calc_psi_d_from_sigma_d(sigmad, I, z_eff);
-  double psi_beta = psi_d - (sigmad / C2);
-  double psi_0 = psi_beta + (sigma0 / C1);
-  double zeta = calc_gc_potential_at_distance(psi_d, I, x_slip, z_eff);
+  const double sigma0 = sig0;
+  const double sigma_beta = sig1;
+  const double sigma2 = sig2;
+  const double q_edge = sigma0 + sigma_beta + sigma2;
+  const double sigmad = -q_edge;
+  const double sigmanet = q_edge + sigmad;
+
+  const double I_clamped = std::clamp(I, 1.0e-6, 10.0);
+  const double log10_I = std::log10(I_clamped);
+  const double neg_log10_I = std::max(0.0, -log10_I);
+  const double A1 = std::max(0.2, a1 - 1.2 * log10_I) / std::max(z_eff, 1.0);
+  const double A2 = std::max(0.5, a2 + log10_I);
+  const double A3 = a3 * std::pow(neg_log10_I, 1.60);
+
+  const double F_RT = pm.FRT;
+  const double arg = A2 * (q_edge + A3);
+  double psi_d = (A1 / F_RT) * std::asinh(arg);
+  psi_d = std::clamp(psi_d, -0.8, 0.8);
+  const double cap_d = (F_RT / (A1 * A2)) * std::sqrt(1.0 + arg * arg);
+
+  const double psi_beta =
+      (C2 > 1.0e-9) ? (psi_d + ((sigma0 + sigma_beta) / C2)) : psi_d;
+  const double psi_0 = (C1 > 1.0e-9) ? (psi_beta + (sigma0 / C1)) : psi_beta;
+  const double zeta = calc_gc_potential_at_distance(psi_d, I, x_slip, z_eff);
 
   EILModelResult res;
   res.modelcode = ModCode;
-  res.name = "TLM for clay edge with charge spillover";
+  res.name = "TLM/3LM for clay edge with basal charge spillover";
   res.sigma0 = sigma0;
   res.sigma1 = sigma_beta;
-  res.sigma2 = 0.0;
+  res.sigma2 = sigma2;
   res.sigmad = sigmad;
   res.sigmanet = sigmanet;
   res.psi0 = psi_0;
   res.psi1 = psi_beta;
-  res.psi2 = 0.0;
+  res.psi2 = psi_d;
   res.psid = psi_d;
   res.zeta = zeta;
   res.cap_d = cap_d;

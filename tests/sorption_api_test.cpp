@@ -497,6 +497,7 @@ struct TestMultiAccess : public TMultiBase {
   using TMultiBase::compute_bsm;
   using TMultiBase::compute_cd_music;
   using TMultiBase::compute_flm;
+  using TMultiBase::compute_tce;
   using TMultiBase::compute_tlm;
 };
 
@@ -1121,6 +1122,101 @@ void test_distance_resolved_eil() {
             << "(SC_3LM psiA=" << psiA_3 << ", psiB=" << psiB_3 << ", psiC=psiD=" << psiC_3 << ")\n";
 }
 
+void test_tce_spillover() {
+  const std::filesystem::path data_dir(GEMS3K_CLAYSORP_DATA_DIR);
+  const std::filesystem::path lst_path = data_dir / "Mont2tlNi01-dat.lst";
+  check_cond(std::filesystem::exists(lst_path),
+             "Missing Mont2tlNi01-dat.lst: " + lst_path.string());
+
+  // 1. Direct kernel verification against Tournassat et al. (2016) 2D-PB benchmarks (25 C)
+  TestNode node_ref;
+  check_cond(node_ref.GEM_init(lst_path.string().c_str()) == 0,
+             "Mont2tlNi01 GEM_init for TCE benchmark");
+  node_ref.pCNode()->NodeStatusCH = NEED_GEM_AIA;
+  const long int rc_tlm = node_ref.GEM_run(false);
+  check_cond(rc_tlm == OK_GEM_AIA || rc_tlm == OK_GEM_SIA,
+             "Mont2tlNi01 TLM baseline converged");
+  const auto *m_ptr = static_cast<const TestMultiAccess *>(node_ref.multi_ptr());
+
+  const double par_default[4] = {0.0, 1.4, 11.0, -0.02};
+  struct BenchPoint {
+    double I;
+    double psi_mV;
+    double cap_d;
+  };
+  const BenchPoint bench[5] = {
+      {1.000, 0.00, 2.5274},
+      {0.100, -13.27, 1.5266},
+      {0.030, -30.14, 1.3575},
+      {0.010, -50.93, 1.2965},
+      {0.001, -106.56, 1.3274},
+  };
+  for (const auto &pt : bench) {
+    const auto emr = m_ptr->compute_tce(SC_TCE, pt.I, 1.0, 1.1, 0.2, 0.0, 0.0,
+                                        0.0, par_default, 0.0, 0.0);
+    check_near(emr.psid * 1000.0, pt.psi_mV, 0.05,
+               "SC_TCE kernel psi_d(Q=0) benchmark");
+    check_near(emr.cap_d, pt.cap_d, 5e-4, "SC_TCE kernel cap_d(Q=0) benchmark");
+    // Analytical Cd vs centered finite difference dQ/dpsi_d
+    const double dQ = 1.0e-6;
+    const auto emr_p = m_ptr->compute_tce(SC_TCE, pt.I, 1.0, 1.1, 0.2, dQ, 0.0,
+                                          0.0, par_default, 0.0, 0.0);
+    const auto emr_m = m_ptr->compute_tce(SC_TCE, pt.I, 1.0, 1.1, 0.2, -dQ, 0.0,
+                                          0.0, par_default, 0.0, 0.0);
+    const double cd_fd = (2.0 * dQ) / (emr_p.psid - emr_m.psid);
+    check_near(emr.cap_d, cd_fd, 1.0e-8, "SC_TCE analytical cap_d == FD dQ/dpsi_d");
+  }
+
+  // Zero-spillover (a3 = 0) and uninitialized fallback behavior
+  const double par_nospill[4] = {0.0, 1.4, 11.0, 0.0};
+  const auto emr_nospill = m_ptr->compute_tce(SC_TCE, 0.01, 1.0, 1.1, 0.2, 0.0,
+                                              0.0, 0.0, par_nospill, 0.0, 0.0);
+  check_near(emr_nospill.psid, 0.0, 1e-12, "SC_TCE a3=0 gives psi_d(Q=0)==0");
+
+  const double par_zeros[4] = {0.0, 0.0, 0.0, 0.0};
+  const auto emr_fb = m_ptr->compute_tce(SC_TCE, 0.01, 1.0, 1.1, 0.2, 0.0, 0.0,
+                                         0.0, par_zeros, 0.0, 0.0);
+  check_near(emr_fb.psid * 1000.0, -50.93, 0.05,
+             "SC_TCE uninitialized par falls back to (1.4, 11.0, -0.02)");
+
+  // sig2 != 0 with TLM/3LM ladder vs DLM collapse (C1=0, C2=0)
+  const auto emr_3 = m_ptr->compute_tce(SC_TCE, 0.01, 1.0, 1.1, 0.2, 0.04, -0.01,
+                                        0.02, par_default, 0.0, 0.0);
+  check_near(emr_3.psi2, emr_3.psid, 1e-12, "SC_TCE psi2 == psi_d");
+  check_near(emr_3.psi1, emr_3.psid + (0.04 - 0.01) / 0.2, 1e-12,
+             "SC_TCE psi_beta includes (sig0+sig1)/C2");
+  check_near(emr_3.psi0, emr_3.psi1 + 0.04 / 1.1, 1e-12,
+             "SC_TCE psi0 == psi_beta + sig0/C1");
+
+  const auto emr_dlm = m_ptr->compute_tce(SC_TCE, 0.01, 1.0, 0.0, 0.0, 0.04, -0.01,
+                                          0.02, par_default, 0.0, 0.0);
+  check_near(emr_dlm.psi0, emr_dlm.psid, 1e-12, "SC_TCE C1=C2=0 collapses to DLM");
+  check_near(emr_dlm.psi1, emr_dlm.psid, 1e-12, "SC_TCE C1=C2=0 psi1 == psid");
+
+  // 2. Full GEM_run on Mont2tlNi01 with edge surface type (ist=1) set to SC_TCE ('E')
+  TestNode node_tce;
+  check_cond(node_tce.GEM_init(lst_path.string().c_str()) == 0,
+             "Mont2tlNi01 GEM_init for full SC_TCE run");
+  const long int ka = node_tce.k2ka("Mont2tlm");
+  check_cond(ka >= 0, "Mont2tlm ka >= 0");
+  node_tce.Set_EIL_code(SC_TCE, ka, 1);
+  node_tce.Set_A1Tour(1.4, ka, 1);
+  node_tce.Set_A2Tour(11.0, ka, 1);
+  node_tce.Set_A3Tour(-0.02, ka, 1);
+  node_tce.pCNode()->NodeStatusCH = NEED_GEM_AIA;
+  const long int rc_tce = node_tce.GEM_run(false);
+  check_cond(rc_tce == OK_GEM_AIA || rc_tce == OK_GEM_SIA,
+             "Mont2tlNi01 SC_TCE full GEM_run converged");
+  check_near(node_tce.Get_psi_C(ka, 1), node_tce.Get_psi_D(ka, 1), 1e-12,
+             "SC_TCE full GEM_run sets psi_C == psi_D");
+  check_cond(node_tce.Get_psi_D(ka, 1) < node_ref.Get_psi_D(ka, 1) - 1e-3,
+             "SC_TCE depresses edge psi_D relative to baseline SC_TLM");
+
+  std::cout << "sorption_api_test passed SC_TCE spillover checks "
+            << "(TLM edge psi_D=" << node_ref.Get_psi_D(ka, 1)
+            << " V, SC_TCE edge psi_D=" << node_tce.Get_psi_D(ka, 1) << " V)\n";
+}
+
 } // namespace
 
 int main() {
@@ -1128,6 +1224,7 @@ int main() {
     run_gibbsite_test();
     run_claysorp_test();
     test_distance_resolved_eil();
+    test_tce_spillover();
   } catch (const std::exception &ex) {
     std::cerr << "sorption_api_test FAILED: " << ex.what() << '\n';
     return 1;
